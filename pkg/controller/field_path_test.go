@@ -52,4 +52,3 @@ func TestParseFieldPath(t *testing.T) {
 		})
 	}
 }
-

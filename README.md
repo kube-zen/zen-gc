@@ -48,20 +48,39 @@ spec:
 ## Documentation
 
 - **[KEP Document](docs/KEP_GENERIC_GARBAGE_COLLECTION.md)**: Complete Kubernetes Enhancement Proposal
-- **[Design Details](docs/DESIGN.md)**: Detailed design and implementation notes (TBD)
-- **[Examples](examples/)**: Example GC policies (TBD)
+- **[API Reference](docs/API_REFERENCE.md)**: Complete API documentation
+- **[User Guide](docs/USER_GUIDE.md)**: How to create and use GC policies
+- **[Operator Guide](docs/OPERATOR_GUIDE.md)**: Installation, configuration, and maintenance
+- **[Metrics Documentation](docs/METRICS.md)**: Prometheus metrics reference
+- **[Examples](examples/)**: Example GC policies
+- **[KEP Readiness Checklist](docs/KEP_READINESS_CHECKLIST.md)**: Progress tracking for KEP submission
 
 ## Status
 
+**Current Status**: KEP Draft - Implementation in progress
+
 This is a **separate project** from zen-watcher. The goal is to:
 
-1. **Design**: Create a strong KEP candidate for Kubernetes
-2. **PoC**: Implement a working prototype
-3. **Open Source**: Release as OSS for community testing
-4. **Validate**: Test in real-world scenarios
-5. **Submit**: Submit KEP to Kubernetes Enhancement Proposals after validation
+1. ✅ **Design**: Create a strong KEP candidate for Kubernetes
+2. ✅ **PoC**: Implement a working prototype with >80% test coverage
+3. ⏳ **Open Source**: Release as OSS for community testing
+4. ⏳ **Validate**: Test in real-world scenarios
+5. ⏳ **Submit**: Submit KEP to Kubernetes Enhancement Proposals after validation
 
 **Important**: This project will be developed independently. zen-watcher has its own built-in GC and will continue to work independently.
+
+### Current Implementation Status
+
+- ✅ GC controller implementation
+- ✅ `GarbageCollectionPolicy` CRD
+- ✅ Fixed and dynamic TTL support
+- ✅ Selectors (label, field, namespace)
+- ✅ Conditions (phase, labels, annotations, field conditions)
+- ✅ Rate limiting and batching
+- ✅ Dry-run mode
+- ✅ Prometheus metrics
+- ✅ Unit tests (>80% coverage)
+- ✅ Documentation (API reference, user guide, operator guide)
 
 ## Contributing
 

@@ -64,7 +64,7 @@ func TestGCController_meetsConditions_Phase(t *testing.T) {
 			resource: &unstructured.Unstructured{
 				Object: map[string]interface{}{},
 			},
-			conditions: &v1alpha1.ConditionsSpec{},
+			conditions:    &v1alpha1.ConditionsSpec{},
 			expectedMatch: true,
 		},
 	}
@@ -295,4 +295,3 @@ func TestGCController_meetsConditions_FieldConditions(t *testing.T) {
 		})
 	}
 }
-

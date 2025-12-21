@@ -590,32 +590,35 @@ spec:
 
 ### Alpha (v1alpha1)
 
-- [ ] GC controller implementation
-- [ ] Basic `GarbageCollectionPolicy` CRD
-- [ ] Fixed TTL support (`secondsAfterCreation`)
-- [ ] Label/field selector support
-- [ ] Basic metrics
-- [ ] Unit tests
-- [ ] Documentation
+- [x] GC controller implementation
+- [x] Basic `GarbageCollectionPolicy` CRD
+- [x] Fixed TTL support (`secondsAfterCreation`)
+- [x] Label/field selector support
+- [x] Basic metrics (Prometheus)
+- [x] Unit tests (>80% coverage)
+- [x] Documentation (API reference, user guide, operator guide)
+- [x] Dynamic TTL (field-based, mappings, relative)
+- [x] Conditions support (phase, labels, annotations, field conditions)
+- [x] Rate limiting and batching
+- [x] Dry-run mode
 
 ### Beta (v1beta1)
 
-- [ ] Dynamic TTL (field-based, mappings)
-- [ ] Conditions support
-- [ ] Rate limiting and batching
-- [ ] Dry-run mode
-- [ ] E2E tests
+- [ ] E2E tests with kind/minikube
 - [ ] Performance benchmarks
 - [ ] Migration guide from custom controllers
+- [ ] Admission webhook for policy validation
+- [ ] Leader election for HA deployments
+- [ ] Enhanced observability (events, structured logging)
 
 ### Stable (v1)
 
-- [ ] Production deployments in multiple clusters
+- [ ] Production deployments in multiple clusters (3+)
 - [ ] Performance validated at scale (10k+ resources)
 - [ ] Security audit completed
-- [ ] API stability guaranteed
-- [ ] Comprehensive documentation
-- [ ] Operator guides
+- [ ] API stability guaranteed (no breaking changes)
+- [ ] Comprehensive documentation (all sections complete)
+- [ ] Operator guides (deployment, troubleshooting)
 
 ---
 
@@ -650,10 +653,65 @@ spec:
 ## Open Questions
 
 1. **Controller Location**: Should GC controller be built into kube-controller-manager or a separate component?
+   - **Proposed Answer**: Initially as a separate component (like other controllers), with potential integration into kube-controller-manager in future releases
+   
 2. **Default Policies**: Should Kubernetes ship with default GC policies for common resources?
+   - **Proposed Answer**: No default policies in initial release. Users create policies as needed. Future consideration for optional default policies.
+
 3. **Policy Priority**: How to handle multiple policies matching the same resource?
+   - **Proposed Answer**: All matching policies are evaluated. If any policy determines a resource should be deleted, it will be deleted. This allows multiple policies to work together (e.g., one for TTL, another for conditions).
+
 4. **Cross-Namespace Policies**: Should cluster-scoped policies be able to target namespaced resources?
+   - **Proposed Answer**: Yes, cluster-scoped policies can target namespaced resources using namespace selectors or wildcard namespace (`*`).
+
 5. **TTL Field Standardization**: Should we standardize `ttlSecondsAfterCreation` field across all resources?
+   - **Proposed Answer**: No. This KEP provides a generic mechanism. Individual resource types may choose to add native TTL fields, but this controller works with any resource without requiring changes to resource definitions.
+
+---
+
+## Test Plan
+
+### Unit Tests
+
+- **Coverage Target**: >80% code coverage
+- **Test Areas**:
+  - TTL calculation logic (fixed, field-based, mapped, relative)
+  - Selector matching (label, field, namespace)
+  - Condition evaluation (phase, labels, annotations, field conditions)
+  - Rate limiting and batching
+  - Policy validation
+  - Error handling
+
+### Integration Tests
+
+- **Test Environment**: Fake Kubernetes client
+- **Test Scenarios**:
+  - Policy creation and updates
+  - Resource matching and deletion
+  - Multiple policies on same resource
+  - Error scenarios (API failures, invalid policies)
+
+### E2E Tests
+
+- **Test Environment**: kind or minikube cluster
+- **Test Scenarios**:
+  - End-to-end policy lifecycle
+  - Resource cleanup workflows
+  - Rate limiting behavior
+  - Dry-run mode
+  - Metrics collection
+
+### Performance Tests
+
+- **Scale Targets**:
+  - 1000+ policies
+  - 10,000+ resources per policy
+  - 100+ deletions per second
+- **Metrics**:
+  - API server load
+  - Memory usage
+  - CPU usage
+  - Deletion throughput
 
 ---
 

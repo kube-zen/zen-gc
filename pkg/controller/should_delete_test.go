@@ -127,4 +127,3 @@ func TestGCController_shouldDelete_NoTTL(t *testing.T) {
 		t.Errorf("shouldDelete() reason = %q, want 'no_ttl'", reason)
 	}
 }
-

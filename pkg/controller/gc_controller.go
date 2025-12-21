@@ -1,3 +1,19 @@
+/*
+Copyright 2025 Kube-ZEN Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package controller
 
 import (
@@ -5,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,13 +64,19 @@ type GCController struct {
 	// Rate limiter
 	rateLimiter *RateLimiter
 
+	// Status updater
+	statusUpdater *StatusUpdater
+
+	// Event recorder
+	eventRecorder *EventRecorder
+
 	// Context for cancellation
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
 // NewGCController creates a new GC controller
-func NewGCController(dynamicClient dynamic.Interface) (*GCController, error) {
+func NewGCController(dynamicClient dynamic.Interface, statusUpdater *StatusUpdater, eventRecorder *EventRecorder) (*GCController, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Create policy GVR
@@ -76,6 +98,8 @@ func NewGCController(dynamicClient dynamic.Interface) (*GCController, error) {
 		policyInformer:        policyInformer,
 		resourceInformers:     make(map[types.UID]cache.SharedInformer),
 		rateLimiter:           NewRateLimiter(DefaultMaxDeletionsPerSecond),
+		statusUpdater:         statusUpdater,
+		eventRecorder:         eventRecorder,
 		ctx:                   ctx,
 		cancel:                cancel,
 	}, nil
@@ -211,10 +235,13 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 			continue
 		}
 
-		// Delete the resource
+		// Delete the resource with exponential backoff
 		deleteStart := time.Now()
-		if err := gc.deleteResource(resource, policy); err != nil {
+		if err := gc.deleteResourceWithBackoff(gc.ctx, resource, policy); err != nil {
 			recordError(policy.Namespace, policy.Name, "deletion_failed")
+			if gc.eventRecorder != nil {
+				gc.eventRecorder.RecordEvaluationFailed(policy, err)
+			}
 			klog.Errorf("Error deleting resource %s/%s: %v", resource.GetNamespace(), resource.GetName(), err)
 			continue
 		}
@@ -222,13 +249,26 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 		deletedCount++
 		duration := time.Since(deleteStart).Seconds()
 		recordResourceDeleted(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, reason, duration)
+		if gc.eventRecorder != nil {
+			gc.eventRecorder.RecordResourceDeleted(policy, resource, reason)
+		}
 		klog.V(2).Infof("Deleted resource %s/%s (reason: %s)", resource.GetNamespace(), resource.GetName(), reason)
 	}
 
 	// Update policy status
-	if err := gc.updatePolicyStatus(policy, matchedCount, deletedCount, pendingCount); err != nil {
-		recordError(policy.Namespace, policy.Name, "status_update_failed")
-		klog.Errorf("Error updating policy status: %v", err)
+	if gc.statusUpdater != nil {
+		if err := gc.statusUpdater.UpdateStatus(gc.ctx, policy, matchedCount, deletedCount, pendingCount); err != nil {
+			recordError(policy.Namespace, policy.Name, "status_update_failed")
+			if gc.eventRecorder != nil {
+				gc.eventRecorder.RecordStatusUpdateFailed(policy, err)
+			}
+			klog.Errorf("Error updating policy status: %v", err)
+		}
+	}
+
+	// Record policy evaluation event
+	if gc.eventRecorder != nil {
+		gc.eventRecorder.RecordPolicyEvaluated(policy, matchedCount, deletedCount, pendingCount)
 	}
 
 	return nil
@@ -312,7 +352,7 @@ func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpe
 	// Option 2: Dynamic TTL from field
 	if ttlSpec.FieldPath != "" {
 		fieldPath := parseFieldPath(ttlSpec.FieldPath)
-		
+
 		// Try to get as int64 first
 		value, found, _ := unstructured.NestedInt64(resource.Object, fieldPath...)
 		if found {
@@ -555,13 +595,13 @@ func (gc *GCController) getOrCreateResourceInformer(policy *v1alpha1.GarbageColl
 	return informer, nil
 }
 
-// updatePolicyStatus updates the status of a policy
+// updatePolicyStatus is deprecated - use statusUpdater.UpdateStatus instead
+// Kept for backward compatibility
 func (gc *GCController) updatePolicyStatus(policy *v1alpha1.GarbageCollectionPolicy, matched, deleted, pending int64) error {
-	// This would require a client for the GarbageCollectionPolicy CRD
-	// For now, we'll just log the status update
+	if gc.statusUpdater != nil {
+		return gc.statusUpdater.UpdateStatus(gc.ctx, policy, matched, deleted, pending)
+	}
 	klog.V(2).Infof("Policy %s/%s: matched=%d, deleted=%d, pending=%d",
 		policy.Namespace, policy.Name, matched, deleted, pending)
-
-	// TODO: Implement actual status update via client
 	return nil
 }

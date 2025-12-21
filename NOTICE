@@ -1,0 +1,22 @@
+zen-gc
+Copyright 2025 Kube-ZEN Contributors
+
+This product includes software developed by the Kube-ZEN project
+(https://github.com/kube-zen/zen-gc).
+
+This product includes software from the following open source projects:
+
+- Kubernetes (Apache License 2.0)
+  - k8s.io/apimachinery
+  - k8s.io/client-go
+  - k8s.io/klog
+  - sigs.k8s.io/controller-runtime
+
+- Prometheus (Apache License 2.0)
+  - github.com/prometheus/client_golang
+
+- golang.org/x/time (BSD-3-Clause)
+  - golang.org/x/time/rate
+
+For license details, see LICENSE file.
+

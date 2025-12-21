@@ -1,0 +1,38 @@
+#!/bin/bash
+# Pre-commit hook for zen-gc
+# Runs fast quality checks before commit
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# Check for conflict markers
+if git diff --cached --name-only | xargs grep -l "^<<<<<<< \|^======= \|^>>>>>>> " 2>/dev/null; then
+    echo "❌ Conflict markers found. Please resolve conflicts before committing."
+    exit 1
+fi
+
+# Check for TODO/FIXME in committed code (allow in tests)
+if git diff --cached --name-only --diff-filter=ACM | grep -v "_test.go$" | xargs grep -l "TODO\|FIXME" 2>/dev/null; then
+    echo "⚠️  TODO/FIXME found in committed code (excluding tests). Consider addressing or documenting."
+fi
+
+# Run go fmt check
+if ! gofmt -s -l . | grep -q .; then
+    echo "✅ Code formatting check passed"
+else
+    echo "❌ Code is not formatted. Run 'make fmt'"
+    gofmt -s -d .
+    exit 1
+fi
+
+# Run go vet
+if go vet ./... 2>&1 | grep -q .; then
+    echo "❌ go vet found issues"
+    go vet ./...
+    exit 1
+fi
+
+echo "✅ Pre-commit checks passed"
+exit 0
+

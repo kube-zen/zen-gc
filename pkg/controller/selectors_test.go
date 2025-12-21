@@ -13,10 +13,10 @@ func TestGCController_matchesSelectors_LabelSelector(t *testing.T) {
 	gc := &GCController{}
 
 	tests := []struct {
-		name           string
-		resource       *unstructured.Unstructured
-		target         *v1alpha1.TargetResourceSpec
-		expectedMatch  bool
+		name          string
+		resource      *unstructured.Unstructured
+		target        *v1alpha1.TargetResourceSpec
+		expectedMatch bool
 	}{
 		{
 			name: "matches label selector",
@@ -63,7 +63,7 @@ func TestGCController_matchesSelectors_LabelSelector(t *testing.T) {
 			resource: &unstructured.Unstructured{
 				Object: map[string]interface{}{},
 			},
-			target: &v1alpha1.TargetResourceSpec{},
+			target:        &v1alpha1.TargetResourceSpec{},
 			expectedMatch: true,
 		},
 	}
@@ -138,7 +138,7 @@ func TestGCController_matchesSelectors_Namespace(t *testing.T) {
 					},
 				},
 			},
-			target: &v1alpha1.TargetResourceSpec{},
+			target:        &v1alpha1.TargetResourceSpec{},
 			expectedMatch: true,
 		},
 	}
@@ -203,7 +203,7 @@ func TestGCController_matchesSelectors_FieldSelector(t *testing.T) {
 			resource: &unstructured.Unstructured{
 				Object: map[string]interface{}{},
 			},
-			target: &v1alpha1.TargetResourceSpec{},
+			target:        &v1alpha1.TargetResourceSpec{},
 			expectedMatch: true,
 		},
 	}
@@ -217,4 +217,3 @@ func TestGCController_matchesSelectors_FieldSelector(t *testing.T) {
 		})
 	}
 }
-

@@ -39,15 +39,17 @@ kubectl get crd garbagecollectionpolicies.gc.k8s.io
 # Create namespace
 kubectl apply -f deploy/manifests/namespace.yaml
 
-# Install RBAC
+# Install RBAC (includes leader election and event permissions)
 kubectl apply -f deploy/manifests/rbac.yaml
 
-# Install Deployment
+# Install Deployment (configured for HA with 2 replicas)
 kubectl apply -f deploy/manifests/deployment.yaml
 
 # Install Service
 kubectl apply -f deploy/manifests/service.yaml
 ```
+
+**Note**: The deployment is configured with 2 replicas and leader election for high availability. Only the leader instance will actively process policies.
 
 Or use kustomize:
 
@@ -58,15 +60,21 @@ kubectl apply -k deploy/manifests/
 ### Step 3: Verify Installation
 
 ```bash
-# Check controller is running
+# Check controller is running (should see 2 pods)
 kubectl get pods -n gc-system
 
-# Check logs
+# Check leader election lease (only one leader)
+kubectl get lease gc-controller-leader-election -n gc-system
+
+# Check logs (only leader will show active processing)
 kubectl logs -n gc-system -l app=gc-controller
 
 # Check metrics endpoint
 kubectl port-forward -n gc-system svc/gc-controller-metrics 8080:8080
 curl http://localhost:8080/metrics
+
+# Check events (after creating a policy)
+kubectl get events -n gc-system --field-selector involvedObject.kind=GarbageCollectionPolicy
 ```
 
 ---
@@ -79,13 +87,17 @@ The controller supports the following environment variables:
 
 - `METRICS_ADDR` - Metrics server address (default: `:8080`)
 - `KUBECONFIG` - Path to kubeconfig file (for local development)
+- `POD_NAMESPACE` - Namespace for leader election (auto-detected from service account)
+- `POD_NAME` - Pod name for leader election identity (auto-detected)
 
 ### Command Line Flags
 
 ```bash
---kubeconfig=""          # Path to kubeconfig file
---master=""             # Kubernetes API server address
---metrics-addr=":8080"  # Metrics server address
+--kubeconfig=""                    # Path to kubeconfig file
+--master=""                        # Kubernetes API server address
+--metrics-addr=":8080"             # Metrics server address
+--enable-leader-election=true      # Enable leader election for HA (default: true)
+--leader-election-namespace=""     # Namespace for leader election lease (default: POD_NAMESPACE)
 ```
 
 ### Resource Limits
@@ -139,12 +151,35 @@ Key metrics to monitor:
 Controller logs include:
 - Policy evaluation events
 - Resource deletion events
+- Leader election events
 - Errors and warnings
 
 View logs:
 
 ```bash
+# View all pods
 kubectl logs -n gc-system -l app=gc-controller -f
+
+# View leader only
+kubectl logs -n gc-system -l app=gc-controller | grep "leader"
+```
+
+### Events
+
+The controller emits Kubernetes events for:
+- Policy lifecycle (created, updated, deleted)
+- Policy evaluation results
+- Resource deletions
+- Errors
+
+View events:
+
+```bash
+# View all GC events
+kubectl get events -n gc-system --field-selector involvedObject.kind=GarbageCollectionPolicy
+
+# View events for specific policy
+kubectl describe garbagecollectionpolicy <policy-name> -n <namespace>
 ```
 
 ---

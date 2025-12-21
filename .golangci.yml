@@ -1,0 +1,199 @@
+# golangci-lint configuration for zen-gc
+# Based on Kubernetes and OSS best practices
+
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs:
+    - vendor
+    - third_party
+    - testdata
+    - examples
+    - tmp
+    - bin
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*_generated\\.go$"
+    - "zz_generated\\.deepcopy\\.go$"
+
+linters:
+  enable:
+    # Essential linters
+    - gofmt          # Checks whether code was gofmt-ed
+    - govet          # Vet examines Go source code and reports suspicious constructs
+    - errcheck       # Checks for unchecked errors
+    - staticcheck    # Staticcheck is a go vet on steroids
+    - unused         # Checks for unused constants, variables, functions and types
+    - gosimple       # Linter for Go source code that specializes in simplifying code
+    - ineffassign    # Detects when assignments to existing variables are not used
+    - misspell       # Finds commonly misspelled English words in comments
+    - gocyclo        # Computes and checks the cyclomatic complexity of functions
+    - dupl           # Tool for code clone detection
+    - gosec          # Inspects source code for security problems
+    - unconvert      # Remove unnecessary type conversions
+    - goconst        # Finds repeated strings that could be replaced by a constant
+    - goimports      # Goimports does everything that gofmt does plus imports sorting
+    - revive         # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - gofumpt        # Stricter gofmt
+    - errname        # Checks that error variable names follow convention
+    - errorlint      # Error handling linting
+    - exportloopref  # Checks for pointers to enclosing loop variables
+    - gocritic       # The most opinionated Go linter
+    - godot          # Check if comments end in a period
+    - godox           # Check for TODO, FIXME, NOTE comments
+    - goerr113       # Checks for errors handling
+    - gomnd           # Magic number detector
+    - goprintffuncname # Checks that printf-like functions are named correctly
+    - nakedret        # Finds naked returns in functions greater than a specified length
+    - noctx           # Finds sending http request without context.Context
+    - nolintlint      # Checks that nolint directives are valid
+    - rowserrcheck    # Checks whether rows.Err() is checked
+    - sqlclosecheck   # Checks that sql.Rows and sql.Stmt are closed
+    - stylecheck      # Stylecheck is a replacement for golint
+    - thelper         # Detects test helpers without t.Helper()
+    - unparam         # Reports unused function parameters
+    - wastedassign    # Detects wasted assignments
+    - whitespace      # Detects leading and trailing whitespace
+
+linters-settings:
+  gofmt:
+    simplify: true
+  
+  gocyclo:
+    min-complexity: 15
+  
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  
+  misspell:
+    locale: US
+  
+  gosec:
+    excludes:
+      - G104  # Audit errors not checked (covered by errcheck)
+      - G204  # Subprocess launched with variable (acceptable for kubectl)
+  
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+      - name: error-return
+        severity: warning
+        disabled: false
+      - name: error-naming
+        severity: warning
+        disabled: false
+      - name: var-naming
+        severity: warning
+        disabled: false
+      - name: package-comments
+        severity: warning
+        disabled: false
+  
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport  # Allow duplicate imports in some cases
+      - ifElseChain # Allow if-else chains
+  
+  godot:
+    scope: declarations
+    exclude:
+      - "^TODO:"
+      - "^FIXME:"
+      - "^NOTE:"
+    capital: true
+  
+  godox:
+    keywords:
+      - NOTE
+      - OPTIMIZE
+      - HACK
+  
+  gomnd:
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
+    ignored-numbers:
+      - "0"
+      - "1"
+      - "2"
+      - "3"
+      - "10"
+      - "100"
+      - "1000"
+      - "1024"
+      - "2048"
+      - "4096"
+      - "65534"
+      - "65535"
+    ignored-functions:
+      - "time.Sleep"
+      - "time.Duration"
+      - "time.Second"
+      - "time.Minute"
+      - "time.Hour"
+      - "time.Millisecond"
+      - "time.Microsecond"
+      - "time.Nanosecond"
+  
+  stylecheck:
+    checks:
+      - all
+      - "-ST1000"  # Allow package comment
+      - "-ST1003"  # Allow incorrectly named error variables
+      - "-ST1005"  # Allow incorrectly formatted error strings
+      - "-ST1006"  # Allow receiver names that don't match
+      - "-ST1012"  # Allow error var should have name of the form errFoo
+      - "-ST1013"  # Allow should use constants for HTTP error codes
+      - "-ST1016"  # Allow methods on the same type should have the same receiver name
+      - "-ST1020"  # Allow comment on exported function should be of the form
+      - "-ST1021"  # Allow comment on exported type should be of the form
+      - "-ST1022"  # Allow comment on exported const should be of the form
+
+issues:
+  exclude-rules:
+    # Exclude test files from some checks
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - gomnd
+        - thelper
+    
+    # Exclude generated files
+    - path: zz_generated\.deepcopy\.go
+      linters:
+        - all
+    
+    # Exclude some staticcheck messages
+    - linters:
+        - staticcheck
+      text: "SA9003:"
+    
+    # Allow some common patterns
+    - linters:
+        - errcheck
+      text: "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv).* is not checked"
+  
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-use-default: false
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+

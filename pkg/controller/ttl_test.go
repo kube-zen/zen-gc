@@ -107,8 +107,8 @@ func TestGCController_calculateTTL_RelativeTTL(t *testing.T) {
 	}
 
 	ttlSpec := &v1alpha1.TTLSpec{
-		RelativeTo:    "status.lastProcessedAt",
-		SecondsAfter:  int64Ptr(7200), // 2 hours after
+		RelativeTo:   "status.lastProcessedAt",
+		SecondsAfter: int64Ptr(7200), // 2 hours after
 	}
 
 	ttl, err := gc.calculateTTL(resource, ttlSpec)
@@ -118,7 +118,7 @@ func TestGCController_calculateTTL_RelativeTTL(t *testing.T) {
 
 	// TTL should be approximately 1 hour (2 hours after - 1 hour ago = 1 hour remaining)
 	expectedTTL := int64(3600) // 1 hour in seconds
-	tolerance := int64(60)      // 1 minute tolerance
+	tolerance := int64(60)     // 1 minute tolerance
 
 	if ttl < expectedTTL-tolerance || ttl > expectedTTL+tolerance {
 		t.Errorf("calculateTTL() = %d, want approximately %d (within %d seconds)", ttl, expectedTTL, tolerance)
@@ -159,4 +159,3 @@ func TestGCController_calculateTTL_FieldPathNotFound(t *testing.T) {
 func int64Ptr(i int64) *int64 {
 	return &i
 }
-

@@ -8,10 +8,10 @@ import (
 
 func TestNewRateLimiter(t *testing.T) {
 	tests := []struct {
-		name           string
-		maxPerSecond   int
-		expectedLimit  int
-		expectedBurst  int
+		name          string
+		maxPerSecond  int
+		expectedLimit int
+		expectedBurst int
 	}{
 		{
 			name:          "valid rate",
@@ -92,4 +92,3 @@ func TestRateLimiter_SetRate(t *testing.T) {
 		t.Fatal("limiter is nil after SetRate(0)")
 	}
 }
-
