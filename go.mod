@@ -1,6 +1,6 @@
 module github.com/kube-zen/zen-gc
 
-go 1.24
+go 1.23
 
 require (
 	github.com/prometheus/client_golang v1.18.0

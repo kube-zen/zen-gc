@@ -2,4 +2,3 @@
 // +kubebuilder:object:generate=true
 // +groupName=gc.kube-zen.io
 package v1alpha1
-

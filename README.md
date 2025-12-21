@@ -58,6 +58,7 @@ spec:
 - **[Security Documentation](docs/SECURITY.md)**: Security best practices and guidelines
 - **[Disaster Recovery](docs/DISASTER_RECOVERY.md)**: Recovery procedures and backup strategies
 - **[Version Compatibility](docs/VERSION_COMPATIBILITY.md)**: Kubernetes versions and migration guides
+- **[Architecture](docs/ARCHITECTURE.md)**: System architecture and design diagrams
 - **[Examples](examples/)**: Example GC policies
 - **[Governance](GOVERNANCE.md)**: Project governance model
 - **[Maintainers](MAINTAINERS.md)**: List of project maintainers

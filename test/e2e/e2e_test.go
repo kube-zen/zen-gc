@@ -110,4 +110,3 @@ func getKubeConfig() (*rest.Config, error) {
 func int64Ptr(i int64) *int64 {
 	return &i
 }
-
