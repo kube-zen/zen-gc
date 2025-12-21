@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -18,8 +21,9 @@ import (
 )
 
 var (
-	kubeconfig = flag.String("kubeconfig", "", "Path to kubeconfig file. If not set, uses in-cluster config")
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig")
+	kubeconfig  = flag.String("kubeconfig", "", "Path to kubeconfig file. If not set, uses in-cluster config")
+	masterURL   = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig")
+	metricsAddr = flag.String("metrics-addr", ":8080", "The address the metric endpoint binds to")
 )
 
 func main() {
@@ -53,6 +57,9 @@ func main() {
 		klog.Fatalf("Error creating GC controller: %v", err)
 	}
 
+	// Start metrics server
+	go startMetricsServer(*metricsAddr)
+
 	// Start controller
 	if err := gcController.Start(); err != nil {
 		klog.Fatalf("Error starting GC controller: %v", err)
@@ -82,4 +89,30 @@ func buildConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
 	}
 
 	return clientcmd.BuildConfigFromFlags(masterURL, kubeconfigPath)
+}
+
+// startMetricsServer starts the Prometheus metrics server
+func startMetricsServer(addr string) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	klog.Infof("Starting metrics server on %s", addr)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		klog.Fatalf("Error starting metrics server: %v", err)
+	}
 }

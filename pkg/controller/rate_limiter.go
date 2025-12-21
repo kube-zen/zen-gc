@@ -1,53 +1,40 @@
 package controller
 
 import (
-	"time"
+	"context"
+
+	"golang.org/x/time/rate"
 )
 
-// RateLimiter implements a simple token bucket rate limiter
+// RateLimiter implements rate limiting for deletions using token bucket algorithm
 type RateLimiter struct {
-	tokens chan struct{}
-	ticker *time.Ticker
+	limiter *rate.Limiter
 }
 
 // NewRateLimiter creates a new rate limiter
+// maxPerSecond specifies the maximum number of deletions allowed per second
 func NewRateLimiter(maxPerSecond int) *RateLimiter {
-	rl := &RateLimiter{
-		tokens: make(chan struct{}, maxPerSecond),
-		ticker: time.NewTicker(time.Second / time.Duration(maxPerSecond)),
+	if maxPerSecond <= 0 {
+		maxPerSecond = DefaultMaxDeletionsPerSecond
 	}
 
-	// Fill the bucket initially
-	for i := 0; i < maxPerSecond; i++ {
-		rl.tokens <- struct{}{}
-	}
-
-	// Start refilling tokens
-	go rl.refill()
-
-	return rl
-}
-
-// refill continuously refills tokens
-func (rl *RateLimiter) refill() {
-	for range rl.ticker.C {
-		select {
-		case rl.tokens <- struct{}{}:
-		default:
-			// Bucket is full, skip
-		}
+	return &RateLimiter{
+		limiter: rate.NewLimiter(rate.Limit(maxPerSecond), maxPerSecond),
 	}
 }
 
-// Wait waits for a token to become available
-func (rl *RateLimiter) Wait() {
-	<-rl.tokens
+// Wait waits until the next deletion is allowed, respecting the rate limit
+// It returns an error if the context is cancelled
+func (rl *RateLimiter) Wait(ctx context.Context) error {
+	return rl.limiter.Wait(ctx)
 }
 
-// Stop stops the rate limiter
-func (rl *RateLimiter) Stop() {
-	if rl.ticker != nil {
-		rl.ticker.Stop()
+// SetRate updates the rate limit dynamically
+func (rl *RateLimiter) SetRate(maxPerSecond int) {
+	if maxPerSecond <= 0 {
+		maxPerSecond = DefaultMaxDeletionsPerSecond
 	}
+	rl.limiter.SetLimit(rate.Limit(maxPerSecond))
+	rl.limiter.SetBurst(maxPerSecond)
 }
 

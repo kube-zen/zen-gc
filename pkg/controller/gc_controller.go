@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -159,11 +158,25 @@ func (gc *GCController) evaluatePolicies() error {
 
 // evaluatePolicy evaluates a single policy
 func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy) error {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		recordEvaluationDuration(policy.Namespace, policy.Name, duration)
+	}()
+
 	klog.V(4).Infof("Evaluating policy %s/%s", policy.Namespace, policy.Name)
+
+	// Record policy phase
+	phase := policy.Status.Phase
+	if phase == "" {
+		phase = "Active"
+	}
+	recordPolicyPhase(policy.Namespace, policy.Name, phase)
 
 	// Get or create resource informer for this policy
 	informer, err := gc.getOrCreateResourceInformer(policy)
 	if err != nil {
+		recordError(policy.Namespace, policy.Name, "informer_creation_failed")
 		return fmt.Errorf("failed to get resource informer: %w", err)
 	}
 
@@ -173,6 +186,9 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 	matchedCount := int64(0)
 	deletedCount := int64(0)
 	pendingCount := int64(0)
+
+	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
+	resourceKind := policy.Spec.TargetResource.Kind
 
 	for _, obj := range resources {
 		resource, ok := obj.(*unstructured.Unstructured)
@@ -186,6 +202,7 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 		}
 
 		matchedCount++
+		recordResourceMatched(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind)
 
 		// Check if resource should be deleted
 		shouldDelete, reason := gc.shouldDelete(resource, policy)
@@ -195,17 +212,22 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 		}
 
 		// Delete the resource
+		deleteStart := time.Now()
 		if err := gc.deleteResource(resource, policy); err != nil {
+			recordError(policy.Namespace, policy.Name, "deletion_failed")
 			klog.Errorf("Error deleting resource %s/%s: %v", resource.GetNamespace(), resource.GetName(), err)
 			continue
 		}
 
 		deletedCount++
+		duration := time.Since(deleteStart).Seconds()
+		recordResourceDeleted(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, reason, duration)
 		klog.V(2).Infof("Deleted resource %s/%s (reason: %s)", resource.GetNamespace(), resource.GetName(), reason)
 	}
 
 	// Update policy status
 	if err := gc.updatePolicyStatus(policy, matchedCount, deletedCount, pendingCount); err != nil {
+		recordError(policy.Namespace, policy.Name, "status_update_failed")
 		klog.Errorf("Error updating policy status: %v", err)
 	}
 
@@ -238,7 +260,7 @@ func (gc *GCController) matchesSelectors(resource *unstructured.Unstructured, ta
 	// Check field selector
 	if target.FieldSelector != nil {
 		for key, value := range target.FieldSelector.MatchFields {
-			fieldPath := strings.Split(key, ".")
+			fieldPath := parseFieldPath(key)
 			fieldValue, found, err := unstructured.NestedString(resource.Object, fieldPath...)
 			if err != nil || !found || fieldValue != value {
 				return false
@@ -289,7 +311,7 @@ func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpe
 
 	// Option 2: Dynamic TTL from field
 	if ttlSpec.FieldPath != "" {
-		fieldPath := strings.Split(ttlSpec.FieldPath, ".")
+		fieldPath := parseFieldPath(ttlSpec.FieldPath)
 		
 		// Try to get as int64 first
 		value, found, _ := unstructured.NestedInt64(resource.Object, fieldPath...)
@@ -320,7 +342,7 @@ func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpe
 
 	// Option 4: Relative TTL
 	if ttlSpec.RelativeTo != "" && ttlSpec.SecondsAfter != nil {
-		fieldPath := strings.Split(ttlSpec.RelativeTo, ".")
+		fieldPath := parseFieldPath(ttlSpec.RelativeTo)
 		timestampStr, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
 		if !found {
 			return 0, fmt.Errorf("relative timestamp field not found: %s", ttlSpec.RelativeTo)
@@ -391,7 +413,7 @@ func (gc *GCController) meetsConditions(resource *unstructured.Unstructured, con
 
 	// Check field conditions (AND logic)
 	for _, fieldCond := range conditions.And {
-		fieldPath := strings.Split(fieldCond.FieldPath, ".")
+		fieldPath := parseFieldPath(fieldCond.FieldPath)
 		fieldValue, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
 		if !found {
 			return false
