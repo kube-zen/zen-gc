@@ -53,7 +53,6 @@ spec:
 - **[Operator Guide](docs/OPERATOR_GUIDE.md)**: Installation, configuration, and maintenance
 - **[Metrics Documentation](docs/METRICS.md)**: Prometheus metrics reference
 - **[Examples](examples/)**: Example GC policies
-- **[KEP Readiness Checklist](docs/KEP_READINESS_CHECKLIST.md)**: Progress tracking for KEP submission
 
 ## Status
 

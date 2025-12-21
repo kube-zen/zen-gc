@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status updates now properly update CRD status subresource
 - Error handling for transient API server errors
 
-## [0.1.0] - 2025-01-XX
+## [0.1.0] - 2025-12-21
 
 ### Added
 - Initial implementation of GC controller
