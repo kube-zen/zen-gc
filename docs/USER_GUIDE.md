@@ -291,7 +291,7 @@ metadata:
   namespace: zen-system
 spec:
   targetResource:
-    apiVersion: gc.kube-zen.io/v1alpha1
+    apiVersion: v1
     kind: ConfigMap
     labelSelector:
       matchLabels:

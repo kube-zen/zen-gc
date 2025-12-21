@@ -33,7 +33,7 @@ gc_policies_total{phase="Paused"} 1
 
 **Example**:
 ```
-gc_resources_matched_total{policy_namespace="zen-system",policy_name="cleanup-temp-configmaps",resource_api_version="gc.kube-zen.io/v1alpha1",resource_kind="ConfigMap"} 1250
+gc_resources_matched_total{policy_namespace="default",policy_name="cleanup-temp-configmaps",resource_api_version="v1",resource_kind="ConfigMap"} 1250
 ```
 
 ---
@@ -50,7 +50,7 @@ gc_resources_matched_total{policy_namespace="zen-system",policy_name="cleanup-te
 
 **Example**:
 ```
-gc_resources_deleted_total{policy_namespace="zen-system",policy_name="cleanup-temp-configmaps",resource_api_version="gc.kube-zen.io/v1alpha1",resource_kind="ConfigMap",reason="ttl_expired"} 1200
+gc_resources_deleted_total{policy_namespace="default",policy_name="cleanup-temp-configmaps",resource_api_version="v1",resource_kind="ConfigMap",reason="ttl_expired"} 1200
 ```
 
 ---
@@ -68,7 +68,7 @@ gc_resources_deleted_total{policy_namespace="zen-system",policy_name="cleanup-te
 
 **Example**:
 ```
-gc_deletion_duration_seconds_bucket{policy_namespace="zen-system",policy_name="cleanup-temp-configmaps",resource_api_version="gc.kube-zen.io/v1alpha1",resource_kind="ConfigMap",le="0.1"} 1150
+gc_deletion_duration_seconds_bucket{policy_namespace="default",policy_name="cleanup-temp-configmaps",resource_api_version="v1",resource_kind="ConfigMap",le="0.1"} 1150
 ```
 
 ---
@@ -83,7 +83,7 @@ gc_deletion_duration_seconds_bucket{policy_namespace="zen-system",policy_name="c
 
 **Example**:
 ```
-gc_errors_total{policy_namespace="zen-system",policy_name="cleanup-temp-configmaps",error_type="deletion_failed"} 5
+gc_errors_total{policy_namespace="default",policy_name="cleanup-temp-configmaps",error_type="deletion_failed"} 5
 ```
 
 ---
@@ -99,7 +99,7 @@ gc_errors_total{policy_namespace="zen-system",policy_name="cleanup-temp-configma
 
 **Example**:
 ```
-gc_evaluation_duration_seconds_bucket{policy_namespace="zen-system",policy_name="cleanup-temp-configmaps",le="0.1"} 1
+gc_evaluation_duration_seconds_bucket{policy_namespace="default",policy_name="cleanup-temp-configmaps",le="0.1"} 1
 ```
 
 ---

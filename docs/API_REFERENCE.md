@@ -47,8 +47,8 @@ Defines which resources the GC policy applies to.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `apiVersion` | string | Yes | API version of target resource (e.g., "v1", "apps/v1", "gc.kube-zen.io/v1alpha1") |
-| `kind` | string | Yes | Kind of target resource (e.g., "Pod", "ConfigMap", "ConfigMap") |
+| `apiVersion` | string | Yes | API version of target resource (e.g., "v1", "apps/v1", "batch/v1") |
+| `kind` | string | Yes | Kind of target resource (e.g., "Pod", "ConfigMap", "Job", "Secret") |
 | `namespace` | string | No | Namespace scope. Use "*" for all namespaces, or specific namespace |
 | `labelSelector` | LabelSelector | No | Label selector to filter resources |
 | `fieldSelector` | FieldSelectorSpec | No | Field selector to filter resources |
@@ -57,9 +57,9 @@ Defines which resources the GC policy applies to.
 
 ```yaml
 targetResource:
-  apiVersion: gc.kube-zen.io/v1alpha1
+  apiVersion: v1
   kind: ConfigMap
-  namespace: zen-system
+  namespace: default
   labelSelector:
     matchLabels:
       temporary: "true"

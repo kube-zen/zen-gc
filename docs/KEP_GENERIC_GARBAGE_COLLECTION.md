@@ -118,7 +118,7 @@ apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: cleanup-temp-configmaps-policy
-  namespace: zen-system  # Optional: for namespaced policies
+  namespace: default  # Optional: for namespaced policies
 spec:
   # Target resource to apply GC policy
   targetResource:
