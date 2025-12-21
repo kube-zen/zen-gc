@@ -1,6 +1,14 @@
 # User Guide
 
-This guide explains how to use the Generic Garbage Collection (GC) controller to automatically clean up Kubernetes resources based on time-to-live (TTL) policies.
+zen-gc makes it easy to automatically clean up Kubernetes resources based on time-to-live (TTL) policies. This guide shows you how to get started and create effective cleanup policies.
+
+## Why Use zen-gc?
+
+- **Save Time**: No more manual cleanup scripts or CronJobs
+- **Reduce Costs**: Automatically remove unused resources
+- **Improve Security**: Clean up temporary secrets and configs
+- **Better Organization**: Keep your clusters clean and organized
+- **Production Ready**: Built-in rate limiting and observability
 
 ## Table of Contents
 
