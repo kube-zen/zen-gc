@@ -53,6 +53,10 @@ spec:
 - **[Operator Guide](docs/OPERATOR_GUIDE.md)**: Installation, configuration, and maintenance
 - **[Metrics Documentation](docs/METRICS.md)**: Prometheus metrics reference
 - **[Examples](examples/)**: Example GC policies
+- **[Governance](GOVERNANCE.md)**: Project governance model
+- **[Maintainers](MAINTAINERS.md)**: List of project maintainers
+- **[Releasing](RELEASING.md)**: Release process documentation
+- **[Adopters](ADOPTERS.md)**: Organizations using zen-gc
 
 ## Status
 
