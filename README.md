@@ -1,8 +1,7 @@
 # zen-gc: Generic Garbage Collection for Kubernetes
 
 **Status**: KEP Draft  
-**Purpose**: Design and propose a generic garbage collection mechanism for Kubernetes  
-**Project Type**: Separate standalone project (NOT part of zen-watcher)
+**Purpose**: Design and propose a generic garbage collection mechanism for Kubernetes
 
 ## Overview
 
@@ -70,15 +69,13 @@ spec:
 
 **Current Status**: KEP Draft - Implementation in progress
 
-This is a **separate project** from zen-watcher. The goal is to:
+The goal is to:
 
 1. ✅ **Design**: Create a strong KEP candidate for Kubernetes
 2. ✅ **PoC**: Implement a working prototype with >80% test coverage
 3. ⏳ **Open Source**: Release as OSS for community testing
 4. ⏳ **Validate**: Test in real-world scenarios
 5. ⏳ **Submit**: Submit KEP to Kubernetes Enhancement Proposals after validation
-
-**Important**: This project will be developed independently. zen-watcher has its own built-in GC and will continue to work independently.
 
 ### Current Implementation Status
 

@@ -2,9 +2,7 @@
 
 ## Overview
 
-`zen-gc` is a **separate project** from `zen-watcher`. It is the implementation and PoC for the Generic Garbage Collection KEP proposal.
-
-**Important**: This project is independent and will be developed separately. It is NOT part of zen-watcher.
+`zen-gc` is the implementation and PoC for the Generic Garbage Collection KEP proposal.
 
 ## Project Goals
 
@@ -12,12 +10,6 @@
 2. **Validate Design** through real-world testing
 3. **Open Source** the implementation for community feedback
 4. **Submit KEP** to Kubernetes Enhancement Proposals after validation
-
-## Relationship to zen-watcher
-
-- **zen-watcher**: Uses built-in GC (already implemented)
-- **zen-gc**: Standalone project proposing generic GC for all Kubernetes resources
-- **Future**: If zen-gc KEP is accepted, zen-watcher could optionally use it instead of built-in GC
 
 ## Project Structure
 
@@ -66,10 +58,10 @@ zen-gc/
 
 ## Key Principles
 
-1. **Independent Project**: Not tied to zen-watcher
-2. **Kubernetes-Native**: Uses standard Kubernetes patterns
-3. **Generic**: Works with any Kubernetes resource
-4. **Community-Driven**: Open source, community feedback welcome
+1. **Kubernetes-Native**: Uses standard Kubernetes patterns
+2. **Generic**: Works with any Kubernetes resource
+3. **Community-Driven**: Open source, community feedback welcome
+4. **Production-Ready**: Built-in rate limiting, metrics, and observability
 
 ## Next Steps
 

@@ -12,8 +12,6 @@
 
 This proposal introduces a generic, declarative garbage collection mechanism for Kubernetes resources via a new `GarbageCollectionPolicy` CRD. This enables automatic, time-based cleanup of any Kubernetes resource (CRDs, ConfigMaps, Secrets, Pods, etc.) without requiring custom controllers or external dependencies.
 
-**Note**: This is a **standalone project** (`zen-gc`) separate from `zen-watcher`. zen-watcher has its own built-in GC and will continue to work independently. This KEP proposes a generic solution for the entire Kubernetes ecosystem.
-
 **Key Value Proposition**:
 - **Declarative**: Define GC policies as Kubernetes resources (CRDs)
 - **Generic**: Works with any Kubernetes resource type (CRDs, core resources, etc.)
