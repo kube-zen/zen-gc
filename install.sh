@@ -135,12 +135,16 @@ install_kubectl() {
         kubectl apply -f deploy/manifests/service.yaml
     fi
     
-    # Install PrometheusRules if available
+    # Install PrometheusRules if available and Prometheus Operator is installed
     if [ -f "deploy/prometheus/prometheus-rules.yaml" ]; then
-        if [ "$DRY_RUN" = true ]; then
-            kubectl apply --dry-run=client -f deploy/prometheus/prometheus-rules.yaml
+        if kubectl api-resources | grep -q "prometheusrules.monitoring.coreos.com" 2>/dev/null; then
+            if [ "$DRY_RUN" = true ]; then
+                kubectl apply --dry-run=client -f deploy/prometheus/prometheus-rules.yaml || log_warn "PrometheusRule dry-run failed (may need Prometheus Operator)"
+            else
+                kubectl apply -f deploy/prometheus/prometheus-rules.yaml || log_warn "PrometheusRule installation skipped (Prometheus Operator not available)"
+            fi
         else
-            kubectl apply -f deploy/prometheus/prometheus-rules.yaml
+            log_info "PrometheusRule skipped (Prometheus Operator not installed)"
         fi
     fi
     
