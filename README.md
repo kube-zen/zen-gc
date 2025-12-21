@@ -52,6 +52,9 @@ spec:
 - **[User Guide](docs/USER_GUIDE.md)**: How to create and use GC policies
 - **[Operator Guide](docs/OPERATOR_GUIDE.md)**: Installation, configuration, and maintenance
 - **[Metrics Documentation](docs/METRICS.md)**: Prometheus metrics reference
+- **[Security Documentation](docs/SECURITY.md)**: Security best practices and guidelines
+- **[Disaster Recovery](docs/DISASTER_RECOVERY.md)**: Recovery procedures and backup strategies
+- **[Version Compatibility](docs/VERSION_COMPATIBILITY.md)**: Kubernetes versions and migration guides
 - **[Examples](examples/)**: Example GC policies
 - **[Governance](GOVERNANCE.md)**: Project governance model
 - **[Maintainers](MAINTAINERS.md)**: List of project maintainers
