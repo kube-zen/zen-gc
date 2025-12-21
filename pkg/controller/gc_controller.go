@@ -81,7 +81,7 @@ func NewGCController(dynamicClient dynamic.Interface, statusUpdater *StatusUpdat
 
 	// Create policy GVR
 	policyGVR := schema.GroupVersionResource{
-		Group:    "gc.k8s.io",
+		Group:    "gc.kube-zen.io",
 		Version:  "v1alpha1",
 		Resource: "garbagecollectionpolicies",
 	}

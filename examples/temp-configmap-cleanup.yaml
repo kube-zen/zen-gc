@@ -1,4 +1,4 @@
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: temp-configmap-cleanup

@@ -365,8 +365,8 @@ func TestValidatePolicy_Comprehensive(t *testing.T) {
 				},
 				Spec: v1alpha1.GarbageCollectionPolicySpec{
 					TargetResource: v1alpha1.TargetResourceSpec{
-						APIVersion: "zen.kube-zen.io/v1",
-						Kind:       "Observation",
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
 					},
 					TTL: v1alpha1.TTLSpec{
 						RelativeTo:   "status.lastProcessedAt",
@@ -385,8 +385,8 @@ func TestValidatePolicy_Comprehensive(t *testing.T) {
 				},
 				Spec: v1alpha1.GarbageCollectionPolicySpec{
 					TargetResource: v1alpha1.TargetResourceSpec{
-						APIVersion: "zen.kube-zen.io/v1",
-						Kind:       "Observation",
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
 					},
 					TTL: v1alpha1.TTLSpec{
 						FieldPath: "spec.severity",

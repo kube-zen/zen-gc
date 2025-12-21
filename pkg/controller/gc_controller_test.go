@@ -84,7 +84,7 @@ func TestGCController_evaluatePolicies_Empty(t *testing.T) {
 	// Create a mock informer with empty store
 	factory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, time.Minute)
 	policyGVR := schema.GroupVersionResource{
-		Group:    "gc.k8s.io",
+		Group:    "gc.kube-zen.io",
 		Version:  "v1alpha1",
 		Resource: "garbagecollectionpolicies",
 	}
@@ -138,7 +138,7 @@ func TestGCController_evaluatePolicies_WithPausedPolicy(t *testing.T) {
 	// Create mock informer with paused policy
 	factory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, time.Minute)
 	policyGVR := schema.GroupVersionResource{
-		Group:    "gc.k8s.io",
+		Group:    "gc.kube-zen.io",
 		Version:  "v1alpha1",
 		Resource: "garbagecollectionpolicies",
 	}

@@ -8,7 +8,7 @@ Complete API reference for the GarbageCollectionPolicy CRD.
 
 ### API Version
 
-- **Group**: `gc.k8s.io`
+- **Group**: `gc.kube-zen.io`
 - **Version**: `v1alpha1`
 - **Kind**: `GarbageCollectionPolicy`
 - **Plural**: `garbagecollectionpolicies`
@@ -17,7 +17,7 @@ Complete API reference for the GarbageCollectionPolicy CRD.
 ### Schema
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: string
@@ -47,8 +47,8 @@ Defines which resources the GC policy applies to.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `apiVersion` | string | Yes | API version of target resource (e.g., "v1", "apps/v1", "zen.kube-zen.io/v1") |
-| `kind` | string | Yes | Kind of target resource (e.g., "Pod", "ConfigMap", "Observation") |
+| `apiVersion` | string | Yes | API version of target resource (e.g., "v1", "apps/v1", "gc.kube-zen.io/v1alpha1") |
+| `kind` | string | Yes | Kind of target resource (e.g., "Pod", "ConfigMap", "ConfigMap") |
 | `namespace` | string | No | Namespace scope. Use "*" for all namespaces, or specific namespace |
 | `labelSelector` | LabelSelector | No | Label selector to filter resources |
 | `fieldSelector` | FieldSelectorSpec | No | Field selector to filter resources |
@@ -57,12 +57,12 @@ Defines which resources the GC policy applies to.
 
 ```yaml
 targetResource:
-  apiVersion: zen.kube-zen.io/v1
-  kind: Observation
+  apiVersion: gc.kube-zen.io/v1alpha1
+  kind: ConfigMap
   namespace: zen-system
   labelSelector:
     matchLabels:
-      app: zen-watcher
+      temporary: "true"
 ```
 
 ---

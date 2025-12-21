@@ -103,7 +103,7 @@ install_crds() {
     else
         kubectl apply -f deploy/crds/
         log_info "Waiting for CRDs to be established..."
-        kubectl wait --for=condition=established --timeout=60s crd/garbagecollectionpolicies.gc.k8s.io || true
+        kubectl wait --for=condition=established --timeout=60s crd/garbagecollectionpolicies.gc.kube-zen.io || true
     fi
 }
 

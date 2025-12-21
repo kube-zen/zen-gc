@@ -22,7 +22,7 @@ metadata:
 rules:
   # Read and write GarbageCollectionPolicy CRDs
   - apiGroups:
-      - gc.k8s.io
+      - gc.kube-zen.io
     resources:
       - garbagecollectionpolicies
       - garbagecollectionpolicies/status

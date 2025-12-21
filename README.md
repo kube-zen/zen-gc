@@ -23,14 +23,17 @@ This creates operational overhead and inconsistency across the ecosystem.
 A new `GarbageCollectionPolicy` CRD that enables declarative, time-based cleanup of any Kubernetes resource:
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
-  name: observation-retention
+  name: cleanup-temp-configmaps
 spec:
   targetResource:
-    apiVersion: zen.kube-zen.io/v1
-    kind: Observation
+    apiVersion: v1
+    kind: ConfigMap
+    labelSelector:
+      matchLabels:
+        temporary: "true"
   ttl:
     secondsAfterCreation: 604800  # 7 days
   behavior:

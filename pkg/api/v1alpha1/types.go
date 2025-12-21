@@ -47,10 +47,10 @@ type GarbageCollectionPolicySpec struct {
 
 // TargetResourceSpec defines the target resource for GC
 type TargetResourceSpec struct {
-	// API version of the target resource (e.g., "zen.kube-zen.io/v1", "v1", "apps/v1")
+	// API version of the target resource (e.g., "v1", "apps/v1", "batch/v1")
 	APIVersion string `json:"apiVersion"`
 
-	// Kind of the target resource (e.g., "Observation", "ConfigMap", "Pod")
+	// Kind of the target resource (e.g., "ConfigMap", "Pod", "Job", "Secret")
 	Kind string `json:"kind"`
 
 	// Optional: Namespace scope (for namespaced resources)

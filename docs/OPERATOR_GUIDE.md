@@ -24,13 +24,13 @@ This guide is for operators who need to install, configure, and maintain the GC 
 ### Step 1: Install CRD
 
 ```bash
-kubectl apply -f deploy/crds/gc.k8s.io_garbagecollectionpolicies.yaml
+kubectl apply -f deploy/crds/gc.kube-zen.io_garbagecollectionpolicies.yaml
 ```
 
 Verify installation:
 
 ```bash
-kubectl get crd garbagecollectionpolicies.gc.k8s.io
+kubectl get crd garbagecollectionpolicies.gc.kube-zen.io
 ```
 
 ### Step 2: Install Controller
@@ -190,7 +190,7 @@ kubectl describe garbagecollectionpolicy <policy-name> -n <namespace>
 
 1. **Check CRD installation:**
    ```bash
-   kubectl get crd garbagecollectionpolicies.gc.k8s.io
+   kubectl get crd garbagecollectionpolicies.gc.kube-zen.io
    ```
 
 2. **Check RBAC:**
@@ -363,7 +363,7 @@ kubectl delete -f deploy/manifests/
 ### Remove CRD
 
 ```bash
-kubectl delete crd garbagecollectionpolicies.gc.k8s.io
+kubectl delete crd garbagecollectionpolicies.gc.kube-zen.io
 ```
 
 **Warning:** Removing the CRD will delete all policies!

@@ -30,7 +30,7 @@ kubectl apply -f deploy/manifests/
 ### 2. Create Your First Policy
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: temp-configmap-cleanup
@@ -68,7 +68,7 @@ A `GarbageCollectionPolicy` defines:
 ### Basic Policy Structure
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: <policy-name>
@@ -279,23 +279,23 @@ behavior:
 
 ## Examples
 
-### Example 1: Observation Retention
+### Example 1: ConfigMap Retention
 
-Clean up Observation CRDs based on severity:
+Clean up ConfigMaps based on severity:
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
-  name: observation-retention
+  name: cleanup-temp-configmaps
   namespace: zen-system
 spec:
   targetResource:
-    apiVersion: zen.kube-zen.io/v1
-    kind: Observation
+    apiVersion: gc.kube-zen.io/v1alpha1
+    kind: ConfigMap
     labelSelector:
       matchLabels:
-        app: zen-watcher
+        temporary: "true"
   ttl:
     fieldPath: "spec.severity"
     mappings:
@@ -316,7 +316,7 @@ spec:
 Delete temporary ConfigMaps after 1 hour:
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: temp-configmap-cleanup
@@ -338,7 +338,7 @@ spec:
 Delete completed test pods after 30 minutes:
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: test-pod-cleanup

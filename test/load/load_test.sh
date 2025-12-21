@@ -99,7 +99,7 @@ create_gc_policy() {
     log_info "Creating GC policy for load test..."
     
     cat <<EOF | kubectl apply -f -
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: load-test-policy

@@ -37,7 +37,7 @@ Kubernetes currently lacks a generic mechanism for automatic, time-based resourc
 
 ### Use Cases
 
-1. **Observability Data**: Auto-cleanup of Observation CRDs, metrics, logs after retention period
+1. **Observability Data**: Auto-cleanup of ConfigMaps, metrics, logs after retention period
 2. **Temporary Resources**: Auto-delete ConfigMaps, Secrets created for temporary operations
 3. **Test Artifacts**: Automatic cleanup of test resources (Pods, Services) after test completion
 4. **Audit Trails**: Time-based retention policies for audit logs stored as CRDs
@@ -106,7 +106,7 @@ Kubernetes currently lacks a generic mechanism for automatic, time-based resourc
 
 ### Core API: GarbageCollectionPolicy CRD
 
-**Group**: `gc.k8s.io`  
+**Group**: `gc.kube-zen.io`  
 **Version**: `v1alpha1` (initial), `v1beta1` (after validation), `v1` (stable)  
 **Kind**: `GarbageCollectionPolicy`  
 **Scope**: `Namespaced` (for namespace-scoped resources) or `Cluster` (for cluster-scoped resources)
@@ -114,20 +114,20 @@ Kubernetes currently lacks a generic mechanism for automatic, time-based resourc
 #### Basic Schema
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
-  name: observation-retention-policy
+  name: cleanup-temp-configmaps-policy
   namespace: zen-system  # Optional: for namespaced policies
 spec:
   # Target resource to apply GC policy
   targetResource:
-    apiVersion: zen.kube-zen.io/v1
-    kind: Observation
+    apiVersion: gc.kube-zen.io/v1alpha1
+    kind: ConfigMap
     # Optional: label selector to filter resources
     labelSelector:
       matchLabels:
-        app: zen-watcher
+        temporary: "true"
   
   # TTL configuration
   ttl:
@@ -164,7 +164,7 @@ spec:
     dryRun: false
     
     # Finalizer: add finalizer before deletion (for graceful cleanup)
-    finalizer: "gc.k8s.io/cleanup"
+    finalizer: "gc.kube-zen.io/cleanup"
 
 status:
   # Policy status
@@ -198,8 +198,8 @@ Defines which resources the GC policy applies to:
 ```yaml
 targetResource:
   # Required: API version and kind
-  apiVersion: string  # e.g., "zen.kube-zen.io/v1", "v1", "apps/v1"
-  kind: string        # e.g., "Observation", "ConfigMap", "Pod"
+  apiVersion: string  # e.g., "v1", "apps/v1", "batch/v1"
+  kind: string        # e.g., "ConfigMap", "Pod", "Job", "Secret"
   
   # Optional: Namespace scope (for namespaced resources)
   namespace: string   # Specific namespace, or "*" for all namespaces
@@ -207,7 +207,7 @@ targetResource:
   # Optional: Label selector
   labelSelector:
     matchLabels:
-      app: zen-watcher
+      temporary: "true"
     matchExpressions:
       - key: environment
         operator: In
@@ -291,7 +291,7 @@ behavior:
   dryRun: false  # If true, log deletions but don't actually delete
   
   # Finalizer for graceful cleanup
-  finalizer: "gc.k8s.io/cleanup"  # Add finalizer, wait for removal before deletion
+  finalizer: "gc.kube-zen.io/cleanup"  # Add finalizer, wait for removal before deletion
   
   # Deletion propagation
   propagationPolicy: Foreground  # Foreground, Background, Orphan
@@ -423,31 +423,23 @@ var (
 
 ## Examples
 
-### Example 1: Observation CRD Cleanup
+### Example 1: ConfigMap Cleanup
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
-  name: observation-retention
+  name: cleanup-temp-configmaps
   namespace: zen-system
 spec:
   targetResource:
-    apiVersion: zen.kube-zen.io/v1
-    kind: Observation
+    apiVersion: gc.kube-zen.io/v1alpha1
+    kind: ConfigMap
     labelSelector:
       matchLabels:
-        app: zen-watcher
+        temporary: "true"
   ttl:
-    fieldPath: "spec.severity"
-    mappings:
-      CRITICAL: 1814400  # 3 weeks
-      HIGH: 1209600      # 2 weeks
-      MEDIUM: 604800     # 1 week
-      LOW: 259200        # 3 days
-      default: 604800
-  conditions:
-    phase: ["Processed"]  # Only delete processed observations
+    secondsAfterCreation: 3600  # 1 hour
   behavior:
     maxDeletionsPerSecond: 10
     batchSize: 50
@@ -456,7 +448,7 @@ spec:
 ### Example 2: Temporary ConfigMap Cleanup
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: temp-configmap-cleanup
@@ -477,7 +469,7 @@ spec:
 ### Example 3: Test Pod Cleanup
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: test-pod-cleanup
@@ -500,14 +492,17 @@ spec:
 ### Example 4: Cluster-Scoped Resource Cleanup
 
 ```yaml
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
-  name: cluster-audit-cleanup
+  name: cluster-namespace-cleanup
 spec:
   targetResource:
-    apiVersion: audit.k8s.io/v1
-    kind: AuditLog
+    apiVersion: v1
+    kind: Namespace
+    labelSelector:
+      matchLabels:
+        temporary: "true"
     # No namespace (cluster-scoped)
   ttl:
     secondsAfterCreation: 2592000  # 30 days

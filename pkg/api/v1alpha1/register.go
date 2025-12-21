@@ -7,7 +7,7 @@ import (
 )
 
 // GroupName is the group name used in this package
-const GroupName = "gc.k8s.io"
+const GroupName = "gc.kube-zen.io"
 
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}

@@ -26,13 +26,13 @@ func TestParseGVR(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:       "custom API group",
-			apiVersion: "zen.kube-zen.io/v1",
-			kind:       "Observation",
+			name:       "apps API group",
+			apiVersion: "apps/v1",
+			kind:       "Deployment",
 			expectedGVR: schema.GroupVersionResource{
-				Group:    "zen.kube-zen.io",
+				Group:    "apps",
 				Version:  "v1",
-				Resource: "observations",
+				Resource: "deployments",
 			},
 			expectError: false,
 		},
@@ -115,8 +115,8 @@ func TestPluralizeKind(t *testing.T) {
 		},
 		{
 			name:     "custom resource",
-			kind:     "Observation",
-			expected: "observations",
+			kind:     "Deployment",
+			expected: "deployments",
 		},
 	}
 
@@ -139,25 +139,25 @@ func TestValidateGVR(t *testing.T) {
 		{
 			name: "valid GVR",
 			gvr: schema.GroupVersionResource{
-				Group:    "zen.kube-zen.io",
+				Group:    "apps",
 				Version:  "v1",
-				Resource: "observations",
+				Resource: "deployments",
 			},
 			expectError: false,
 		},
 		{
 			name: "empty version",
 			gvr: schema.GroupVersionResource{
-				Group:    "zen.kube-zen.io",
+				Group:    "apps",
 				Version:  "",
-				Resource: "observations",
+				Resource: "deployments",
 			},
 			expectError: true,
 		},
 		{
 			name: "empty resource",
 			gvr: schema.GroupVersionResource{
-				Group:    "zen.kube-zen.io",
+				Group:    "apps",
 				Version:  "v1",
 				Resource: "",
 			},

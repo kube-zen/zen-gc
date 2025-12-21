@@ -82,7 +82,7 @@ The following Kubernetes versions are regularly tested:
 
 2. **Update CRD**:
    ```bash
-   kubectl apply -f deploy/crds/gc.k8s.io_garbagecollectionpolicies-v1beta1.yaml
+   kubectl apply -f deploy/crds/gc.kube-zen.io_garbagecollectionpolicies-v1beta1.yaml
    ```
 
 3. **Verify Policies**:
@@ -93,7 +93,7 @@ The following Kubernetes versions are regularly tested:
 4. **Update Policy Definitions** (if needed):
    ```bash
    # Update apiVersion in policy YAML files
-   sed -i 's/apiVersion: gc.k8s.io\/v1alpha1/apiVersion: gc.k8s.io\/v1beta1/g' policies/*.yaml
+   sed -i 's/apiVersion: gc.kube-zen.io\/v1alpha1/apiVersion: gc.kube-zen.io\/v1beta1/g' policies/*.yaml
    kubectl apply -f policies/
    ```
 
@@ -122,7 +122,7 @@ If migration causes issues:
 kubectl scale deployment gc-controller -n gc-system --replicas=0
 
 # 2. Restore previous CRD version
-kubectl apply -f deploy/crds/gc.k8s.io_garbagecollectionpolicies-v1alpha1.yaml
+kubectl apply -f deploy/crds/gc.kube-zen.io_garbagecollectionpolicies-v1alpha1.yaml
 
 # 3. Restore policies from backup
 kubectl apply -f policies-backup.yaml
@@ -172,7 +172,7 @@ k8s-ttl-controller uses annotations for TTL configuration, while zen-gc uses dec
    #     ttl-controller.k8s.io/ttl: "3600"
    
    # After (zen-gc):
-   apiVersion: gc.k8s.io/v1alpha1
+   apiVersion: gc.kube-zen.io/v1alpha1
    kind: GarbageCollectionPolicy
    metadata:
      name: configmap-ttl-policy
@@ -224,7 +224,7 @@ RESOURCES=$(kubectl get all --all-namespaces -o json | \
 echo "$RESOURCES" | while IFS='|' read -r ns name kind ttl; do
   # Create policy YAML
   cat <<EOF
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: ${kind}-ttl-migrated-$(echo $name | tr '[:upper:]' '[:lower:]')
@@ -293,7 +293,7 @@ Kyverno cleanup policies are similar to zen-gc but require Kyverno installation.
                cleanup.kyverno.io/ttl: "1h"
    
    # After (zen-gc):
-   apiVersion: gc.k8s.io/v1alpha1
+   apiVersion: gc.kube-zen.io/v1alpha1
    kind: GarbageCollectionPolicy
    metadata:
      name: cleanup-configmaps
@@ -350,7 +350,7 @@ Many organizations have built custom GC controllers. Migration to zen-gc provide
 #   delete resource
 
 # zen-gc equivalent:
-apiVersion: gc.k8s.io/v1alpha1
+apiVersion: gc.kube-zen.io/v1alpha1
 kind: GarbageCollectionPolicy
 metadata:
   name: completed-resource-cleanup

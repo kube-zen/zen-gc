@@ -43,7 +43,7 @@ func TestE2E_GCController(t *testing.T) {
 
 	// Test policy creation
 	policyGVR := schema.GroupVersionResource{
-		Group:    "gc.k8s.io",
+		Group:    "gc.kube-zen.io",
 		Version:  "v1alpha1",
 		Resource: "garbagecollectionpolicies",
 	}

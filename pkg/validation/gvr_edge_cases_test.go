@@ -131,8 +131,8 @@ func TestParseGVR_EdgeCases(t *testing.T) {
 		},
 		{
 			name:        "API group with subdomain",
-			apiVersion:  "zen.kube-zen.io/v1",
-			kind:        "Observation",
+			apiVersion:  "apps/v1",
+			kind:        "Deployment",
 			expectError: false,
 		},
 		{

@@ -24,7 +24,7 @@ func TestGCController_matchesSelectors_LabelSelector(t *testing.T) {
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"labels": map[string]interface{}{
-							"app": "zen-watcher",
+							"temporary": "true",
 						},
 					},
 				},
@@ -32,7 +32,7 @@ func TestGCController_matchesSelectors_LabelSelector(t *testing.T) {
 			target: &v1alpha1.TargetResourceSpec{
 				LabelSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"app": "zen-watcher",
+						"temporary": "true",
 					},
 				},
 			},
@@ -52,7 +52,7 @@ func TestGCController_matchesSelectors_LabelSelector(t *testing.T) {
 			target: &v1alpha1.TargetResourceSpec{
 				LabelSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"app": "zen-watcher",
+						"temporary": "true",
 					},
 				},
 			},
