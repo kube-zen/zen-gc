@@ -190,13 +190,6 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 
 	klog.V(4).Infof("Evaluating policy %s/%s", policy.Namespace, policy.Name)
 
-	// Record policy phase
-	phase := policy.Status.Phase
-	if phase == "" {
-		phase = "Active"
-	}
-	recordPolicyPhase(policy.Namespace, policy.Name, phase)
-
 	// Get or create resource informer for this policy
 	informer, err := gc.getOrCreateResourceInformer(policy)
 	if err != nil {
@@ -234,6 +227,13 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 			pendingCount++
 			continue
 		}
+
+		// Apply policy-specific rate limiting
+		maxDeletionsPerSecond := DefaultMaxDeletionsPerSecond
+		if policy.Spec.Behavior.MaxDeletionsPerSecond > 0 {
+			maxDeletionsPerSecond = policy.Spec.Behavior.MaxDeletionsPerSecond
+		}
+		gc.rateLimiter.SetRate(maxDeletionsPerSecond)
 
 		// Delete the resource with exponential backoff
 		deleteStart := time.Now()
@@ -561,6 +561,10 @@ func (gc *GCController) getOrCreateResourceInformer(policy *v1alpha1.GarbageColl
 	namespace := policy.Spec.TargetResource.Namespace
 	if namespace == "" {
 		namespace = policy.Namespace
+	}
+	// Translate "*" to NamespaceAll (empty string) for cluster-wide watching
+	if namespace == "*" {
+		namespace = metav1.NamespaceAll
 	}
 
 	// Create informer factory

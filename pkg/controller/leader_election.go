@@ -15,7 +15,6 @@ import (
 )
 
 // LeaderElection manages leader election for GC controller HA
-// Reused pattern from zen-platform/zen-saas/zen-bridge/internal/bridge/leader_election.go
 type LeaderElection struct {
 	client    kubernetes.Interface
 	namespace string

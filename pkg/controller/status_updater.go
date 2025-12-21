@@ -21,7 +21,6 @@ var PolicyGVR = schema.GroupVersionResource{
 }
 
 // StatusUpdater updates GarbageCollectionPolicy CRD status subresource
-// Reused pattern from zen-platform/cluster/zen-ingester/internal/status/updater.go
 type StatusUpdater struct {
 	dynClient dynamic.Interface
 }

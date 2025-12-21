@@ -64,8 +64,10 @@ var (
 )
 
 // recordPolicyPhase records the current phase of a policy
-func recordPolicyPhase(namespace, name, phase string) {
-	gcPoliciesTotal.WithLabelValues(phase).Inc()
+// Note: This should be called with the actual count of policies in each phase,
+// not incremented on every evaluation. The caller should count policies and call Set().
+func recordPolicyPhase(phase string, count float64) {
+	gcPoliciesTotal.WithLabelValues(phase).Set(count)
 }
 
 // recordResourceMatched records that a resource was matched by a policy

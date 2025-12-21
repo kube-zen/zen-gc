@@ -18,8 +18,10 @@ import (
 func TestNewGCController(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	statusUpdater := NewStatusUpdater(dynamicClient)
+	eventRecorder := NewEventRecorder(nil) // nil is OK for tests
 
-	controller, err := NewGCController(dynamicClient)
+	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("NewGCController() returned error: %v", err)
 	}
@@ -48,8 +50,10 @@ func TestNewGCController(t *testing.T) {
 func TestGCController_Stop(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	statusUpdater := NewStatusUpdater(dynamicClient)
+	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCController(dynamicClient)
+	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("NewGCController() returned error: %v", err)
 	}
@@ -69,8 +73,10 @@ func TestGCController_Stop(t *testing.T) {
 func TestGCController_evaluatePolicies_Empty(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	statusUpdater := NewStatusUpdater(dynamicClient)
+	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCController(dynamicClient)
+	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("NewGCController() returned error: %v", err)
 	}
@@ -94,8 +100,10 @@ func TestGCController_evaluatePolicies_Empty(t *testing.T) {
 func TestGCController_evaluatePolicies_WithPausedPolicy(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	statusUpdater := NewStatusUpdater(dynamicClient)
+	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCController(dynamicClient)
+	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("NewGCController() returned error: %v", err)
 	}
@@ -150,8 +158,10 @@ func TestGCController_evaluatePolicies_WithPausedPolicy(t *testing.T) {
 func TestGCController_deleteResource_DryRun(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	statusUpdater := NewStatusUpdater(dynamicClient)
+	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCController(dynamicClient)
+	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("NewGCController() returned error: %v", err)
 	}
@@ -185,8 +195,10 @@ func TestGCController_deleteResource_DryRun(t *testing.T) {
 func TestGCController_deleteResource_WithGracePeriod(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	statusUpdater := NewStatusUpdater(dynamicClient)
+	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCController(dynamicClient)
+	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("NewGCController() returned error: %v", err)
 	}
@@ -234,8 +246,10 @@ func TestGCController_deleteResource_WithGracePeriod(t *testing.T) {
 func TestGCController_deleteResource_ClusterScoped(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	statusUpdater := NewStatusUpdater(dynamicClient)
+	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCController(dynamicClient)
+	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("NewGCController() returned error: %v", err)
 	}
@@ -279,8 +293,10 @@ func TestGCController_deleteResource_ClusterScoped(t *testing.T) {
 func TestGCController_updatePolicyStatus(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	statusUpdater := NewStatusUpdater(dynamicClient)
+	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCController(dynamicClient)
+	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("NewGCController() returned error: %v", err)
 	}
