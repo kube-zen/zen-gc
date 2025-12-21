@@ -60,6 +60,7 @@ spec:
 - **[Version Compatibility](docs/VERSION_COMPATIBILITY.md)**: Kubernetes versions and migration guides
 - **[Architecture](docs/ARCHITECTURE.md)**: System architecture and design diagrams
 - **[Examples](examples/)**: Example GC policies
+- **[Contributing](CONTRIBUTING.md)**: Development guidelines and contribution process
 - **[Governance](GOVERNANCE.md)**: Project governance model
 - **[Maintainers](MAINTAINERS.md)**: List of project maintainers
 - **[Releasing](RELEASING.md)**: Release process documentation
