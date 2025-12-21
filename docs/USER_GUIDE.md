@@ -279,39 +279,7 @@ behavior:
 
 ## Examples
 
-### Example 1: ConfigMap Retention
-
-Clean up ConfigMaps based on severity:
-
-```yaml
-apiVersion: gc.kube-zen.io/v1alpha1
-kind: GarbageCollectionPolicy
-metadata:
-  name: cleanup-temp-configmaps
-  namespace: zen-system
-spec:
-  targetResource:
-    apiVersion: v1
-    kind: ConfigMap
-    labelSelector:
-      matchLabels:
-        temporary: "true"
-  ttl:
-    fieldPath: "spec.severity"
-    mappings:
-      CRITICAL: 1814400  # 3 weeks
-      HIGH: 1209600      # 2 weeks
-      MEDIUM: 604800     # 1 week
-      LOW: 259200        # 3 days
-    default: 604800
-  conditions:
-    phase: ["Processed"]
-  behavior:
-    maxDeletionsPerSecond: 10
-    batchSize: 50
-```
-
-### Example 2: Temporary ConfigMap Cleanup
+### Example 1: Temporary ConfigMap Cleanup
 
 Delete temporary ConfigMaps after 1 hour:
 
