@@ -1,16 +1,20 @@
 # KEP: Generic Garbage Collection Controller for Kubernetes
 
-**Status**: Draft  
+**Status**: Draft (Future Consideration)  
 **Last Updated**: 2025-12-21  
 **Authors**: Kube-ZEN Community  
 **SIG**: sig-apps (primary), sig-architecture (secondary)  
 **KEP Number**: TBD
 
+> **Note**: This KEP document describes a potential future enhancement to Kubernetes. zen-gc is currently a standalone, production-ready project. If zen-gc gains significant community adoption and proves valuable, this KEP may be submitted to propose integrating similar functionality into upstream Kubernetes.
+
 ---
 
 ## Summary
 
-This proposal introduces a generic, declarative garbage collection mechanism for Kubernetes resources via a new `GarbageCollectionPolicy` CRD. This enables automatic, time-based cleanup of any Kubernetes resource (CRDs, ConfigMaps, Secrets, Pods, etc.) without requiring custom controllers or external dependencies.
+This proposal (for future consideration) introduces a generic, declarative garbage collection mechanism for Kubernetes resources via a new `GarbageCollectionPolicy` CRD. This would enable automatic, time-based cleanup of any Kubernetes resource (CRDs, ConfigMaps, Secrets, Pods, etc.) without requiring custom controllers or external dependencies.
+
+**Current Implementation**: zen-gc provides this functionality today as a standalone controller. This KEP document serves as a reference for potential future upstream integration.
 
 **Key Value Proposition**:
 - **Declarative**: Define GC policies as Kubernetes resources (CRDs)

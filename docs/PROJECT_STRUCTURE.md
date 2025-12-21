@@ -2,14 +2,14 @@
 
 ## Overview
 
-`zen-gc` is the implementation and PoC for the Generic Garbage Collection KEP proposal.
+`zen-gc` is a production-ready Kubernetes controller for automatic garbage collection of any Kubernetes resource.
 
 ## Project Goals
 
-1. **Implement PoC** of the Generic GC Controller based on the KEP
-2. **Validate Design** through real-world testing
-3. **Open Source** the implementation for community feedback
-4. **Submit KEP** to Kubernetes Enhancement Proposals after validation
+1. **Provide Value**: Solve the real-world problem of resource cleanup in Kubernetes
+2. **Production Ready**: Build a reliable, observable, and maintainable solution
+3. **Community Driven**: Open source project that welcomes contributions and feedback
+4. **Future**: If widely adopted, may be proposed as a Kubernetes Enhancement Proposal (KEP)
 
 ## Project Structure
 
@@ -33,28 +33,20 @@ zen-gc/
 └── README.md                               # Project overview
 ```
 
-## Development Phases
+## Development Status
 
-### Phase 1: KEP Preparation (Current)
-- ✅ KEP document drafted
-- ⏳ Community feedback gathering
-- ⏳ API design refinement
+### Current Status: Production Ready ✅
 
-### Phase 2: PoC Implementation (After KEP Review)
-- Implement basic controller
-- CRD definition
-- Basic TTL support
-- Testing with kind/minikube
+- ✅ Full-featured GC controller implementation
+- ✅ Comprehensive CRD with flexible TTL and condition support
+- ✅ Production features (rate limiting, metrics, HA)
+- ✅ Extensive test coverage (>80%)
+- ✅ Complete documentation
+- ✅ Open source and actively maintained
 
-### Phase 3: Open Source Release
-- Release as OSS project
-- Community testing
-- Gather feedback
+### Future Considerations
 
-### Phase 4: KEP Submission (After Validation)
-- Submit to Kubernetes Enhancement Proposals
-- SIG review process
-- Iterate based on feedback
+If zen-gc gains significant community adoption and proves valuable to the Kubernetes ecosystem, it may be proposed as a Kubernetes Enhancement Proposal (KEP) to potentially become part of upstream Kubernetes. However, this is not the primary goal—the focus is on providing a useful, production-ready solution.
 
 ## Key Principles
 
