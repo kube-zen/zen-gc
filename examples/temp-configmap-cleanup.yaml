@@ -1,0 +1,16 @@
+apiVersion: gc.k8s.io/v1alpha1
+kind: GarbageCollectionPolicy
+metadata:
+  name: temp-configmap-cleanup
+spec:
+  targetResource:
+    apiVersion: v1
+    kind: ConfigMap
+    labelSelector:
+      matchLabels:
+        temp: "true"
+  ttl:
+    secondsAfterCreation: 3600  # 1 hour
+  behavior:
+    maxDeletionsPerSecond: 20
+    dryRun: false

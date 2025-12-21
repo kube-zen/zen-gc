@@ -1,0 +1,25 @@
+apiVersion: gc.k8s.io/v1alpha1
+kind: GarbageCollectionPolicy
+metadata:
+  name: observation-retention
+  namespace: zen-system
+spec:
+  targetResource:
+    apiVersion: zen.kube-zen.io/v1
+    kind: Observation
+    labelSelector:
+      matchLabels:
+        app: zen-watcher
+  ttl:
+    fieldPath: "spec.severity"
+    mappings:
+      CRITICAL: 1814400  # 3 weeks
+      HIGH: 1209600      # 2 weeks
+      MEDIUM: 604800     # 1 week
+      LOW: 259200        # 3 days
+    default: 604800      # Default: 1 week
+  conditions:
+    phase: ["Processed"]  # Only delete processed observations
+  behavior:
+    maxDeletionsPerSecond: 10
+    batchSize: 50

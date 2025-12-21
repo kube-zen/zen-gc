@@ -1,0 +1,18 @@
+apiVersion: gc.k8s.io/v1alpha1
+kind: GarbageCollectionPolicy
+metadata:
+  name: test-pod-cleanup
+spec:
+  targetResource:
+    apiVersion: v1
+    kind: Pod
+    labelSelector:
+      matchLabels:
+        test: "true"
+  ttl:
+    secondsAfterCreation: 1800  # 30 minutes
+  conditions:
+    phase: ["Succeeded", "Failed"]  # Only delete completed pods
+  behavior:
+    maxDeletionsPerSecond: 5
+    gracePeriodSeconds: 10

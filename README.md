@@ -1,0 +1,74 @@
+# zen-gc: Generic Garbage Collection for Kubernetes
+
+**Status**: KEP Draft  
+**Purpose**: Design and propose a generic garbage collection mechanism for Kubernetes  
+**Project Type**: Separate standalone project (NOT part of zen-watcher)
+
+## Overview
+
+This repository contains the design and proposal for a generic garbage collection (GC) controller for Kubernetes. The goal is to provide a Kubernetes-native, declarative way to automatically clean up resources based on time-to-live (TTL) policies.
+
+## Problem Statement
+
+Kubernetes currently only provides built-in TTL support for Jobs (`spec.ttlSecondsAfterFinished`). For all other resources (CRDs, ConfigMaps, Secrets, Pods, etc.), operators must:
+
+1. Build custom controllers
+2. Use external tools (k8s-ttl-controller, Kyverno)
+3. Manually manage cleanup via CronJobs
+
+This creates operational overhead and inconsistency across the ecosystem.
+
+## Proposed Solution
+
+A new `GarbageCollectionPolicy` CRD that enables declarative, time-based cleanup of any Kubernetes resource:
+
+```yaml
+apiVersion: gc.k8s.io/v1alpha1
+kind: GarbageCollectionPolicy
+metadata:
+  name: observation-retention
+spec:
+  targetResource:
+    apiVersion: zen.kube-zen.io/v1
+    kind: Observation
+  ttl:
+    secondsAfterCreation: 604800  # 7 days
+  behavior:
+    maxDeletionsPerSecond: 10
+```
+
+## Key Features
+
+- ✅ **Generic**: Works with any Kubernetes resource (CRDs, core resources)
+- ✅ **Declarative**: Policies defined as Kubernetes CRDs
+- ✅ **Kubernetes-Native**: Uses spec fields (like Jobs), not annotations
+- ✅ **Zero Dependencies**: Built into Kubernetes, no external controllers
+- ✅ **Production-Ready**: Rate limiting, metrics, observability
+
+## Documentation
+
+- **[KEP Document](docs/KEP_GENERIC_GARBAGE_COLLECTION.md)**: Complete Kubernetes Enhancement Proposal
+- **[Design Details](docs/DESIGN.md)**: Detailed design and implementation notes (TBD)
+- **[Examples](examples/)**: Example GC policies (TBD)
+
+## Status
+
+This is a **separate project** from zen-watcher. The goal is to:
+
+1. **Design**: Create a strong KEP candidate for Kubernetes
+2. **PoC**: Implement a working prototype
+3. **Open Source**: Release as OSS for community testing
+4. **Validate**: Test in real-world scenarios
+5. **Submit**: Submit KEP to Kubernetes Enhancement Proposals after validation
+
+**Important**: This project will be developed independently. zen-watcher has its own built-in GC and will continue to work independently.
+
+## Contributing
+
+This is an early-stage proposal. Feedback and contributions are welcome!
+
+## References
+
+- [Kubernetes TTL-after-finished](https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/)
+- [Kubernetes Enhancement Proposals](https://github.com/kubernetes/enhancements)
+
