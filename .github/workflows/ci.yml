@@ -78,7 +78,7 @@ jobs:
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./pkg/...
       
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.out
           flags: unit
