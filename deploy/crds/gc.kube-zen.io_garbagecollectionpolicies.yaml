@@ -146,9 +146,9 @@ spec:
                   propagationPolicy:
                     type: string
                     enum:
-                    - Foreground
-                    - Background
-                    - Orphan
+                      - Foreground
+                      - Background
+                      - Orphan
                   gracePeriodSeconds:
                     type: integer
           status:
@@ -192,5 +192,5 @@ spec:
     singular: garbagecollectionpolicy
     kind: GarbageCollectionPolicy
     shortNames:
-    - gcp
-    - gcpolicy
+      - gcp
+      - gcpolicy
