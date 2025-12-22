@@ -97,29 +97,35 @@ spec:
 
 ## TTL Configuration
 
-The `ttl` field defines when resources should be deleted. There are four options:
+The `ttl` field is **zen-gc's most powerful feature**. It defines when resources should be deleted, and offers four flexible options to match any use case:
 
-### Option 1: Fixed TTL
+### Option 1: Fixed TTL ⏱️
 
-Delete all matching resources after a fixed time period:
+**Simple and straightforward**—delete all matching resources after a fixed time period:
 
 ```yaml
 ttl:
   secondsAfterCreation: 604800  # 7 days
 ```
 
-### Option 2: Field-Based TTL
+**Use case**: Temporary resources, test artifacts, or any resource with a standard retention period.
 
-Extract TTL from a resource field:
+### Option 2: Field-Based TTL 📋
+
+**Resource-controlled TTL**—extract TTL directly from resource fields. Let resources define their own lifetime:
 
 ```yaml
 ttl:
   fieldPath: "spec.ttlSeconds"  # Path to TTL field in resource
 ```
 
-### Option 3: Mapped TTL
+**Use case**: Resources that already define their TTL (like custom CRDs), or when you want resources to control their own cleanup.
 
-Map field values to different TTLs:
+**Example**: A custom resource with `spec.ttlSeconds: 3600` will be deleted after 1 hour.
+
+### Option 3: Mapped TTL 🗺️
+
+**Value-based TTL mapping**—different TTLs based on resource field values. Perfect for severity-based or priority-based retention:
 
 ```yaml
 ttl:
@@ -132,15 +138,39 @@ ttl:
   default: 604800      # Default if no match
 ```
 
-### Option 4: Relative TTL
+**Use case**: 
+- Severity-based retention (critical data kept longer)
+- Environment-based retention (prod vs staging)
+- Priority-based cleanup (high-priority resources retained longer)
 
-TTL relative to another timestamp field:
+**Example**: Resources with `spec.severity: CRITICAL` are kept for 3 weeks, while `LOW` severity resources are deleted after 3 days.
+
+### Option 4: Relative TTL ⏰
+
+**Activity-based TTL**—clean up resources relative to another timestamp field. Perfect for "last activity" scenarios:
 
 ```yaml
 ttl:
   relativeTo: "status.lastProcessedAt"
   secondsAfter: 86400  # 1 day after lastProcessedAt
 ```
+
+**Use case**:
+- Clean up resources after last activity/processing
+- Retention based on last update time
+- Time-based cleanup relative to status changes
+
+**Example**: A resource with `status.lastProcessedAt: 2025-12-20T10:00:00Z` will be deleted on `2025-12-21T10:00:00Z` (1 day later).
+
+### Why These TTL Options Matter
+
+Unlike simple annotation-based solutions, zen-gc's TTL system gives you:
+- **Flexibility**: Choose the right TTL mode for each use case
+- **Resource Control**: Let resources define their own TTL when appropriate
+- **Intelligence**: Different retention policies based on resource characteristics
+- **Activity Awareness**: Clean up based on actual resource activity, not just creation time
+
+**This is what makes zen-gc shine**—you're not limited to "delete after X days." You can build sophisticated, context-aware cleanup policies that adapt to your actual needs.
 
 ---
 

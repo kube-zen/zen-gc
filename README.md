@@ -19,6 +19,47 @@ Kubernetes only provides built-in TTL support for Jobs. For everything else (Con
 - 🚀 **Easy to Use**: Simple YAML policies—no coding required
 - 📊 **Observable**: Prometheus metrics and Kubernetes events for full visibility
 
+## Powerful TTL Options
+
+zen-gc's flexible TTL system is what makes it shine. Choose from four powerful options:
+
+### 1. Fixed TTL
+Simple time-based cleanup—delete resources after a fixed period:
+```yaml
+ttl:
+  secondsAfterCreation: 604800  # 7 days
+```
+
+### 2. Field-Based TTL
+Extract TTL directly from resource fields—let resources define their own lifetime:
+```yaml
+ttl:
+  fieldPath: "spec.ttlSeconds"  # Resource controls its own TTL
+```
+
+### 3. Mapped TTL
+Different TTLs based on resource values—perfect for severity-based retention:
+```yaml
+ttl:
+  fieldPath: "spec.severity"
+  mappings:
+    CRITICAL: 1814400  # 3 weeks
+    HIGH: 1209600      # 2 weeks
+    MEDIUM: 604800     # 1 week
+    LOW: 259200        # 3 days
+  default: 604800
+```
+
+### 4. Relative TTL
+TTL relative to another timestamp—clean up after last activity:
+```yaml
+ttl:
+  relativeTo: "status.lastProcessedAt"
+  secondsAfter: 86400  # 1 day after last activity
+```
+
+**This flexibility means zen-gc adapts to your needs, not the other way around.**
+
 ## Quick Start
 
 Install zen-gc and create your first cleanup policy:
@@ -83,7 +124,7 @@ spec:
 ## Features
 
 - ✅ **Generic Resource Support**: Works with any Kubernetes resource (CRDs, core resources)
-- ✅ **Flexible TTL**: Fixed TTL, field-based TTL, relative TTL, or mapped TTL values
+- ✅ **Four TTL Modes**: Fixed, field-based, mapped, or relative TTL—choose what fits your use case
 - ✅ **Powerful Selectors**: Label selectors, field selectors, and namespace scoping
 - ✅ **Condition Matching**: Match resources by phase, labels, annotations, or custom field conditions
 - ✅ **Rate Limiting**: Configurable deletion rate per policy to prevent API server overload
