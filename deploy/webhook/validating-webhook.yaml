@@ -1,0 +1,48 @@
+# Copyright 2025 Kube-ZEN Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: gc-controller-webhook
+  namespace: gc-system
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    app: gc-controller
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: gc-controller-validating-webhook
+  annotations:
+    cert-manager.io/inject-ca-from: gc-system/gc-controller-webhook-cert
+webhooks:
+- name: validate-gc-policy.gc.kube-zen.io
+  clientConfig:
+    service:
+      name: gc-controller-webhook
+      namespace: gc-system
+      path: "/validate-gc-policy"
+  rules:
+  - apiGroups: ["gc.kube-zen.io"]
+    apiVersions: ["v1alpha1"]
+    operations: ["CREATE", "UPDATE"]
+    resources: ["garbagecollectionpolicies"]
+  admissionReviewVersions: ["v1", "v1beta1"]
+  sideEffects: None
+  failurePolicy: Fail
+

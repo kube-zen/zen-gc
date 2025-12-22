@@ -27,11 +27,15 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build optimized binary
+# Build optimized binary for multiple architectures
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+
+# Build for target architecture
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath \
     -ldflags "-s -w \
         -X 'main.version=${VERSION}' \
         -X 'main.commit=${COMMIT}' \

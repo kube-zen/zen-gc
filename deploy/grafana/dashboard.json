@@ -1,0 +1,263 @@
+{
+  "dashboard": {
+    "title": "zen-gc Controller Dashboard",
+    "tags": ["zen-gc", "kubernetes", "garbage-collection"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "GC Policies by Phase",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(gc_policies_total{phase=\"Active\"})",
+            "legendFormat": "Active",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(gc_policies_total{phase=\"Paused\"})",
+            "legendFormat": "Paused",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(gc_policies_total{phase=\"Error\"})",
+            "legendFormat": "Error",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Total Resources Deleted",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(increase(gc_resources_deleted_total[5m]))",
+            "legendFormat": "Deletions (5m)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 100, "color": "yellow"},
+                {"value": 1000, "color": "red"}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Deletion Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(gc_resources_deleted_total[5m]))",
+            "legendFormat": "Deletions/sec",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "unit": "ops"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Error Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(gc_errors_total[5m]))",
+            "legendFormat": "Errors/sec",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 0.1, "color": "yellow"},
+                {"value": 1, "color": "red"}
+              ]
+            },
+            "unit": "ops"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Resources Deleted Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(gc_resources_deleted_total[5m])) by (policy_name, resource_kind)",
+            "legendFormat": "{{policy_name}} - {{resource_kind}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Deletions/sec"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Deletion Duration (P95)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(gc_deletion_duration_seconds_bucket[5m])) by (le, policy_name))",
+            "legendFormat": "P95 - {{policy_name}}",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(gc_deletion_duration_seconds_bucket[5m])) by (le, policy_name))",
+            "legendFormat": "P50 - {{policy_name}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Duration"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Policy Evaluation Duration",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(gc_evaluation_duration_seconds_bucket[5m])) by (le, policy_name))",
+            "legendFormat": "P95 - {{policy_name}}",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(gc_evaluation_duration_seconds_bucket[5m])) by (le, policy_name))",
+            "legendFormat": "P50 - {{policy_name}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Duration"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Errors by Type",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "sum(rate(gc_errors_total[5m])) by (error_type)",
+            "legendFormat": "{{error_type}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Resources Matched vs Deleted",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "sum(rate(gc_resources_matched_total[5m])) by (policy_name)",
+            "legendFormat": "Matched - {{policy_name}}",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(gc_resources_deleted_total[5m])) by (policy_name)",
+            "legendFormat": "Deleted - {{policy_name}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Rate"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Deletions by Reason",
+        "type": "bargauge",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+        "targets": [
+          {
+            "expr": "sum(rate(gc_resources_deleted_total[5m])) by (reason)",
+            "legendFormat": "{{reason}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 11,
+        "title": "Deletions by Resource Kind",
+        "type": "bargauge",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+        "targets": [
+          {
+            "expr": "sum(rate(gc_resources_deleted_total[5m])) by (resource_kind)",
+            "legendFormat": "{{resource_kind}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal"
+        }
+      }
+    ]
+  }
+}
+

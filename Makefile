@@ -25,8 +25,31 @@ build-release:
 build-image:
 	@echo "Building Docker image..."
 	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
-	docker build -t kube-zen/gc-controller:$$VERSION -t kube-zen/gc-controller:latest .
+	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+	BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
+	docker build \
+		--build-arg VERSION=$$VERSION \
+		--build-arg COMMIT=$$COMMIT \
+		--build-arg BUILD_DATE=$$BUILD_DATE \
+		-t kube-zen/gc-controller:$$VERSION \
+		-t kube-zen/gc-controller:latest .
 	@echo "✅ Docker image built: kube-zen/gc-controller:$$VERSION"
+
+# Build multi-arch Docker images (requires Docker Buildx)
+build-image-multiarch:
+	@echo "Building multi-arch Docker images..."
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+	BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
+	docker buildx build \
+		--platform linux/amd64,linux/arm64 \
+		--build-arg VERSION=$$VERSION \
+		--build-arg COMMIT=$$COMMIT \
+		--build-arg BUILD_DATE=$$BUILD_DATE \
+		-t kube-zen/gc-controller:$$VERSION \
+		-t kube-zen/gc-controller:latest \
+		--push .
+	@echo "✅ Multi-arch Docker images built: kube-zen/gc-controller:$$VERSION"
 
 # Run all tests
 test: test-unit test-integration
