@@ -40,13 +40,13 @@ spec:
                     - apiVersion
                     - kind
                   properties:
-                  apiVersion:
-                    type: string
-                  kind:
-                    type: string
-                  namespace:
-                    type: string
-                  labelSelector:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    namespace:
+                      type: string
+                    labelSelector:
                     type: object
                     properties:
                       matchLabels:
