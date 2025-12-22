@@ -48,7 +48,7 @@ func (s *StatusUpdater) UpdateStatus(
 
 	// Build status object
 	now := metav1.Now()
-	nextRun := metav1.NewTime(now.Add(DefaultGCInterval))
+	nextRun := metav1.NewTime(now.Add(1 * time.Minute)) // Default GC interval
 
 	statusObj := map[string]interface{}{
 		"resourcesMatched": matched,

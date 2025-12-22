@@ -41,9 +41,11 @@ jobs:
       
       - name: Check formatting
         run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          # Exclude generated files from formatting check
+          UNFORMATTED=$$(gofmt -s -l . | grep -v "zz_generated\|_generated\|\.pb\.go" || true)
+          if [ -n "$$UNFORMATTED" ]; then
             echo "Code is not formatted. Run 'go fmt ./...'"
-            gofmt -s -d .
+            echo "$$UNFORMATTED"
             exit 1
           fi
       
