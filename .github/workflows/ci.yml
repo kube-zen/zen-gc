@@ -78,12 +78,14 @@ jobs:
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./pkg/...
       
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.out
           flags: unit
           name: unit-coverage
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+          if_no_uploads: ignore
 
   build:
     name: Build

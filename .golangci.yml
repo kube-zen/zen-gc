@@ -12,7 +12,22 @@ run:
     - examples
     - tmp
     - bin
-  skip-files:
+    - deploy
+    - charts
+    - .github
+
+issues:
+  exclude-dirs:
+    - vendor
+    - third_party
+    - testdata
+    - examples
+    - tmp
+    - bin
+    - deploy
+    - charts
+    - .github
+  exclude-files:
     - ".*\\.pb\\.go$"
     - ".*_generated\\.go$"
     - "zz_generated\\.deepcopy\\.go$"
@@ -194,7 +209,8 @@ issues:
   exclude-use-default: false
 
 output:
-  format: colored-line-number
+  formats:
+    - format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
 
