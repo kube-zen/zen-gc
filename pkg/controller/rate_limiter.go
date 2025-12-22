@@ -37,4 +37,3 @@ func (rl *RateLimiter) SetRate(maxPerSecond int) {
 	rl.limiter.SetLimit(rate.Limit(maxPerSecond))
 	rl.limiter.SetBurst(maxPerSecond)
 }
-

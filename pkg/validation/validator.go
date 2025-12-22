@@ -100,4 +100,3 @@ func validateBehavior(behavior *gcapi.BehaviorSpec) error {
 
 	return nil
 }
-

@@ -11,4 +11,3 @@ func parseFieldPath(path string) []string {
 	}
 	return strings.Split(path, ".")
 }
-

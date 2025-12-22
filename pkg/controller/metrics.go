@@ -90,4 +90,3 @@ func recordError(policyNamespace, policyName, errorType string) {
 func recordEvaluationDuration(policyNamespace, policyName string, duration float64) {
 	gcEvaluationDurationSeconds.WithLabelValues(policyNamespace, policyName).Observe(duration)
 }
-

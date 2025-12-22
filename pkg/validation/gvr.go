@@ -28,18 +28,18 @@ func PluralizeKind(kind string) string {
 	// Simple conversion: lowercase and add 's' or 'es'
 	// This is a simplified version; in production, you'd want to use discovery
 	lower := strings.ToLower(kind)
-	
+
 	// Handle common pluralization rules
-	if strings.HasSuffix(lower, "s") || strings.HasSuffix(lower, "x") || 
-		strings.HasSuffix(lower, "z") || strings.HasSuffix(lower, "ch") || 
+	if strings.HasSuffix(lower, "s") || strings.HasSuffix(lower, "x") ||
+		strings.HasSuffix(lower, "z") || strings.HasSuffix(lower, "ch") ||
 		strings.HasSuffix(lower, "sh") {
 		return lower + "es"
 	}
-	
+
 	if strings.HasSuffix(lower, "y") && len(lower) > 1 {
 		// Change 'y' to 'ies'
 		return lower[:len(lower)-1] + "ies"
 	}
-	
+
 	return lower + "s"
 }
