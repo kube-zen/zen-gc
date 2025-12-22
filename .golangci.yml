@@ -152,6 +152,20 @@ linters-settings:
       - "-ST1022"  # Allow comment on exported const should be of the form
 
 issues:
+  exclude-dirs:
+    - vendor
+    - third_party
+    - testdata
+    - examples
+    - tmp
+    - bin
+    - deploy
+    - charts
+    - .github
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*_generated\\.go$"
+    - "zz_generated\\.deepcopy\\.go$"
   exclude-rules:
     # Exclude test files from some checks
     - path: _test\.go
