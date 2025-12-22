@@ -6,9 +6,9 @@ import (
 
 func TestRecordPolicyPhase(t *testing.T) {
 	// Test that metric recording doesn't panic
-	recordPolicyPhase("default", "test-policy", "Active")
-	recordPolicyPhase("default", "test-policy", "Paused")
-	recordPolicyPhase("default", "test-policy", "Error")
+	recordPolicyPhase("Active", 1.0)
+	recordPolicyPhase("Paused", 1.0)
+	recordPolicyPhase("Error", 1.0)
 
 	// Verify metric was recorded (we can't easily check exact values without exposing internals,
 	// but we can verify it doesn't panic)
@@ -45,9 +45,9 @@ func TestRecordEvaluationDuration(t *testing.T) {
 func TestMetrics_AllFunctions(t *testing.T) {
 	// Test all metric recording functions don't panic
 	t.Run("recordPolicyPhase", func(t *testing.T) {
-		recordPolicyPhase("ns1", "policy1", "Active")
-		recordPolicyPhase("ns1", "policy1", "Paused")
-		recordPolicyPhase("ns1", "policy1", "Error")
+		recordPolicyPhase("Active", 1.0)
+		recordPolicyPhase("Paused", 1.0)
+		recordPolicyPhase("Error", 1.0)
 	})
 
 	t.Run("recordResourceMatched", func(t *testing.T) {

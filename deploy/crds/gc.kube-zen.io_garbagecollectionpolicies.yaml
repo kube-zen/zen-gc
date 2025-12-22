@@ -21,25 +21,25 @@ metadata:
 spec:
   group: gc.kube-zen.io
   versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            required:
-            - targetResource
-            - ttl
-            properties:
-              targetResource:
-                type: object
-                required:
-                - apiVersion
-                - kind
-                properties:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - targetResource
+                - ttl
+              properties:
+                targetResource:
+                  type: object
+                  required:
+                    - apiVersion
+                    - kind
+                  properties:
                   apiVersion:
                     type: string
                   kind:

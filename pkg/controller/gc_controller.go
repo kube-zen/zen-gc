@@ -517,14 +517,14 @@ func (gc *GCController) deleteResource(resource *unstructured.Unstructured, poli
 		deleteOptions.GracePeriodSeconds = policy.Spec.Behavior.GracePeriodSeconds
 	}
 
-	propagationPolicy := metav1.DeletionPropagationBackground
-	if policy.Spec.Behavior.PropagationPolicy != "" {
-		switch policy.Spec.Behavior.PropagationPolicy {
-		case "Foreground":
-			propagationPolicy = metav1.DeletionPropagationForeground
-		case "Orphan":
-			propagationPolicy = metav1.DeletionPropagationOrphan
-		}
+	var propagationPolicy metav1.DeletionPropagation
+	switch policy.Spec.Behavior.PropagationPolicy {
+	case "Foreground":
+		propagationPolicy = "Foreground"
+	case "Orphan":
+		propagationPolicy = "Orphan"
+	default:
+		propagationPolicy = "Background"
 	}
 	deleteOptions.PropagationPolicy = &propagationPolicy
 

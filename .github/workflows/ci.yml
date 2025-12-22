@@ -166,7 +166,7 @@ jobs:
       
       - name: Lint YAML files
         run: |
-          yamllint -d '{extends: default, rules: {line-length: {max: 120}}}' \
+          yamllint -d '{extends: default, rules: {line-length: {max: 120}, document-start: {present: false}}}' \
             deploy/ examples/ || true
 
   verify:

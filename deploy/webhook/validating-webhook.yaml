@@ -31,18 +31,18 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: gc-system/gc-controller-webhook-cert
 webhooks:
-- name: validate-gc-policy.gc.kube-zen.io
-  clientConfig:
-    service:
-      name: gc-controller-webhook
-      namespace: gc-system
-      path: "/validate-gc-policy"
-  rules:
-  - apiGroups: ["gc.kube-zen.io"]
-    apiVersions: ["v1alpha1"]
-    operations: ["CREATE", "UPDATE"]
-    resources: ["garbagecollectionpolicies"]
-  admissionReviewVersions: ["v1", "v1beta1"]
-  sideEffects: None
-  failurePolicy: Fail
+  - name: validate-gc-policy.gc.kube-zen.io
+    clientConfig:
+      service:
+        name: gc-controller-webhook
+        namespace: gc-system
+        path: "/validate-gc-policy"
+    rules:
+      - apiGroups: ["gc.kube-zen.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["garbagecollectionpolicies"]
+    admissionReviewVersions: ["v1", "v1beta1"]
+    sideEffects: None
+    failurePolicy: Fail
 

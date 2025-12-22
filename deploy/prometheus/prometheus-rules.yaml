@@ -46,7 +46,9 @@ spec:
             component: gc-controller
           annotations:
             summary: "High GC error rate detected"
-            description: "GC Controller is experiencing {{ $value }} errors per second for policy {{ $labels.policy_name }}."
+            description: >
+              GC Controller is experiencing {{ $value }} errors per second
+              for policy {{ $labels.policy_name }}.
 
         # Alert on deletion failures
         - alert: GCControllerDeletionFailures
