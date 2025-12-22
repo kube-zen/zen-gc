@@ -10,6 +10,10 @@
 
 Kubernetes only provides built-in TTL support for Jobs. For everything else (ConfigMaps, Secrets, Pods, CRDs, etc.), you're on your own. zen-gc fills this gap with a simple, Kubernetes-native solution.
 
+**What makes zen-gc special?**
+
+zen-gc's **powerful TTL system** offers four flexible modes—fixed, field-based, mapped, and relative TTL. This means you can build sophisticated cleanup policies that adapt to your actual needs, not just "delete after X days." See the [Powerful TTL Options](#powerful-ttl-options) section below.
+
 ## Key Benefits
 
 - 🎯 **Works with Everything**: Clean up ConfigMaps, Secrets, Pods, Jobs, CRDs, or any Kubernetes resource
