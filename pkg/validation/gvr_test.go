@@ -176,14 +176,26 @@ func TestValidateGVR(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateGVR(tt.gvr)
+			// Convert GVR to API version and kind for testing ParseGVR
+			apiVersion := tt.gvr.Version
+			if tt.gvr.Group != "" {
+				apiVersion = tt.gvr.Group + "/" + tt.gvr.Version
+			}
+			// Convert resource name back to kind (singularize and capitalize)
+			kind := strings.TrimSuffix(tt.gvr.Resource, "s")
+			if strings.HasSuffix(tt.gvr.Resource, "ies") {
+				kind = strings.TrimSuffix(tt.gvr.Resource, "ies") + "y"
+			}
+			kind = strings.Title(kind)
+			
+			_, err := ParseGVR(apiVersion, kind)
 			if tt.expectError {
 				if err == nil {
-					t.Errorf("ValidateGVR() expected error but got none")
+					t.Errorf("ParseGVR() expected error but got none")
 				}
 			} else {
 				if err != nil {
-					t.Errorf("ValidateGVR() returned error: %v", err)
+					t.Errorf("ParseGVR() returned error: %v", err)
 				}
 			}
 		})

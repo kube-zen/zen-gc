@@ -184,9 +184,9 @@ spec:
                       type: string
                     message:
                       type: string
-    subresources:
-      status: {}
-  scope: Namespaced
+          subresources:
+            status: {}
+      scope: Namespaced
   names:
     plural: garbagecollectionpolicies
     singular: garbagecollectionpolicy

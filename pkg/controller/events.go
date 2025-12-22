@@ -20,9 +20,9 @@ func NewEventRecorder(client kubernetes.Interface) *EventRecorder {
 	// Create event broadcaster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartStructuredLogging(0)
-	eventBroadcaster.StartRecordingToSink(&record.EventSinkImpl{
-		Interface: client.CoreV1().Events(""),
-	})
+	if client != nil {
+		eventBroadcaster.StartRecordingToSink(client.CoreV1().Events(""))
+	}
 
 	// Create event recorder
 	eventRecorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{

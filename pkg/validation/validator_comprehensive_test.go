@@ -418,6 +418,4 @@ func TestValidatePolicy_Comprehensive(t *testing.T) {
 	}
 }
 
-func int64Ptr(i int64) *int64 {
-	return &i
-}
+// int64Ptr helper is defined in validator_test.go to avoid duplication

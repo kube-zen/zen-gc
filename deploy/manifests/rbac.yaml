@@ -89,4 +89,3 @@ subjects:
   - kind: ServiceAccount
     name: gc-controller
     namespace: gc-system
-

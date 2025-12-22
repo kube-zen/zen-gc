@@ -115,4 +115,3 @@ spec:
           annotations:
             summary: "High GC deletion rate"
             description: "GC Controller is deleting resources at a high rate. This may indicate a configuration issue."
-

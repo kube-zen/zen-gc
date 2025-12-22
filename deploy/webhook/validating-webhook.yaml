@@ -19,8 +19,8 @@ metadata:
   namespace: gc-system
 spec:
   ports:
-  - port: 443
-    targetPort: 9443
+    - port: 443
+      targetPort: 9443
   selector:
     app: gc-controller
 ---
@@ -45,4 +45,3 @@ webhooks:
     admissionReviewVersions: ["v1", "v1beta1"]
     sideEffects: None
     failurePolicy: Fail
-
