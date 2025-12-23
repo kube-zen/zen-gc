@@ -38,6 +38,9 @@ import (
 )
 
 const (
+	// ReasonNoTTL indicates that TTL could not be calculated
+	ReasonNoTTL = "no_ttl"
+
 	// DefaultGCInterval is the default interval for GC runs
 	DefaultGCInterval = 1 * time.Minute
 
@@ -324,11 +327,11 @@ func (gc *GCController) shouldDelete(resource *unstructured.Unstructured, policy
 	ttlSeconds, err := gc.calculateTTL(resource, &policy.Spec.TTL)
 	if err != nil {
 		klog.V(4).Infof("Could not calculate TTL for resource %s/%s: %v", resource.GetNamespace(), resource.GetName(), err)
-		return false, "no_ttl"
+		return false, ReasonNoTTL
 	}
 
 	if ttlSeconds <= 0 {
-		return false, "no_ttl"
+		return false, ReasonNoTTL
 	}
 
 	// Check if expired
@@ -406,30 +409,43 @@ func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpe
 
 // meetsConditions checks if a resource meets the deletion conditions
 func (gc *GCController) meetsConditions(resource *unstructured.Unstructured, conditions *v1alpha1.ConditionsSpec) bool {
-	// Check phase conditions
-	if len(conditions.Phase) > 0 {
-		phase, found, _ := unstructured.NestedString(resource.Object, "status", "phase")
-		if !found {
-			return false
-		}
+	if !gc.meetsPhaseConditions(resource, conditions.Phase) {
+		return false
+	}
+	if !gc.meetsLabelConditions(resource, conditions.HasLabels) {
+		return false
+	}
+	if !gc.meetsAnnotationConditions(resource, conditions.HasAnnotations) {
+		return false
+	}
+	if !gc.meetsFieldConditions(resource, conditions.And) {
+		return false
+	}
+	return true
+}
 
-		phaseMatch := false
-		for _, p := range conditions.Phase {
-			if phase == p {
-				phaseMatch = true
-				break
-			}
-		}
-		if !phaseMatch {
-			return false
+// meetsPhaseConditions checks if resource phase matches any of the required phases
+func (gc *GCController) meetsPhaseConditions(resource *unstructured.Unstructured, phases []string) bool {
+	if len(phases) == 0 {
+		return true
+	}
+	phase, found, _ := unstructured.NestedString(resource.Object, "status", "phase")
+	if !found {
+		return false
+	}
+	for _, p := range phases {
+		if phase == p {
+			return true
 		}
 	}
+	return false
+}
 
-	// Check label conditions
-	for _, labelCond := range conditions.HasLabels {
-		resourceLabels := resource.GetLabels()
+// meetsLabelConditions checks if resource labels match the required conditions
+func (gc *GCController) meetsLabelConditions(resource *unstructured.Unstructured, labelConds []v1alpha1.LabelCondition) bool {
+	resourceLabels := resource.GetLabels()
+	for _, labelCond := range labelConds {
 		value, exists := resourceLabels[labelCond.Key]
-
 		switch labelCond.Operator {
 		case "Exists":
 			if !exists {
@@ -441,54 +457,60 @@ func (gc *GCController) meetsConditions(resource *unstructured.Unstructured, con
 			}
 		}
 	}
+	return true
+}
 
-	// Check annotation conditions
-	for _, annCond := range conditions.HasAnnotations {
-		resourceAnnotations := resource.GetAnnotations()
+// meetsAnnotationConditions checks if resource annotations match the required conditions
+func (gc *GCController) meetsAnnotationConditions(resource *unstructured.Unstructured, annConds []v1alpha1.AnnotationCondition) bool {
+	resourceAnnotations := resource.GetAnnotations()
+	for _, annCond := range annConds {
 		value, exists := resourceAnnotations[annCond.Key]
 		if !exists || value != annCond.Value {
 			return false
 		}
 	}
+	return true
+}
 
-	// Check field conditions (AND logic)
-	for _, fieldCond := range conditions.And {
+// meetsFieldConditions checks if resource fields match the required conditions
+func (gc *GCController) meetsFieldConditions(resource *unstructured.Unstructured, fieldConds []v1alpha1.FieldCondition) bool {
+	for _, fieldCond := range fieldConds {
 		fieldPath := parseFieldPath(fieldCond.FieldPath)
 		fieldValue, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
 		if !found {
 			return false
 		}
-
-		switch fieldCond.Operator {
-		case "Equals":
-			if fieldValue != fieldCond.Value {
-				return false
-			}
-		case "NotEquals":
-			if fieldValue == fieldCond.Value {
-				return false
-			}
-		case "In":
-			found := false
-			for _, v := range fieldCond.Values {
-				if fieldValue == v {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return false
-			}
-		case "NotIn":
-			for _, v := range fieldCond.Values {
-				if fieldValue == v {
-					return false
-				}
-			}
+		if !gc.matchesFieldOperator(fieldValue, fieldCond) {
+			return false
 		}
 	}
-
 	return true
+}
+
+// matchesFieldOperator checks if field value matches the operator condition
+func (gc *GCController) matchesFieldOperator(fieldValue string, fieldCond v1alpha1.FieldCondition) bool {
+	switch fieldCond.Operator {
+	case "Equals":
+		return fieldValue == fieldCond.Value
+	case "NotEquals":
+		return fieldValue != fieldCond.Value
+	case "In":
+		for _, v := range fieldCond.Values {
+			if fieldValue == v {
+				return true
+			}
+		}
+		return false
+	case "NotIn":
+		for _, v := range fieldCond.Values {
+			if fieldValue == v {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 // deleteResource deletes a resource based on policy behavior
