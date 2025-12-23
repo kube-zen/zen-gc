@@ -13,16 +13,14 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 
-var (
-	// DefaultBackoff is the default exponential backoff configuration.
-	DefaultBackoff = wait.Backoff{
-		Steps:    5,
-		Duration: 100 * time.Millisecond,
-		Factor:   2.0,
-		Jitter:   0.1,
-		Cap:      30 * time.Second,
-	}
-)
+// DefaultBackoff is the default exponential backoff configuration.
+var DefaultBackoff = wait.Backoff{
+	Steps:    5,
+	Duration: 100 * time.Millisecond,
+	Factor:   2.0,
+	Jitter:   0.1,
+	Cap:      30 * time.Second,
+}
 
 // deleteResourceWithBackoff deletes a resource with exponential backoff retry.
 func (gc *GCController) deleteResourceWithBackoff(
