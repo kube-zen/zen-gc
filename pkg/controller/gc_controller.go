@@ -18,10 +18,11 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -49,6 +50,32 @@ const (
 
 	// DefaultBatchSize is the default batch size for deletions
 	DefaultBatchSize = 50
+)
+
+var (
+	// ErrPolicyInformerCacheSyncFailed indicates policy informer cache sync failed
+	ErrPolicyInformerCacheSyncFailed = errors.New("failed to sync policy informer cache")
+
+	// ErrResourceInformerCacheSyncFailed indicates resource informer cache sync failed
+	ErrResourceInformerCacheSyncFailed = errors.New("failed to sync resource informer cache")
+
+	// ErrNoMappingForFieldValue indicates no mapping found for field value
+	ErrNoMappingForFieldValue = errors.New("no mapping for field value")
+
+	// ErrFieldPathNotFound indicates field path not found
+	ErrFieldPathNotFound = errors.New("field path not found")
+
+	// ErrRelativeTimestampFieldNotFound indicates relative timestamp field not found
+	ErrRelativeTimestampFieldNotFound = errors.New("relative timestamp field not found")
+
+	// ErrInvalidTimestampFormat indicates invalid timestamp format
+	ErrInvalidTimestampFormat = errors.New("invalid timestamp format")
+
+	// ErrRelativeTTLExpired indicates relative TTL already expired
+	ErrRelativeTTLExpired = errors.New("relative TTL already expired")
+
+	// ErrNoValidTTLConfiguration indicates no valid TTL configuration
+	ErrNoValidTTLConfiguration = errors.New("no valid TTL configuration")
 )
 
 // GCController manages garbage collection policies
@@ -117,7 +144,7 @@ func (gc *GCController) Start() error {
 
 	// Wait for cache sync
 	if !cache.WaitForCacheSync(gc.ctx.Done(), gc.policyInformer.HasSynced) {
-		return fmt.Errorf("failed to sync policy informer cache")
+		return fmt.Errorf("%w", ErrPolicyInformerCacheSyncFailed)
 	}
 
 	// Start GC loop
@@ -373,14 +400,14 @@ func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpe
 				if ttlSpec.Default != nil {
 					return *ttlSpec.Default, nil
 				}
-				return 0, fmt.Errorf("no mapping for field value %s", strValue)
+				return 0, fmt.Errorf("%w: %s", ErrNoMappingForFieldValue, strValue)
 			}
 		}
 
 		if !found && ttlSpec.Default != nil {
 			return *ttlSpec.Default, nil
 		}
-		return 0, fmt.Errorf("field path %s not found", ttlSpec.FieldPath)
+		return 0, fmt.Errorf("%w: %s", ErrFieldPathNotFound, ttlSpec.FieldPath)
 	}
 
 	// Option 4: Relative TTL
@@ -388,12 +415,12 @@ func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpe
 		fieldPath := parseFieldPath(ttlSpec.RelativeTo)
 		timestampStr, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
 		if !found {
-			return 0, fmt.Errorf("relative timestamp field not found: %s", ttlSpec.RelativeTo)
+			return 0, fmt.Errorf("%w: %s", ErrRelativeTimestampFieldNotFound, ttlSpec.RelativeTo)
 		}
 
 		timestamp, err := time.Parse(time.RFC3339, timestampStr)
 		if err != nil {
-			return 0, fmt.Errorf("invalid timestamp format: %v", err)
+			return 0, fmt.Errorf("%w: %w", ErrInvalidTimestampFormat, err)
 		}
 
 		expirationTime := timestamp.Add(time.Duration(*ttlSpec.SecondsAfter) * time.Second)
@@ -401,10 +428,10 @@ func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpe
 		if ttlSeconds > 0 {
 			return ttlSeconds, nil
 		}
-		return 0, fmt.Errorf("relative TTL already expired")
+		return 0, fmt.Errorf("%w", ErrRelativeTTLExpired)
 	}
 
-	return 0, fmt.Errorf("no valid TTL configuration")
+	return 0, fmt.Errorf("%w", ErrNoValidTTLConfiguration)
 }
 
 // meetsConditions checks if a resource meets the deletion conditions
@@ -559,7 +586,7 @@ func (gc *GCController) deleteResource(resource *unstructured.Unstructured, poli
 		err = gc.dynamicClient.Resource(gvr).Namespace(namespace).Delete(gc.ctx, resource.GetName(), *deleteOptions)
 	}
 
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
@@ -615,7 +642,7 @@ func (gc *GCController) getOrCreateResourceInformer(policy *v1alpha1.GarbageColl
 
 	// Wait for cache sync
 	if !cache.WaitForCacheSync(gc.ctx.Done(), informer.HasSynced) {
-		return nil, fmt.Errorf("failed to sync resource informer cache")
+		return nil, fmt.Errorf("%w", ErrResourceInformerCacheSyncFailed)
 	}
 
 	return informer, nil

@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"net/http"
 	"os"
@@ -202,7 +203,7 @@ func startMetricsServer(addr string) {
 	}
 
 	klog.Infof("Starting metrics server on %s", addr)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		klog.Fatalf("Error starting metrics server: %v", err)
 	}
 }

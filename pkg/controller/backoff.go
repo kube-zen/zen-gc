@@ -2,10 +2,11 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -35,13 +36,13 @@ func (gc *GCController) deleteResourceWithBackoff(
 		err := gc.deleteResource(resource, policy)
 		if err != nil {
 			// Check if error is retryable
-			if errors.IsTimeout(err) || errors.IsServerTimeout(err) ||
-				errors.IsTooManyRequests(err) || errors.IsServiceUnavailable(err) {
+			if k8serrors.IsTimeout(err) || k8serrors.IsServerTimeout(err) ||
+				k8serrors.IsTooManyRequests(err) || k8serrors.IsServiceUnavailable(err) {
 				lastErr = err
 				return false, nil // retry
 			}
 			// For NotFound errors, consider it success (already deleted)
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				return true, nil // success
 			}
 			return false, err // don't retry
@@ -49,7 +50,7 @@ func (gc *GCController) deleteResourceWithBackoff(
 		return true, nil // success
 	})
 
-	if err == wait.ErrWaitTimeout {
+	if errors.Is(err, wait.ErrWaitTimeout) {
 		return fmt.Errorf("deletion failed after retries: %w", lastErr)
 	}
 
