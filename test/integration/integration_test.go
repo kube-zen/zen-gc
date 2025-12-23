@@ -5,13 +5,10 @@ import (
 	"testing"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/controller"
 )
 
