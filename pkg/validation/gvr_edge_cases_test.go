@@ -109,7 +109,7 @@ func TestParseGVR_EdgeCases(t *testing.T) {
 			name:        "empty kind",
 			apiVersion:  "v1",
 			kind:        "",
-			expectError: false, // Empty kind is valid, just produces empty resource
+			expectError: true, // Empty kind is invalid
 		},
 		{
 			name:        "invalid format - no version",

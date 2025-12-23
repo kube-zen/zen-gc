@@ -302,7 +302,22 @@ func TestGCController_updatePolicyStatus(t *testing.T) {
 		},
 	}
 
-	// Should not error (currently just logs)
+	// Create policy in fake client first
+	policyGVR := schema.GroupVersionResource{
+		Group:    "gc.kube-zen.io",
+		Version:  "v1alpha1",
+		Resource: "garbagecollectionpolicies",
+	}
+	unstructuredPolicy, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policy)
+	if err != nil {
+		t.Fatalf("Failed to convert policy to unstructured: %v", err)
+	}
+	_, err = dynamicClient.Resource(policyGVR).Namespace("default").Create(context.Background(), &unstructured.Unstructured{Object: unstructuredPolicy}, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create policy: %v", err)
+	}
+
+	// Should not error
 	err = controller.updatePolicyStatus(policy, 10, 5, 5)
 	if err != nil {
 		t.Errorf("updatePolicyStatus() returned error: %v", err)

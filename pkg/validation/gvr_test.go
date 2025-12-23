@@ -184,12 +184,20 @@ func TestValidateGVR(t *testing.T) {
 			if tt.gvr.Group != "" {
 				apiVersion = tt.gvr.Group + "/" + tt.gvr.Version
 			}
+			// For empty version test, we can't construct a valid apiVersion
+			if tt.gvr.Version == "" && tt.gvr.Group != "" {
+				apiVersion = tt.gvr.Group // This should error
+			}
 			// Convert resource name back to kind (singularize and capitalize)
 			kind := strings.TrimSuffix(tt.gvr.Resource, "s")
 			if strings.HasSuffix(tt.gvr.Resource, "ies") {
 				kind = strings.TrimSuffix(tt.gvr.Resource, "ies") + "y"
 			}
 			kind = cases.Title(language.English).String(kind)
+			// For empty resource test, kind will be empty after conversion
+			if tt.gvr.Resource == "" {
+				kind = ""
+			}
 
 			_, err := ParseGVR(apiVersion, kind)
 			if tt.expectError {
