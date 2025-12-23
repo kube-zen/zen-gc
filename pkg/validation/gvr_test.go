@@ -188,7 +188,7 @@ func TestValidateGVR(t *testing.T) {
 				kind = strings.TrimSuffix(tt.gvr.Resource, "ies") + "y"
 			}
 			kind = strings.Title(kind)
-			
+
 			_, err := ParseGVR(apiVersion, kind)
 			if tt.expectError {
 				if err == nil {

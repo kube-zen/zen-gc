@@ -310,4 +310,3 @@ func (in *FieldCondition) DeepCopy() *FieldCondition {
 	in.DeepCopyInto(out)
 	return out
 }
-
