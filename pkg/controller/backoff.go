@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	// defaultBackoff is the default exponential backoff configuration
-	defaultBackoff = wait.Backoff{
+	// DefaultBackoff is the default exponential backoff configuration.
+	DefaultBackoff = wait.Backoff{
 		Steps:    5,
 		Duration: 100 * time.Millisecond,
 		Factor:   2.0,
@@ -32,7 +32,7 @@ func (gc *GCController) deleteResourceWithBackoff(
 ) error {
 	var lastErr error
 
-	err := wait.ExponentialBackoff(defaultBackoff, func() (bool, error) {
+	err := wait.ExponentialBackoff(DefaultBackoff, func() (bool, error) {
 		err := gc.deleteResource(resource, policy)
 		if err != nil {
 			// Check if error is retryable

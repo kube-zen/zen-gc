@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	// Version information (set via build flags)
+	// Version information (set via build flags).
 	version   = "dev"
 	commit    = "unknown"
 	buildDate = "unknown"
@@ -163,7 +163,7 @@ func main() {
 	klog.Info("GC controller stopped")
 }
 
-// buildConfig builds a Kubernetes config from the given master URL and kubeconfig path
+// buildConfig builds a Kubernetes config from the given master URL and kubeconfig path.
 func buildConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
 	if kubeconfigPath == "" {
 		// Try in-cluster config first
@@ -177,7 +177,7 @@ func buildConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
 	return clientcmd.BuildConfigFromFlags(masterURL, kubeconfigPath)
 }
 
-// startMetricsServer starts the Prometheus metrics server
+// startMetricsServer starts the Prometheus metrics server.
 func startMetricsServer(addr string) {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())

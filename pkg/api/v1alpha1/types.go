@@ -95,7 +95,7 @@ type TTLSpec struct {
 	SecondsAfter *int64 `json:"secondsAfter,omitempty"`
 }
 
-// ConditionsSpec defines additional conditions for deletion
+// ConditionsSpec defines additional conditions for deletion.
 type ConditionsSpec struct {
 	// Only delete resources in specific phases/states
 	Phase []string `json:"phase,omitempty"`
@@ -110,20 +110,20 @@ type ConditionsSpec struct {
 	And []FieldCondition `json:"and,omitempty"`
 }
 
-// LabelCondition defines a label-based condition
+// LabelCondition defines a label-based condition.
 type LabelCondition struct {
 	Key      string `json:"key"`
 	Value    string `json:"value,omitempty"`
 	Operator string `json:"operator,omitempty"` // Exists, Equals, In, NotIn
 }
 
-// AnnotationCondition defines an annotation-based condition
+// AnnotationCondition defines an annotation-based condition.
 type AnnotationCondition struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
 }
 
-// FieldCondition defines a field-based condition
+// FieldCondition defines a field-based condition.
 type FieldCondition struct {
 	FieldPath string   `json:"fieldPath"`
 	Operator  string   `json:"operator"` // Equals, NotEquals, In, NotIn, Exists
@@ -131,7 +131,7 @@ type FieldCondition struct {
 	Values    []string `json:"values,omitempty"`
 }
 
-// BehaviorSpec defines GC execution behavior
+// BehaviorSpec defines GC execution behavior.
 type BehaviorSpec struct {
 	// Rate limiting: max deletions per second
 	MaxDeletionsPerSecond int `json:"maxDeletionsPerSecond,omitempty"`
@@ -152,7 +152,7 @@ type BehaviorSpec struct {
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty"`
 }
 
-// GarbageCollectionPolicyStatus defines the observed state of GarbageCollectionPolicy
+// GarbageCollectionPolicyStatus defines the observed state of GarbageCollectionPolicy.
 type GarbageCollectionPolicyStatus struct {
 	// Policy status phase
 	Phase string `json:"phase,omitempty"` // Active, Paused, Error
