@@ -33,7 +33,7 @@ func (gc *GCController) deleteResourceWithBackoff(
 	var lastErr error
 
 	err := wait.ExponentialBackoff(DefaultBackoff, func() (bool, error) {
-		// Check if context is cancelled
+		// Check if context is canceled
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
