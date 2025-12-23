@@ -1,7 +1,10 @@
 package controller
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -18,15 +21,15 @@ type eventSinkWrapper struct {
 }
 
 func (e *eventSinkWrapper) Create(event *corev1.Event) (*corev1.Event, error) {
-	return e.events.Create(event)
+	return e.events.Create(context.Background(), event, metav1.CreateOptions{})
 }
 
 func (e *eventSinkWrapper) Update(event *corev1.Event) (*corev1.Event, error) {
-	return e.events.Update(event)
+	return e.events.Update(context.Background(), event, metav1.UpdateOptions{})
 }
 
 func (e *eventSinkWrapper) Patch(oldEvent *corev1.Event, data []byte) (*corev1.Event, error) {
-	return e.events.Patch(oldEvent.Name, types.MergePatchType, data, nil)
+	return e.events.Patch(context.Background(), oldEvent.Name, types.MergePatchType, data, metav1.PatchOptions{})
 }
 
 // EventRecorder wraps Kubernetes event recorder for GC controller
