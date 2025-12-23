@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/controller"
@@ -19,8 +20,15 @@ func TestGCController_Integration(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 
+	// Create status updater
+	statusUpdater := controller.NewStatusUpdater(dynamicClient)
+
+	// Create event recorder with fake Kubernetes client
+	kubeClient := fake.NewSimpleClientset()
+	eventRecorder := controller.NewEventRecorder(kubeClient)
+
 	// Create controller
-	gcController, err := controller.NewGCController(dynamicClient)
+	gcController, err := controller.NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("Failed to create GC controller: %v", err)
 	}
@@ -58,7 +66,14 @@ func TestGCController_PolicyCRUD(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 
-	gcController, err := controller.NewGCController(dynamicClient)
+	// Create status updater
+	statusUpdater := controller.NewStatusUpdater(dynamicClient)
+
+	// Create event recorder with fake Kubernetes client
+	kubeClient := fake.NewSimpleClientset()
+	eventRecorder := controller.NewEventRecorder(kubeClient)
+
+	gcController, err := controller.NewGCController(dynamicClient, statusUpdater, eventRecorder)
 	if err != nil {
 		t.Fatalf("Failed to create GC controller: %v", err)
 	}
