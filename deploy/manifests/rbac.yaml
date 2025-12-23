@@ -16,6 +16,7 @@ kind: ServiceAccount
 metadata:
   name: gc-controller
   namespace: gc-system
+# yamllint disable-line document-start
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -75,6 +76,7 @@ rules:
     verbs:
       - create
       - patch
+# yamllint disable-line document-start
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
