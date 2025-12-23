@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -36,7 +35,6 @@ spec:
           annotations:
             summary: "GC Controller is down"
             description: "GC Controller has been down for more than 5 minutes."
-
         # Alert on high error rate
         - alert: GCControllerHighErrorRate
           expr: rate(gc_errors_total[5m]) > 10
@@ -49,7 +47,6 @@ spec:
             description: >
               GC Controller is experiencing {{ $value }} errors per second
               for policy {{ $labels.policy_name }}.
-
         # Alert on deletion failures
         - alert: GCControllerDeletionFailures
           expr: rate(gc_errors_total{error_type="deletion_failed"}[5m]) > 5
@@ -60,7 +57,6 @@ spec:
           annotations:
             summary: "High deletion failure rate"
             description: "GC Controller is failing to delete resources for policy {{ $labels.policy_name }}."
-
         # Alert on policy errors
         - alert: GCControllerPolicyErrors
           expr: gc_policies_total{phase="Error"} > 0
@@ -71,7 +67,6 @@ spec:
           annotations:
             summary: "GC Policy in error state"
             description: "GC Policy {{ $labels.policy_name }} is in error state."
-
         # Alert on slow deletion duration
         - alert: GCControllerSlowDeletions
           expr: histogram_quantile(0.95, rate(gc_deletion_duration_seconds_bucket[5m])) > 10
@@ -82,7 +77,6 @@ spec:
           annotations:
             summary: "Slow GC deletions detected"
             description: "95th percentile deletion duration is high for policy {{ $labels.policy_name }}."
-
         # Alert on high evaluation duration
         - alert: GCControllerSlowEvaluation
           expr: histogram_quantile(0.95, rate(gc_evaluation_duration_seconds_bucket[5m])) > 5
@@ -93,7 +87,6 @@ spec:
           annotations:
             summary: "Slow GC policy evaluation"
             description: "95th percentile evaluation duration is high for policy {{ $labels.policy_name }}."
-
         # Alert when no policies are active
         - alert: GCControllerNoActivePolicies
           expr: gc_policies_total{phase="Active"} == 0
@@ -104,7 +97,6 @@ spec:
           annotations:
             summary: "No active GC policies"
             description: "No active GC policies are configured. This may be expected if GC is not needed."
-
         # Alert on high deletion rate (may indicate issues)
         - alert: GCControllerHighDeletionRate
           expr: rate(gc_resources_deleted_total[5m]) > 100
