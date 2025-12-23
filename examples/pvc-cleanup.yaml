@@ -29,4 +29,3 @@ spec:
   behavior:
     maxDeletionsPerSecond: 1  # Low rate for storage operations
     dryRun: false
-

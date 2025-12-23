@@ -27,4 +27,3 @@ spec:
     phase: ["Succeeded", "Failed"]
   behavior:
     maxDeletionsPerSecond: 10
-

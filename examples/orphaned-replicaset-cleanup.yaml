@@ -32,4 +32,3 @@ spec:
   behavior:
     maxDeletionsPerSecond: 5
     dryRun: false  # Set to true initially to verify
-

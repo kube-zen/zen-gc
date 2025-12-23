@@ -34,4 +34,3 @@ spec:
     maxDeletionsPerSecond: 10
     gracePeriodSeconds: 0  # Immediate deletion for evicted pods
     dryRun: false
-
