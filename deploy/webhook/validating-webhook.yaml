@@ -22,7 +22,8 @@ spec:
       targetPort: 9443
   selector:
     app: gc-controller
---- # yamllint disable-line document-start
+# yamllint disable rule:document-start
+---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
