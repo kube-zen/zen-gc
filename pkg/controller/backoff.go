@@ -1,3 +1,4 @@
+// Package controller implements the garbage collection controller.
 package controller
 
 import (
@@ -24,7 +25,7 @@ var (
 	}
 )
 
-// deleteResourceWithBackoff deletes a resource with exponential backoff retry
+// deleteResourceWithBackoff deletes a resource with exponential backoff retry.
 func (gc *GCController) deleteResourceWithBackoff(
 	ctx context.Context,
 	resource *unstructured.Unstructured,

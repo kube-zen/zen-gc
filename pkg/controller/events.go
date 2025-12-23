@@ -15,7 +15,7 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 
-// eventSinkWrapper wraps EventInterface to implement record.EventSink
+// eventSinkWrapper wraps EventInterface to implement record.EventSink.
 type eventSinkWrapper struct {
 	events v1.EventInterface
 }
@@ -32,12 +32,12 @@ func (e *eventSinkWrapper) Patch(oldEvent *corev1.Event, data []byte) (*corev1.E
 	return e.events.Patch(context.Background(), oldEvent.Name, types.MergePatchType, data, metav1.PatchOptions{})
 }
 
-// EventRecorder wraps Kubernetes event recorder for GC controller
+// EventRecorder wraps Kubernetes event recorder for GC controller.
 type EventRecorder struct {
 	recorder record.EventRecorder
 }
 
-// NewEventRecorder creates a new event recorder
+// NewEventRecorder creates a new event recorder.
 func NewEventRecorder(client kubernetes.Interface) *EventRecorder {
 	// Create event broadcaster
 	eventBroadcaster := record.NewBroadcaster()
@@ -58,7 +58,7 @@ func NewEventRecorder(client kubernetes.Interface) *EventRecorder {
 	}
 }
 
-// RecordPolicyEvaluated records that a policy was evaluated
+// RecordPolicyEvaluated records that a policy was evaluated.
 func (er *EventRecorder) RecordPolicyEvaluated(
 	policy *v1alpha1.GarbageCollectionPolicy,
 	matched, deleted, pending int64,
@@ -72,7 +72,7 @@ func (er *EventRecorder) RecordPolicyEvaluated(
 	)
 }
 
-// RecordResourceDeleted records that a resource was deleted
+// RecordResourceDeleted records that a resource was deleted.
 func (er *EventRecorder) RecordResourceDeleted(
 	policy *v1alpha1.GarbageCollectionPolicy,
 	resource runtime.Object,
@@ -87,7 +87,7 @@ func (er *EventRecorder) RecordResourceDeleted(
 	)
 }
 
-// RecordEvaluationFailed records that policy evaluation failed
+// RecordEvaluationFailed records that policy evaluation failed.
 func (er *EventRecorder) RecordEvaluationFailed(
 	policy *v1alpha1.GarbageCollectionPolicy,
 	err error,
@@ -101,7 +101,7 @@ func (er *EventRecorder) RecordEvaluationFailed(
 	)
 }
 
-// RecordStatusUpdateFailed records that status update failed
+// RecordStatusUpdateFailed records that status update failed.
 func (er *EventRecorder) RecordStatusUpdateFailed(
 	policy *v1alpha1.GarbageCollectionPolicy,
 	err error,
@@ -115,7 +115,7 @@ func (er *EventRecorder) RecordStatusUpdateFailed(
 	)
 }
 
-// getResourceName extracts resource name from runtime.Object
+// getResourceName extracts resource name from runtime.Object.
 func getResourceName(obj runtime.Object) string {
 	if metaObj, ok := obj.(interface{ GetName() string }); ok {
 		return metaObj.GetName()
@@ -123,7 +123,7 @@ func getResourceName(obj runtime.Object) string {
 	return "unknown"
 }
 
-// RecordPolicyCreated records that a policy was created
+// RecordPolicyCreated records that a policy was created.
 func (er *EventRecorder) RecordPolicyCreated(policy *v1alpha1.GarbageCollectionPolicy) {
 	er.recorder.Eventf(
 		policy,
@@ -133,7 +133,7 @@ func (er *EventRecorder) RecordPolicyCreated(policy *v1alpha1.GarbageCollectionP
 	)
 }
 
-// RecordPolicyUpdated records that a policy was updated
+// RecordPolicyUpdated records that a policy was updated.
 func (er *EventRecorder) RecordPolicyUpdated(policy *v1alpha1.GarbageCollectionPolicy) {
 	er.recorder.Eventf(
 		policy,
@@ -143,7 +143,7 @@ func (er *EventRecorder) RecordPolicyUpdated(policy *v1alpha1.GarbageCollectionP
 	)
 }
 
-// RecordPolicyDeleted records that a policy was deleted
+// RecordPolicyDeleted records that a policy was deleted.
 func (er *EventRecorder) RecordPolicyDeleted(policy *v1alpha1.GarbageCollectionPolicy) {
 	er.recorder.Eventf(
 		policy,

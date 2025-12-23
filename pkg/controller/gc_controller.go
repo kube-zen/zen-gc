@@ -39,73 +39,73 @@ import (
 )
 
 const (
-	// ReasonNoTTL indicates that TTL could not be calculated
+	// ReasonNoTTL indicates that TTL could not be calculated.
 	ReasonNoTTL = "no_ttl"
 
-	// DefaultGCInterval is the default interval for GC runs
+	// DefaultGCInterval is the default interval for GC runs.
 	DefaultGCInterval = 1 * time.Minute
 
-	// DefaultMaxDeletionsPerSecond is the default rate limit
+	// DefaultMaxDeletionsPerSecond is the default rate limit.
 	DefaultMaxDeletionsPerSecond = 10
 
-	// DefaultBatchSize is the default batch size for deletions
+	// DefaultBatchSize is the default batch size for deletions.
 	DefaultBatchSize = 50
 )
 
 var (
-	// ErrPolicyInformerCacheSyncFailed indicates policy informer cache sync failed
+	// ErrPolicyInformerCacheSyncFailed indicates policy informer cache sync failed.
 	ErrPolicyInformerCacheSyncFailed = errors.New("failed to sync policy informer cache")
 
-	// ErrResourceInformerCacheSyncFailed indicates resource informer cache sync failed
+	// ErrResourceInformerCacheSyncFailed indicates resource informer cache sync failed.
 	ErrResourceInformerCacheSyncFailed = errors.New("failed to sync resource informer cache")
 
-	// ErrNoMappingForFieldValue indicates no mapping found for field value
+	// ErrNoMappingForFieldValue indicates no mapping found for field value.
 	ErrNoMappingForFieldValue = errors.New("no mapping for field value")
 
-	// ErrFieldPathNotFound indicates field path not found
+	// ErrFieldPathNotFound indicates field path not found.
 	ErrFieldPathNotFound = errors.New("field path not found")
 
-	// ErrRelativeTimestampFieldNotFound indicates relative timestamp field not found
+	// ErrRelativeTimestampFieldNotFound indicates relative timestamp field not found.
 	ErrRelativeTimestampFieldNotFound = errors.New("relative timestamp field not found")
 
-	// ErrInvalidTimestampFormat indicates invalid timestamp format
+	// ErrInvalidTimestampFormat indicates invalid timestamp format.
 	ErrInvalidTimestampFormat = errors.New("invalid timestamp format")
 
-	// ErrRelativeTTLExpired indicates relative TTL already expired
+	// ErrRelativeTTLExpired indicates relative TTL already expired.
 	ErrRelativeTTLExpired = errors.New("relative TTL already expired")
 
-	// ErrNoValidTTLConfiguration indicates no valid TTL configuration
+	// ErrNoValidTTLConfiguration indicates no valid TTL configuration.
 	ErrNoValidTTLConfiguration = errors.New("no valid TTL configuration")
 )
 
-// GCController manages garbage collection policies
+// GCController manages garbage collection policies.
 type GCController struct {
 	dynamicClient dynamic.Interface
 
-	// Policy informer factory
+	// Policy informer factory.
 	policyInformerFactory dynamicinformer.DynamicSharedInformerFactory
 
-	// Policy informer
+	// Policy informer.
 	policyInformer cache.SharedInformer
 
-	// Resource informers (one per policy)
+	// Resource informers (one per policy).
 	resourceInformers map[types.UID]cache.SharedInformer
 
-	// Rate limiter
+	// Rate limiter.
 	rateLimiter *RateLimiter
 
-	// Status updater
+	// Status updater.
 	statusUpdater *StatusUpdater
 
-	// Event recorder
+	// Event recorder.
 	eventRecorder *EventRecorder
 
-	// Context for cancellation
+	// Context for cancellation.
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-// NewGCController creates a new GC controller
+// NewGCController creates a new GC controller.
 func NewGCController(dynamicClient dynamic.Interface, statusUpdater *StatusUpdater, eventRecorder *EventRecorder) (*GCController, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -135,7 +135,7 @@ func NewGCController(dynamicClient dynamic.Interface, statusUpdater *StatusUpdat
 	}, nil
 }
 
-// Start starts the GC controller
+// Start starts the GC controller.
 func (gc *GCController) Start() error {
 	klog.Info("Starting GC controller")
 
@@ -154,13 +154,13 @@ func (gc *GCController) Start() error {
 	return nil
 }
 
-// Stop stops the GC controller
+// Stop stops the GC controller.
 func (gc *GCController) Stop() {
 	klog.Info("Stopping GC controller")
 	gc.cancel()
 }
 
-// runGCLoop runs the main GC evaluation loop
+// runGCLoop runs the main GC evaluation loop.
 func (gc *GCController) runGCLoop() {
 	ticker := time.NewTicker(DefaultGCInterval)
 	defer ticker.Stop()
@@ -177,7 +177,7 @@ func (gc *GCController) runGCLoop() {
 	}
 }
 
-// evaluatePolicies evaluates all policies and performs GC
+// evaluatePolicies evaluates all policies and performs GC.
 func (gc *GCController) evaluatePolicies() error {
 	// Get all policies from cache
 	policies := gc.policyInformer.GetStore().List()
@@ -210,7 +210,7 @@ func (gc *GCController) evaluatePolicies() error {
 	return nil
 }
 
-// evaluatePolicy evaluates a single policy
+// evaluatePolicy evaluates a single policy.
 func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy) error {
 	startTime := time.Now()
 	defer func() {
@@ -304,7 +304,7 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 	return nil
 }
 
-// matchesSelectors checks if a resource matches the target resource selectors
+// matchesSelectors checks if a resource matches the target resource selectors.
 func (gc *GCController) matchesSelectors(resource *unstructured.Unstructured, target *v1alpha1.TargetResourceSpec) bool {
 	// Check namespace
 	if target.Namespace != "" && target.Namespace != "*" {
@@ -341,7 +341,7 @@ func (gc *GCController) matchesSelectors(resource *unstructured.Unstructured, ta
 	return true
 }
 
-// shouldDelete determines if a resource should be deleted based on TTL and conditions
+// shouldDelete determines if a resource should be deleted based on TTL and conditions.
 func (gc *GCController) shouldDelete(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy) (shouldDelete bool, reason string) {
 	// Check conditions first
 	if policy.Spec.Conditions != nil {
@@ -372,7 +372,7 @@ func (gc *GCController) shouldDelete(resource *unstructured.Unstructured, policy
 	return false, "not_expired"
 }
 
-// calculateTTL calculates the TTL in seconds for a resource based on policy
+// calculateTTL calculates the TTL in seconds for a resource based on policy.
 func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpec *v1alpha1.TTLSpec) (int64, error) {
 	// Option 1: Fixed TTL
 	if ttlSpec.SecondsAfterCreation != nil {
@@ -434,7 +434,7 @@ func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpe
 	return 0, fmt.Errorf("%w", ErrNoValidTTLConfiguration)
 }
 
-// meetsConditions checks if a resource meets the deletion conditions
+// meetsConditions checks if a resource meets the deletion conditions.
 func (gc *GCController) meetsConditions(resource *unstructured.Unstructured, conditions *v1alpha1.ConditionsSpec) bool {
 	if !gc.meetsPhaseConditions(resource, conditions.Phase) {
 		return false
@@ -451,7 +451,7 @@ func (gc *GCController) meetsConditions(resource *unstructured.Unstructured, con
 	return true
 }
 
-// meetsPhaseConditions checks if resource phase matches any of the required phases
+// meetsPhaseConditions checks if resource phase matches any of the required phases.
 func (gc *GCController) meetsPhaseConditions(resource *unstructured.Unstructured, phases []string) bool {
 	if len(phases) == 0 {
 		return true
@@ -468,7 +468,7 @@ func (gc *GCController) meetsPhaseConditions(resource *unstructured.Unstructured
 	return false
 }
 
-// meetsLabelConditions checks if resource labels match the required conditions
+// meetsLabelConditions checks if resource labels match the required conditions.
 func (gc *GCController) meetsLabelConditions(resource *unstructured.Unstructured, labelConds []v1alpha1.LabelCondition) bool {
 	resourceLabels := resource.GetLabels()
 	for _, labelCond := range labelConds {
@@ -487,7 +487,7 @@ func (gc *GCController) meetsLabelConditions(resource *unstructured.Unstructured
 	return true
 }
 
-// meetsAnnotationConditions checks if resource annotations match the required conditions
+// meetsAnnotationConditions checks if resource annotations match the required conditions.
 func (gc *GCController) meetsAnnotationConditions(resource *unstructured.Unstructured, annConds []v1alpha1.AnnotationCondition) bool {
 	resourceAnnotations := resource.GetAnnotations()
 	for _, annCond := range annConds {
@@ -499,7 +499,7 @@ func (gc *GCController) meetsAnnotationConditions(resource *unstructured.Unstruc
 	return true
 }
 
-// meetsFieldConditions checks if resource fields match the required conditions
+// meetsFieldConditions checks if resource fields match the required conditions.
 func (gc *GCController) meetsFieldConditions(resource *unstructured.Unstructured, fieldConds []v1alpha1.FieldCondition) bool {
 	for _, fieldCond := range fieldConds {
 		fieldPath := parseFieldPath(fieldCond.FieldPath)
@@ -514,7 +514,7 @@ func (gc *GCController) meetsFieldConditions(resource *unstructured.Unstructured
 	return true
 }
 
-// matchesFieldOperator checks if field value matches the operator condition
+// matchesFieldOperator checks if field value matches the operator condition.
 func (gc *GCController) matchesFieldOperator(fieldValue string, fieldCond v1alpha1.FieldCondition) bool {
 	switch fieldCond.Operator {
 	case "Equals":
@@ -540,7 +540,7 @@ func (gc *GCController) matchesFieldOperator(fieldValue string, fieldCond v1alph
 	}
 }
 
-// deleteResource deletes a resource based on policy behavior
+// deleteResource deletes a resource based on policy behavior.
 func (gc *GCController) deleteResource(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy) error {
 	// Rate limiting
 	if err := gc.rateLimiter.Wait(gc.ctx); err != nil {
@@ -593,7 +593,7 @@ func (gc *GCController) deleteResource(resource *unstructured.Unstructured, poli
 	return nil
 }
 
-// getOrCreateResourceInformer gets or creates a resource informer for a policy
+// getOrCreateResourceInformer gets or creates a resource informer for a policy.
 func (gc *GCController) getOrCreateResourceInformer(policy *v1alpha1.GarbageCollectionPolicy) (cache.SharedInformer, error) {
 	// Check if informer already exists
 	if informer, ok := gc.resourceInformers[policy.UID]; ok {
@@ -648,8 +648,8 @@ func (gc *GCController) getOrCreateResourceInformer(policy *v1alpha1.GarbageColl
 	return informer, nil
 }
 
-// updatePolicyStatus is deprecated - use statusUpdater.UpdateStatus instead
-// Kept for backward compatibility
+// updatePolicyStatus is deprecated - use statusUpdater.UpdateStatus instead.
+// Kept for backward compatibility.
 func (gc *GCController) updatePolicyStatus(policy *v1alpha1.GarbageCollectionPolicy, matched, deleted, pending int64) error {
 	if gc.statusUpdater != nil {
 		return gc.statusUpdater.UpdateStatus(gc.ctx, policy, matched, deleted, pending)

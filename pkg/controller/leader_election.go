@@ -14,7 +14,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// LeaderElection manages leader election for GC controller HA
+// LeaderElection manages leader election for GC controller HA.
 type LeaderElection struct {
 	client    kubernetes.Interface
 	namespace string
@@ -26,7 +26,7 @@ type LeaderElection struct {
 	mu        sync.RWMutex
 }
 
-// NewLeaderElection creates a new leader election manager
+// NewLeaderElection creates a new leader election manager.
 func NewLeaderElection(
 	client kubernetes.Interface,
 	namespace string,
@@ -55,7 +55,7 @@ func NewLeaderElection(
 	}, nil
 }
 
-// Run starts the leader election process
+// Run starts the leader election process.
 func (le *LeaderElection) Run(ctx context.Context) error {
 	// Create lease lock
 	lock := &resourcelock.LeaseLock{
@@ -106,26 +106,26 @@ func (le *LeaderElection) Run(ctx context.Context) error {
 		},
 	}
 
-	// Run leader election (blocks until context is cancelled)
+	// Run leader election (blocks until context is canceled).
 	leaderelection.RunOrDie(ctx, lec)
 
 	return nil
 }
 
-// IsLeader returns whether this instance is the leader
+// IsLeader returns whether this instance is the leader.
 func (le *LeaderElection) IsLeader() bool {
 	le.mu.RLock()
 	defer le.mu.RUnlock()
 	return le.isLeader
 }
 
-// SetCallbacks sets the callbacks for leader election
+// SetCallbacks sets the callbacks for leader election.
 func (le *LeaderElection) SetCallbacks(onStarted func(context.Context), onStopped func()) {
 	le.onStarted = onStarted
 	le.onStopped = onStopped
 }
 
-// Identity returns the leader election identity
+// Identity returns the leader election identity.
 func (le *LeaderElection) Identity() string {
 	return le.identity
 }

@@ -6,13 +6,13 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// RateLimiter implements rate limiting for deletions using token bucket algorithm
+// RateLimiter implements rate limiting for deletions using token bucket algorithm.
 type RateLimiter struct {
 	limiter *rate.Limiter
 }
 
-// NewRateLimiter creates a new rate limiter
-// maxPerSecond specifies the maximum number of deletions allowed per second
+// NewRateLimiter creates a new rate limiter.
+// MaxPerSecond specifies the maximum number of deletions allowed per second.
 func NewRateLimiter(maxPerSecond int) *RateLimiter {
 	if maxPerSecond <= 0 {
 		maxPerSecond = DefaultMaxDeletionsPerSecond
@@ -23,13 +23,13 @@ func NewRateLimiter(maxPerSecond int) *RateLimiter {
 	}
 }
 
-// Wait waits until the next deletion is allowed, respecting the rate limit
-// It returns an error if the context is cancelled
+// Wait waits until the next deletion is allowed, respecting the rate limit.
+// It returns an error if the context is canceled.
 func (rl *RateLimiter) Wait(ctx context.Context) error {
 	return rl.limiter.Wait(ctx)
 }
 
-// SetRate updates the rate limit dynamically
+// SetRate updates the rate limit dynamically.
 func (rl *RateLimiter) SetRate(maxPerSecond int) {
 	if maxPerSecond <= 0 {
 		maxPerSecond = DefaultMaxDeletionsPerSecond

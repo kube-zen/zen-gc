@@ -13,26 +13,26 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 
-// PolicyGVR is the GroupVersionResource for GarbageCollectionPolicy CRDs
+// PolicyGVR is the GroupVersionResource for GarbageCollectionPolicy CRDs.
 var PolicyGVR = schema.GroupVersionResource{
 	Group:    "gc.kube-zen.io",
 	Version:  "v1alpha1",
 	Resource: "garbagecollectionpolicies",
 }
 
-// StatusUpdater updates GarbageCollectionPolicy CRD status subresource
+// StatusUpdater updates GarbageCollectionPolicy CRD status subresource.
 type StatusUpdater struct {
 	dynClient dynamic.Interface
 }
 
-// NewStatusUpdater creates a new status updater
+// NewStatusUpdater creates a new status updater.
 func NewStatusUpdater(dynClient dynamic.Interface) *StatusUpdater {
 	return &StatusUpdater{
 		dynClient: dynClient,
 	}
 }
 
-// UpdateStatus updates the GarbageCollectionPolicy CRD status subresource
+// UpdateStatus updates the GarbageCollectionPolicy CRD status subresource.
 func (s *StatusUpdater) UpdateStatus(
 	ctx context.Context,
 	policy *v1alpha1.GarbageCollectionPolicy,

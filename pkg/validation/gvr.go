@@ -1,3 +1,4 @@
+// Package validation provides GVR parsing and validation utilities.
 package validation
 
 import (
@@ -7,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// ParseGVR parses a GVR from API version and kind
+// ParseGVR parses a GVR from API version and kind.
 func ParseGVR(apiVersion, kind string) (schema.GroupVersionResource, error) {
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
@@ -23,7 +24,7 @@ func ParseGVR(apiVersion, kind string) (schema.GroupVersionResource, error) {
 	}, nil
 }
 
-// PluralizeKind converts a kind to a resource name (plural, lowercase)
+// PluralizeKind converts a kind to a resource name (plural, lowercase).
 func PluralizeKind(kind string) string {
 	// Simple conversion: lowercase and add 's' or 'es'
 	// This is a simplified version; in production, you'd want to use discovery

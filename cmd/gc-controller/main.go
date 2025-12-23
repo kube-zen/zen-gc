@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package main implements the GC controller command-line application.
 package main
 
 import (
@@ -136,7 +137,7 @@ func main() {
 			},
 		)
 
-		// Run leader election (blocks until context is cancelled)
+		// Run leader election (blocks until context is canceled).
 		klog.Info("Starting leader election...")
 		go func() {
 			if err := leaderElection.Run(ctx); err != nil {

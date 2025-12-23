@@ -61,7 +61,7 @@ func TestGCController_Stop(t *testing.T) {
 	// Stop should not panic
 	controller.Stop()
 
-	// Verify context is cancelled
+	// Verify context is canceled.
 	select {
 	case <-controller.ctx.Done():
 		// Expected

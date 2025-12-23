@@ -8,32 +8,32 @@ import (
 )
 
 var (
-	// ErrAPIVersionRequired indicates apiVersion is required
+	// ErrAPIVersionRequired indicates apiVersion is required.
 	ErrAPIVersionRequired = errors.New("apiVersion is required")
 
-	// ErrKindRequired indicates kind is required
+	// ErrKindRequired indicates kind is required.
 	ErrKindRequired = errors.New("kind is required")
 
-	// ErrNoTTLOptionSpecified indicates at least one TTL option must be specified
+	// ErrNoTTLOptionSpecified indicates at least one TTL option must be specified.
 	ErrNoTTLOptionSpecified = errors.New("at least one TTL option must be specified")
 
-	// ErrInvalidTTLMapping indicates invalid TTL mapping value
+	// ErrInvalidTTLMapping indicates invalid TTL mapping value.
 	ErrInvalidTTLMapping = errors.New("invalid TTL mapping: value must be positive")
 
-	// ErrMaxDeletionsPerSecondNegative indicates maxDeletionsPerSecond must be non-negative
+	// ErrMaxDeletionsPerSecondNegative indicates maxDeletionsPerSecond must be non-negative.
 	ErrMaxDeletionsPerSecondNegative = errors.New("maxDeletionsPerSecond must be non-negative")
 
-	// ErrBatchSizeNegative indicates batchSize must be non-negative
+	// ErrBatchSizeNegative indicates batchSize must be non-negative.
 	ErrBatchSizeNegative = errors.New("batchSize must be non-negative")
 
-	// ErrInvalidPropagationPolicy indicates invalid propagationPolicy value
+	// ErrInvalidPropagationPolicy indicates invalid propagationPolicy value.
 	ErrInvalidPropagationPolicy = errors.New("invalid propagationPolicy")
 
-	// ErrGracePeriodSecondsNegative indicates gracePeriodSeconds must be non-negative
+	// ErrGracePeriodSecondsNegative indicates gracePeriodSeconds must be non-negative.
 	ErrGracePeriodSecondsNegative = errors.New("gracePeriodSeconds must be non-negative")
 )
 
-// ValidatePolicy validates a GarbageCollectionPolicy
+// ValidatePolicy validates a GarbageCollectionPolicy.
 func ValidatePolicy(policy *gcapi.GarbageCollectionPolicy) error {
 	// Validate target resource
 	if err := validateTargetResource(&policy.Spec.TargetResource); err != nil {
@@ -53,7 +53,7 @@ func ValidatePolicy(policy *gcapi.GarbageCollectionPolicy) error {
 	return nil
 }
 
-// validateTargetResource validates the target resource specification
+// validateTargetResource validates the target resource specification.
 func validateTargetResource(target *gcapi.TargetResourceSpec) error {
 	if target.APIVersion == "" {
 		return fmt.Errorf("%w", ErrAPIVersionRequired)
@@ -66,7 +66,7 @@ func validateTargetResource(target *gcapi.TargetResourceSpec) error {
 	return nil
 }
 
-// validateTTL validates the TTL specification
+// validateTTL validates the TTL specification.
 func validateTTL(ttl *gcapi.TTLSpec) error {
 	// At least one TTL option must be specified
 	hasTTL := false
@@ -100,7 +100,7 @@ func validateTTL(ttl *gcapi.TTLSpec) error {
 	return nil
 }
 
-// validateBehavior validates the behavior specification
+// validateBehavior validates the behavior specification.
 func validateBehavior(behavior *gcapi.BehaviorSpec) error {
 	if behavior.MaxDeletionsPerSecond < 0 {
 		return fmt.Errorf("%w", ErrMaxDeletionsPerSecondNegative)

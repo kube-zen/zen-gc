@@ -65,7 +65,7 @@ func TestRateLimiter_Wait(t *testing.T) {
 	}
 }
 
-func TestRateLimiter_Wait_ContextCancelled(t *testing.T) {
+func TestRateLimiter_Wait_ContextCanceled(t *testing.T) {
 	rl := NewRateLimiter(1) // Very low rate to ensure we hit the limit
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
@@ -73,7 +73,7 @@ func TestRateLimiter_Wait_ContextCancelled(t *testing.T) {
 	// Wait should respect context cancellation
 	err := rl.Wait(ctx)
 	if err == nil {
-		t.Error("Wait() should return error when context is cancelled")
+		t.Error("Wait() should return error when context is canceled")
 	}
 }
 
