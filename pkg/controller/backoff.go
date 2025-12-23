@@ -25,17 +25,20 @@ var (
 )
 
 // deleteResourceWithBackoff deletes a resource with exponential backoff retry.
-//
-//nolint:unparam // ctx parameter is kept for API consistency and future use
 func (gc *GCController) deleteResourceWithBackoff(
 	ctx context.Context,
 	resource *unstructured.Unstructured,
 	policy *v1alpha1.GarbageCollectionPolicy,
 ) error {
-	_ = ctx // ctx is kept for API consistency
 	var lastErr error
 
 	err := wait.ExponentialBackoff(DefaultBackoff, func() (bool, error) {
+		// Check if context is cancelled
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		default:
+		}
 		err := gc.deleteResource(resource, policy)
 		if err != nil {
 			// Check if error is retryable
