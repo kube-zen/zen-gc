@@ -1,9 +1,36 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 
 	gcapi "github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
+)
+
+var (
+	// ErrAPIVersionRequired indicates apiVersion is required
+	ErrAPIVersionRequired = errors.New("apiVersion is required")
+
+	// ErrKindRequired indicates kind is required
+	ErrKindRequired = errors.New("kind is required")
+
+	// ErrNoTTLOptionSpecified indicates at least one TTL option must be specified
+	ErrNoTTLOptionSpecified = errors.New("at least one TTL option must be specified")
+
+	// ErrInvalidTTLMapping indicates invalid TTL mapping value
+	ErrInvalidTTLMapping = errors.New("invalid TTL mapping: value must be positive")
+
+	// ErrMaxDeletionsPerSecondNegative indicates maxDeletionsPerSecond must be non-negative
+	ErrMaxDeletionsPerSecondNegative = errors.New("maxDeletionsPerSecond must be non-negative")
+
+	// ErrBatchSizeNegative indicates batchSize must be non-negative
+	ErrBatchSizeNegative = errors.New("batchSize must be non-negative")
+
+	// ErrInvalidPropagationPolicy indicates invalid propagationPolicy value
+	ErrInvalidPropagationPolicy = errors.New("invalid propagationPolicy")
+
+	// ErrGracePeriodSecondsNegative indicates gracePeriodSeconds must be non-negative
+	ErrGracePeriodSecondsNegative = errors.New("gracePeriodSeconds must be non-negative")
 )
 
 // ValidatePolicy validates a GarbageCollectionPolicy
@@ -29,11 +56,11 @@ func ValidatePolicy(policy *gcapi.GarbageCollectionPolicy) error {
 // validateTargetResource validates the target resource specification
 func validateTargetResource(target *gcapi.TargetResourceSpec) error {
 	if target.APIVersion == "" {
-		return fmt.Errorf("apiVersion is required")
+		return fmt.Errorf("%w", ErrAPIVersionRequired)
 	}
 
 	if target.Kind == "" {
-		return fmt.Errorf("kind is required")
+		return fmt.Errorf("%w", ErrKindRequired)
 	}
 
 	return nil
@@ -57,7 +84,7 @@ func validateTTL(ttl *gcapi.TTLSpec) error {
 	}
 
 	if !hasTTL {
-		return fmt.Errorf("at least one TTL option must be specified")
+		return fmt.Errorf("%w", ErrNoTTLOptionSpecified)
 	}
 
 	// Validate mappings if fieldPath is specified
@@ -65,7 +92,7 @@ func validateTTL(ttl *gcapi.TTLSpec) error {
 		// Mappings are optional, but if specified, they should be valid
 		for key, value := range ttl.Mappings {
 			if value <= 0 {
-				return fmt.Errorf("invalid TTL mapping for key %s: value must be positive", key)
+				return fmt.Errorf("%w for key %s", ErrInvalidTTLMapping, key)
 			}
 		}
 	}
@@ -76,11 +103,11 @@ func validateTTL(ttl *gcapi.TTLSpec) error {
 // validateBehavior validates the behavior specification
 func validateBehavior(behavior *gcapi.BehaviorSpec) error {
 	if behavior.MaxDeletionsPerSecond < 0 {
-		return fmt.Errorf("maxDeletionsPerSecond must be non-negative")
+		return fmt.Errorf("%w", ErrMaxDeletionsPerSecondNegative)
 	}
 
 	if behavior.BatchSize < 0 {
-		return fmt.Errorf("batchSize must be non-negative")
+		return fmt.Errorf("%w", ErrBatchSizeNegative)
 	}
 
 	if behavior.PropagationPolicy != "" {
@@ -90,12 +117,12 @@ func validateBehavior(behavior *gcapi.BehaviorSpec) error {
 			"Orphan":     true,
 		}
 		if !validPolicies[behavior.PropagationPolicy] {
-			return fmt.Errorf("invalid propagationPolicy: %s (must be Foreground, Background, or Orphan)", behavior.PropagationPolicy)
+			return fmt.Errorf("%w: %s (must be Foreground, Background, or Orphan)", ErrInvalidPropagationPolicy, behavior.PropagationPolicy)
 		}
 	}
 
 	if behavior.GracePeriodSeconds != nil && *behavior.GracePeriodSeconds < 0 {
-		return fmt.Errorf("gracePeriodSeconds must be non-negative")
+		return fmt.Errorf("%w", ErrGracePeriodSecondsNegative)
 	}
 
 	return nil

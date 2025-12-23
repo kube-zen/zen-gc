@@ -342,7 +342,7 @@ func (gc *GCController) matchesSelectors(resource *unstructured.Unstructured, ta
 }
 
 // shouldDelete determines if a resource should be deleted based on TTL and conditions
-func (gc *GCController) shouldDelete(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy) (bool, string) {
+func (gc *GCController) shouldDelete(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy) (shouldDelete bool, reason string) {
 	// Check conditions first
 	if policy.Spec.Conditions != nil {
 		if !gc.meetsConditions(resource, policy.Spec.Conditions) {
