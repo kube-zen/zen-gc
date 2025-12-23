@@ -12,7 +12,7 @@ import (
 // +kubebuilder:printcolumn:name="Deleted",type="integer",JSONPath=".status.resourcesDeleted"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// GarbageCollectionPolicy is the Schema for the garbagecollectionpolicies API
+// GarbageCollectionPolicy is the Schema for the garbagecollectionpolicies API.
 type GarbageCollectionPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -23,14 +23,14 @@ type GarbageCollectionPolicy struct {
 
 // +kubebuilder:object:root=true
 
-// GarbageCollectionPolicyList contains a list of GarbageCollectionPolicy
+// GarbageCollectionPolicyList contains a list of GarbageCollectionPolicy.
 type GarbageCollectionPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []GarbageCollectionPolicy `json:"items"`
 }
 
-// GarbageCollectionPolicySpec defines the desired state of GarbageCollectionPolicy
+// GarbageCollectionPolicySpec defines the desired state of GarbageCollectionPolicy.
 type GarbageCollectionPolicySpec struct {
 	// TargetResource defines which resources the GC policy applies to
 	TargetResource TargetResourceSpec `json:"targetResource"`
@@ -45,7 +45,7 @@ type GarbageCollectionPolicySpec struct {
 	Behavior BehaviorSpec `json:"behavior,omitempty"`
 }
 
-// TargetResourceSpec defines the target resource for GC
+// TargetResourceSpec defines the target resource for GC.
 type TargetResourceSpec struct {
 	// API version of the target resource (e.g., "v1", "apps/v1", "batch/v1")
 	APIVersion string `json:"apiVersion"`
@@ -64,14 +64,14 @@ type TargetResourceSpec struct {
 	FieldSelector *FieldSelectorSpec `json:"fieldSelector,omitempty"`
 }
 
-// FieldSelectorSpec defines field-based selection
+// FieldSelectorSpec defines field-based selection.
 type FieldSelectorSpec struct {
 	// Field selector expressions
 	// Example: metadata.namespace=zen-system
 	MatchFields map[string]string `json:"matchFields,omitempty"`
 }
 
-// TTLSpec defines time-to-live configuration
+// TTLSpec defines time-to-live configuration.
 type TTLSpec struct {
 	// Option 1: Fixed TTL (seconds after creation)
 	SecondsAfterCreation *int64 `json:"secondsAfterCreation,omitempty"`
