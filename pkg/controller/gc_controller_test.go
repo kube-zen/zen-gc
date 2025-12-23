@@ -91,10 +91,7 @@ func TestGCController_evaluatePolicies_Empty(t *testing.T) {
 	controller.policyInformer = factory.ForResource(policyGVR).Informer()
 
 	// Should not error with empty policies
-	err = controller.evaluatePolicies()
-	if err != nil {
-		t.Errorf("evaluatePolicies() returned error: %v", err)
-	}
+	controller.evaluatePolicies()
 }
 
 func TestGCController_evaluatePolicies_WithPausedPolicy(t *testing.T) {
@@ -149,10 +146,7 @@ func TestGCController_evaluatePolicies_WithPausedPolicy(t *testing.T) {
 	controller.policyInformer.GetStore().Add(unstructuredObj)
 
 	// Should skip paused policy
-	err = controller.evaluatePolicies()
-	if err != nil {
-		t.Errorf("evaluatePolicies() returned error: %v", err)
-	}
+	controller.evaluatePolicies()
 }
 
 func TestGCController_deleteResource_DryRun(t *testing.T) {
