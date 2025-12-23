@@ -3,12 +3,31 @@ package controller
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
+
+// eventSinkWrapper wraps EventInterface to implement record.EventSink
+type eventSinkWrapper struct {
+	events v1.EventInterface
+}
+
+func (e *eventSinkWrapper) Create(event *corev1.Event) (*corev1.Event, error) {
+	return e.events.Create(event)
+}
+
+func (e *eventSinkWrapper) Update(event *corev1.Event) (*corev1.Event, error) {
+	return e.events.Update(event)
+}
+
+func (e *eventSinkWrapper) Patch(oldEvent *corev1.Event, data []byte) (*corev1.Event, error) {
+	return e.events.Patch(oldEvent.Name, types.MergePatchType, data, nil)
+}
 
 // EventRecorder wraps Kubernetes event recorder for GC controller
 type EventRecorder struct {
@@ -21,7 +40,9 @@ func NewEventRecorder(client kubernetes.Interface) *EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartStructuredLogging(0)
 	if client != nil {
-		eventBroadcaster.StartRecordingToSink(client.CoreV1().Events(""))
+		eventBroadcaster.StartRecordingToSink(&eventSinkWrapper{
+			events: client.CoreV1().Events(""),
+		})
 	}
 
 	// Create event recorder
