@@ -2,38 +2,62 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+var (
+	// ErrAPIVersionEmpty indicates apiVersion cannot be empty.
+	ErrAPIVersionEmpty = errors.New("apiVersion cannot be empty")
+
+	// ErrKindEmpty indicates kind cannot be empty.
+	ErrKindEmpty = errors.New("kind cannot be empty")
+
+	// ErrInvalidAPIVersionFormat indicates apiVersion must be in format 'v1' (core API) or 'group/v1' (grouped API).
+	ErrInvalidAPIVersionFormat = errors.New("apiVersion must be in format 'v1' (core API) or 'group/v1' (grouped API)")
+
+	// ErrAPIVersionMultipleSeparators indicates apiVersion must have exactly one '/' separator.
+	ErrAPIVersionMultipleSeparators = errors.New("apiVersion must have exactly one '/' separator")
+
+	// ErrAPIVersionGroupEmpty indicates apiVersion group cannot be empty.
+	ErrAPIVersionGroupEmpty = errors.New("apiVersion group cannot be empty")
+
+	// ErrAPIVersionVersionEmpty indicates apiVersion version cannot be empty.
+	ErrAPIVersionVersionEmpty = errors.New("apiVersion version cannot be empty")
+
+	// ErrAPIVersionMissingVersion indicates apiVersion must include a version.
+	ErrAPIVersionMissingVersion = errors.New("apiVersion must include a version (e.g., 'v1' or 'apps/v1')")
+)
+
 // ParseGVR parses a GVR from API version and kind.
 func ParseGVR(apiVersion, kind string) (schema.GroupVersionResource, error) {
 	if apiVersion == "" {
-		return schema.GroupVersionResource{}, fmt.Errorf("apiVersion cannot be empty")
+		return schema.GroupVersionResource{}, fmt.Errorf("%w", ErrAPIVersionEmpty)
 	}
 	if kind == "" {
-		return schema.GroupVersionResource{}, fmt.Errorf("kind cannot be empty")
+		return schema.GroupVersionResource{}, fmt.Errorf("%w", ErrKindEmpty)
 	}
 
 	// Validate format: must be "version" (core API) or "group/version" (grouped API)
 	// Core API versions must start with "v"
 	if !strings.Contains(apiVersion, "/") {
 		if !strings.HasPrefix(apiVersion, "v") {
-			return schema.GroupVersionResource{}, fmt.Errorf("apiVersion must be in format 'v1' (core API) or 'group/v1' (grouped API)")
+			return schema.GroupVersionResource{}, fmt.Errorf("%w", ErrInvalidAPIVersionFormat)
 		}
 	} else {
 		// Grouped API: must have both group and version
 		parts := strings.Split(apiVersion, "/")
 		if len(parts) != 2 {
-			return schema.GroupVersionResource{}, fmt.Errorf("apiVersion must have exactly one '/' separator")
+			return schema.GroupVersionResource{}, fmt.Errorf("%w", ErrAPIVersionMultipleSeparators)
 		}
 		if parts[0] == "" {
-			return schema.GroupVersionResource{}, fmt.Errorf("apiVersion group cannot be empty")
+			return schema.GroupVersionResource{}, fmt.Errorf("%w", ErrAPIVersionGroupEmpty)
 		}
 		if parts[1] == "" {
-			return schema.GroupVersionResource{}, fmt.Errorf("apiVersion version cannot be empty")
+			return schema.GroupVersionResource{}, fmt.Errorf("%w", ErrAPIVersionVersionEmpty)
 		}
 	}
 
@@ -44,7 +68,7 @@ func ParseGVR(apiVersion, kind string) (schema.GroupVersionResource, error) {
 
 	// Validate that version is not empty
 	if gv.Version == "" {
-		return schema.GroupVersionResource{}, fmt.Errorf("apiVersion must include a version (e.g., 'v1' or 'apps/v1')")
+		return schema.GroupVersionResource{}, fmt.Errorf("%w", ErrAPIVersionMissingVersion)
 	}
 
 	resource := PluralizeKind(kind)
