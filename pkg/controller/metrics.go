@@ -66,6 +66,7 @@ var (
 // recordPolicyPhase records the current phase of a policy.
 // This should be called with the actual count of policies in each phase,
 // not incremented on every evaluation. The caller should count policies and call Set().
+//nolint:unparam // count parameter is designed to accept variable counts, even if tests always use 1.0
 func recordPolicyPhase(phase string, count float64) {
 	gcPoliciesTotal.WithLabelValues(phase).Set(count)
 }

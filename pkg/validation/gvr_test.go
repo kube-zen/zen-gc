@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -187,7 +189,7 @@ func TestValidateGVR(t *testing.T) {
 			if strings.HasSuffix(tt.gvr.Resource, "ies") {
 				kind = strings.TrimSuffix(tt.gvr.Resource, "ies") + "y"
 			}
-			kind = strings.Title(kind)
+			kind = cases.Title(language.English).String(kind)
 
 			_, err := ParseGVR(apiVersion, kind)
 			if tt.expectError {

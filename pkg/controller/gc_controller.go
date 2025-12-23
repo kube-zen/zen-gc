@@ -170,15 +170,13 @@ func (gc *GCController) runGCLoop() {
 		case <-gc.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := gc.evaluatePolicies(); err != nil {
-				klog.Errorf("Error evaluating policies: %v", err)
-			}
+			gc.evaluatePolicies()
 		}
 	}
 }
 
 // evaluatePolicies evaluates all policies and performs GC.
-func (gc *GCController) evaluatePolicies() error {
+func (gc *GCController) evaluatePolicies() {
 	// Get all policies from cache
 	policies := gc.policyInformer.GetStore().List()
 
@@ -206,8 +204,6 @@ func (gc *GCController) evaluatePolicies() error {
 			klog.Errorf("Error evaluating policy %s/%s: %v", policy.Namespace, policy.Name, err)
 		}
 	}
-
-	return nil
 }
 
 // evaluatePolicy evaluates a single policy.
