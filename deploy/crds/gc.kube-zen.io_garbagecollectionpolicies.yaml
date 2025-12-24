@@ -46,146 +46,146 @@ spec:
                     namespace:
                       type: string
                     labelSelector:
-                    type: object
-                    properties:
-                      matchLabels:
-                        type: object
-                        additionalProperties:
-                          type: string
-                      matchExpressions:
-                        type: array
-                        items:
+                      type: object
+                      properties:
+                        matchLabels:
                           type: object
-                          properties:
-                            key:
-                              type: string
-                            operator:
-                              type: string
-                            values:
-                              type: array
-                              items:
-                                type: string
-                  fieldSelector:
-                    type: object
-                    properties:
-                      matchFields:
-                        type: object
-                        additionalProperties:
-                          type: string
-              ttl:
-                type: object
-                properties:
-                  secondsAfterCreation:
-                    type: integer
-                  fieldPath:
-                    type: string
-                  mappings:
-                    type: object
-                    additionalProperties:
-                      type: integer
-                  default:
-                    type: integer
-                  relativeTo:
-                    type: string
-                  secondsAfter:
-                    type: integer
-              conditions:
-                type: object
-                properties:
-                  phase:
-                    type: array
-                    items:
-                      type: string
-                  hasLabels:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        key:
-                          type: string
-                        value:
-                          type: string
-                        operator:
-                          type: string
-                  hasAnnotations:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        key:
-                          type: string
-                        value:
-                          type: string
-                  and:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        fieldPath:
-                          type: string
-                        operator:
-                          type: string
-                        value:
-                          type: string
-                        values:
+                          additionalProperties:
+                            type: string
+                        matchExpressions:
                           type: array
                           items:
+                            type: object
+                            properties:
+                              key:
+                                type: string
+                              operator:
+                                type: string
+                              values:
+                                type: array
+                                items:
+                                  type: string
+                    fieldSelector:
+                      type: object
+                      properties:
+                        matchFields:
+                          type: object
+                          additionalProperties:
                             type: string
-              behavior:
-                type: object
-                properties:
-                  maxDeletionsPerSecond:
-                    type: integer
-                  batchSize:
-                    type: integer
-                  dryRun:
-                    type: boolean
-                  finalizer:
-                    type: string
-                  propagationPolicy:
-                    type: string
-                    enum:
-                      - Foreground
-                      - Background
-                      - Orphan
-                  gracePeriodSeconds:
-                    type: integer
-          status:
-            type: object
-            properties:
-              phase:
-                type: string
-              resourcesMatched:
-                type: integer
-              resourcesDeleted:
-                type: integer
-              resourcesPending:
-                type: integer
-              lastGCRun:
-                type: string
-                format: date-time
-              nextGCRun:
-                type: string
-                format: date-time
-              conditions:
-                type: array
-                items:
+                ttl:
                   type: object
                   properties:
-                    type:
+                    secondsAfterCreation:
+                      type: integer
+                    fieldPath:
                       type: string
-                    status:
+                    mappings:
+                      type: object
+                      additionalProperties:
+                        type: integer
+                    default:
+                      type: integer
+                    relativeTo:
                       type: string
-                    lastTransitionTime:
+                    secondsAfter:
+                      type: integer
+                conditions:
+                  type: object
+                  properties:
+                    phase:
+                      type: array
+                      items:
+                        type: string
+                    hasLabels:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          value:
+                            type: string
+                          operator:
+                            type: string
+                    hasAnnotations:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          value:
+                            type: string
+                    and:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          fieldPath:
+                            type: string
+                          operator:
+                            type: string
+                          value:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                behavior:
+                  type: object
+                  properties:
+                    maxDeletionsPerSecond:
+                      type: integer
+                    batchSize:
+                      type: integer
+                    dryRun:
+                      type: boolean
+                    finalizer:
                       type: string
-                      format: date-time
-                    reason:
+                    propagationPolicy:
                       type: string
-                    message:
-                      type: string
-          subresources:
-            status: {}
-      scope: Namespaced
+                      enum:
+                        - Foreground
+                        - Background
+                        - Orphan
+                    gracePeriodSeconds:
+                      type: integer
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                resourcesMatched:
+                  type: integer
+                resourcesDeleted:
+                  type: integer
+                resourcesPending:
+                  type: integer
+                lastGCRun:
+                  type: string
+                  format: date-time
+                nextGCRun:
+                  type: string
+                  format: date-time
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
+      subresources:
+        status: {}
+  scope: Namespaced
   names:
     plural: garbagecollectionpolicies
     singular: garbagecollectionpolicy
