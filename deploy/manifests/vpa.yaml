@@ -1,0 +1,56 @@
+# Copyright 2025 Kube-ZEN Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# Vertical Pod Autoscaler for GC Controller
+# This VPA provides recommendations for resource limits based on actual usage.
+#
+# IMPORTANT: VPA requires the VPA admission controller to be installed.
+# For production, consider using updateMode: "Off" to get recommendations only.
+#
+# To install VPA:
+#   git clone https://github.com/kubernetes/autoscaler.git
+#   cd autoscaler/vertical-pod-autoscaler
+#   ./hack/vpa-up.sh
+#
+# To use this VPA:
+#   kubectl apply -f deploy/manifests/vpa.yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: gc-controller-vpa
+  namespace: gc-system
+  labels:
+    app: gc-controller
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gc-controller
+  updatePolicy:
+    # Options: "Auto", "Recreate", "Off"
+    # - Auto: Automatically adjusts resources (requires VPA admission controller)
+    # - Recreate: Restarts pods with new resources
+    # - Off: Only provides recommendations (safest for production)
+    updateMode: "Off"  # Change to "Auto" or "Recreate" if VPA admission controller is installed
+  resourcePolicy:
+    containerPolicies:
+      - containerName: gc-controller
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 4000m
+          memory: 4Gi
+        controlledResources: ["cpu", "memory"]
+        # Optional: Set specific requests/limits
+        # controlledValues: RequestsAndLimits

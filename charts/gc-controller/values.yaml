@@ -1,0 +1,120 @@
+# Copyright 2025 Kube-ZEN Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Default values for gc-controller
+# This is a YAML-formatted file.
+
+replicaCount: 2
+
+image:
+  repository: docker.io/kube-zen/gc-controller
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# Resource limits and requests for the controller pod
+# Adjust based on:
+# - Number of policies (more policies = more CPU/memory)
+# - Number of resources being watched (more resources = more memory for cache)
+# - Deletion rate (higher rates = more CPU)
+# - Concurrent evaluations (higher concurrency = more CPU)
+#
+# See docs/OPERATOR_GUIDE.md for detailed resource recommendations by scale
+resources:
+  limits:
+    cpu: 500m      # Adjust for larger workloads (see OPERATOR_GUIDE.md)
+    memory: 512Mi  # Adjust for larger workloads (see OPERATOR_GUIDE.md)
+  requests:
+    cpu: 100m      # Base: 50m + ~1-2m per policy + ~0.01m per 1k resources
+    memory: 128Mi  # Base: 40MB + ~2-5MB per policy + ~0.1KB per resource
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Leader election configuration
+leaderElection:
+  enabled: true
+  namespace: ""  # Defaults to release namespace
+
+# Controller arguments
+args:
+  - --metrics-addr=:8080
+  - --enable-leader-election=true
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: metrics
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: metrics
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Prometheus monitoring
+prometheus:
+  enabled: false  # Set to true if Prometheus Operator is installed
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+  prometheusRule:
+    enabled: false  # Set to true if Prometheus Operator is installed
+    labels: {}
+
+# CRD installation
+crds:
+  install: true
+

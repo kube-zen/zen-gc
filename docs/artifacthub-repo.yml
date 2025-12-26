@@ -1,0 +1,25 @@
+# Artifact Hub repository metadata file
+#
+# This file configures how Artifact Hub indexes and displays packages from this
+# Helm repository. For more information, see:
+# https://artifacthub.io/docs/topics/repositories/#repository-metadata-file
+#
+# Note: Some settings like the verified publisher flag or the ignored packages
+# won't be applied until the next time the repository is processed. The repository
+# is processed when the index.yaml file changes.
+#
+# repositoryID: The ID of the Artifact Hub repository where the packages will be published to
+# (optional, but enables verified publisher status)
+repositoryID: 932dd8e5-fce2-4781-b952-c3ecce7a5405
+
+# owners: List of owners to claim repository ownership (optional)
+owners:
+  - name: Kube-ZEN Contributors
+    email: zen@kube-zen.io
+
+# ignore: Packages that should not be indexed by Artifact Hub (optional)
+# Currently, we want all packages indexed, so this is commented out:
+# ignore:
+#   - name: gc-controller
+#     version: beta  # Regular expression (when omitted, all versions are ignored)
+

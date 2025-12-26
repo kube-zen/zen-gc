@@ -1,0 +1,1393 @@
+/*
+Copyright 2025 Kube-ZEN Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package controller
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"time"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
+
+	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
+	"github.com/kube-zen/zen-gc/pkg/config"
+	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
+	"github.com/kube-zen/zen-gc/pkg/logging"
+	"github.com/kube-zen/zen-gc/pkg/validation"
+)
+
+const (
+	// ReasonNoTTL indicates that TTL could not be calculated.
+	ReasonNoTTL = "no_ttl"
+
+	// DefaultGCInterval is the default interval for GC runs.
+	DefaultGCInterval = 1 * time.Minute
+
+	// DefaultMaxDeletionsPerSecond is the default rate limit.
+	DefaultMaxDeletionsPerSecond = 10
+
+	// DefaultBatchSize is the default batch size for deletions.
+	DefaultBatchSize = 50
+
+	// DefaultMaxConcurrentEvaluations is the default number of concurrent policy evaluations.
+	DefaultMaxConcurrentEvaluations = 5
+
+	// DefaultCacheSyncTimeout is the default timeout for cache synchronization.
+	DefaultCacheSyncTimeout = 30 * time.Second
+
+	// DefaultShutdownTimeout is the default timeout for graceful shutdown.
+	DefaultShutdownTimeout = 30 * time.Second
+)
+
+var (
+	// ErrPolicyInformerCacheSyncFailed indicates policy informer cache sync failed.
+	ErrPolicyInformerCacheSyncFailed = errors.New("failed to sync policy informer cache")
+
+	// ErrResourceInformerCacheSyncFailed indicates resource informer cache sync failed.
+	ErrResourceInformerCacheSyncFailed = errors.New("failed to sync resource informer cache")
+
+	// ErrNoMappingForFieldValue indicates no mapping found for field value.
+	ErrNoMappingForFieldValue = errors.New("no mapping for field value")
+
+	// ErrFieldPathNotFound indicates field path not found.
+	ErrFieldPathNotFound = errors.New("field path not found")
+
+	// ErrRelativeTimestampFieldNotFound indicates relative timestamp field not found.
+	ErrRelativeTimestampFieldNotFound = errors.New("relative timestamp field not found")
+
+	// ErrInvalidTimestampFormat indicates invalid timestamp format.
+	ErrInvalidTimestampFormat = errors.New("invalid timestamp format")
+
+	// ErrRelativeTTLExpired indicates relative TTL already expired.
+	ErrRelativeTTLExpired = errors.New("relative TTL already expired")
+
+	// ErrNoValidTTLConfiguration indicates no valid TTL configuration.
+	ErrNoValidTTLConfiguration = errors.New("no valid TTL configuration")
+)
+
+// GCController manages garbage collection policies.
+type GCController struct {
+	dynamicClient dynamic.Interface
+
+	// Controller configuration.
+	config *config.ControllerConfig
+
+	// Policy informer factory.
+	policyInformerFactory dynamicinformer.DynamicSharedInformerFactory
+
+	// Policy informer.
+	policyInformer cache.SharedInformer
+
+	// Resource informers (one per policy).
+	// Protected by resourceInformersMu mutex.
+	resourceInformers map[types.UID]cache.SharedInformer
+
+	// Resource informer factories (one per policy).
+	// Protected by resourceInformersMu mutex.
+	resourceInformerFactories map[types.UID]dynamicinformer.DynamicSharedInformerFactory
+
+	// Mutex to protect resourceInformers and resourceInformerFactories maps.
+	resourceInformersMu sync.RWMutex
+
+	// Per-policy rate limiters (one per policy).
+	// Protected by rateLimitersMu mutex.
+	rateLimiters map[types.UID]*RateLimiter
+
+	// Mutex to protect rateLimiters map.
+	rateLimitersMu sync.RWMutex
+
+	// Status updater.
+	statusUpdater *StatusUpdater
+
+	// Event recorder.
+	eventRecorder *EventRecorder
+
+	// Context for cancellation.
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	// Shutdown synchronization
+	shutdownComplete chan struct{}
+	shutdownOnce     sync.Once
+}
+
+// NewGCController creates a new GC controller with default configuration.
+// Deprecated: Use NewGCControllerWithConfig instead.
+func NewGCController(dynamicClient dynamic.Interface, statusUpdater *StatusUpdater, eventRecorder *EventRecorder) (*GCController, error) {
+	return NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, config.NewControllerConfig())
+}
+
+// NewGCControllerWithConfig creates a new GC controller with the given configuration.
+func NewGCControllerWithConfig(dynamicClient dynamic.Interface, statusUpdater *StatusUpdater, eventRecorder *EventRecorder, cfg *config.ControllerConfig) (*GCController, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Use default config if nil
+	if cfg == nil {
+		cfg = config.NewControllerConfig()
+	}
+
+	// Create policy GVR
+	policyGVR := schema.GroupVersionResource{
+		Group:    "gc.kube-zen.io",
+		Version:  "v1alpha1",
+		Resource: "garbagecollectionpolicies",
+	}
+
+	// Create informer factory for policies using configured interval
+	factory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, cfg.GCInterval)
+
+	// Create policy informer
+	policyInformer := factory.ForResource(policyGVR).Informer()
+
+	return &GCController{
+		dynamicClient:             dynamicClient,
+		config:                    cfg,
+		policyInformerFactory:     factory,
+		policyInformer:            policyInformer,
+		resourceInformers:         make(map[types.UID]cache.SharedInformer),
+		resourceInformerFactories: make(map[types.UID]dynamicinformer.DynamicSharedInformerFactory),
+		rateLimiters:              make(map[types.UID]*RateLimiter),
+		statusUpdater:             statusUpdater,
+		eventRecorder:             eventRecorder,
+		ctx:                       ctx,
+		cancel:                    cancel,
+		shutdownComplete:          make(chan struct{}),
+	}, nil
+}
+
+// Start starts the GC controller.
+// Cache sync is performed asynchronously to avoid blocking startup.
+func (gc *GCController) Start() error {
+	logger := logging.NewLogger()
+	logger.Info("Starting GC controller")
+
+	// Add event handlers to policy informer to handle policy deletions and updates
+	_, err := gc.policyInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			gc.handlePolicyDelete(obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			gc.handlePolicyUpdate(oldObj, newObj)
+		},
+	})
+	if err != nil {
+		logger.WithError(err).Error("Failed to add event handlers to policy informer")
+		return err
+	}
+
+	// Start policy informer factory (non-blocking)
+	gc.policyInformerFactory.Start(gc.ctx.Done())
+
+	// Start cache sync in background and GC loop
+	// The GC loop will wait for cache sync before evaluating policies
+	go gc.waitForCacheSyncAndStart()
+
+	logger.Info("GC controller started (cache sync in progress)")
+	return nil
+}
+
+// waitForCacheSyncAndStart waits for cache sync and then starts the GC loop.
+// This allows the controller to start quickly while cache sync happens in background.
+func (gc *GCController) waitForCacheSyncAndStart() {
+	// Wait for cache sync with timeout
+	syncCtx, syncCancel := context.WithTimeout(gc.ctx, DefaultCacheSyncTimeout)
+	defer syncCancel()
+
+	// Add correlation ID for cache sync operation
+	correlationID := logging.GenerateCorrelationID()
+	syncCtx = logging.WithCorrelationID(syncCtx, correlationID)
+	logger := logging.FromContext(syncCtx)
+
+	logger.V(2).Info("Waiting for policy informer cache to sync")
+	startTime := time.Now()
+
+	if !cache.WaitForCacheSync(syncCtx.Done(), gc.policyInformer.HasSynced) {
+		syncDuration := time.Since(startTime)
+		if syncCtx.Err() != nil {
+			logger.WithDuration(syncDuration).WithError(syncCtx.Err()).Error("Policy informer cache sync timed out")
+			return
+		}
+		logger.WithDuration(syncDuration).Error("Policy informer cache sync failed")
+		return
+	}
+
+	syncDuration := time.Since(startTime)
+	logger.WithDuration(syncDuration).Info("Policy informer cache synced successfully")
+
+	// Start GC loop once cache is synced
+	go gc.runGCLoop()
+}
+
+// Stop stops the GC controller gracefully.
+// It waits for in-flight operations to complete (with timeout) before cleaning up.
+func (gc *GCController) Stop() {
+	gc.shutdownOnce.Do(func() {
+		gc.stop()
+	})
+}
+
+// stop performs the actual shutdown logic.
+func (gc *GCController) stop() {
+	logger := logging.NewLogger()
+	logger.Info("Stopping GC controller gracefully")
+	shutdownStart := time.Now()
+
+	// Cancel context to signal shutdown to all goroutines
+	gc.cancel()
+
+	// Wait for GC loop to finish current evaluation (with timeout)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), DefaultShutdownTimeout)
+	defer shutdownCancel()
+
+	// Wait for shutdown completion or timeout
+	select {
+	case <-gc.shutdownComplete:
+		klog.Info("GC controller stopped gracefully")
+	case <-shutdownCtx.Done():
+		klog.Warningf("GC controller shutdown timed out after %v, forcing cleanup", DefaultShutdownTimeout)
+	}
+
+	// Clean up all resource informers and rate limiters
+	gc.cleanupAllResourceInformers()
+	gc.cleanupAllRateLimiters()
+
+	shutdownDuration := time.Since(shutdownStart)
+	klog.Infof("GC controller shutdown completed in %v", shutdownDuration)
+}
+
+// runGCLoop runs the main GC evaluation loop.
+func (gc *GCController) runGCLoop() {
+	defer close(gc.shutdownComplete)
+
+	interval := DefaultGCInterval
+	if gc.config != nil {
+		interval = gc.config.GCInterval
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-gc.ctx.Done():
+			klog.V(2).Info("GC loop stopping: context canceled")
+			// Allow current evaluation to complete if in progress
+			// The evaluatePolicies function checks context cancellation internally
+			return
+		case <-ticker.C:
+			gc.evaluatePolicies()
+		}
+	}
+}
+
+// evaluatePolicies evaluates all policies and performs GC.
+// Policies are evaluated in parallel using a worker pool pattern.
+func (gc *GCController) evaluatePolicies() {
+	// Check if context is canceled before starting
+	select {
+	case <-gc.ctx.Done():
+		klog.V(4).Info("Skipping policy evaluation: context canceled")
+		return
+	default:
+	}
+
+	// Ensure cache is synced before evaluating policies
+	if !gc.policyInformer.HasSynced() {
+		klog.V(4).Info("Skipping policy evaluation: cache not yet synced")
+		return
+	}
+
+	// Get all policies from cache
+	policies := gc.policyInformer.GetStore().List()
+
+	// Determine concurrency limit
+	maxConcurrent := DefaultMaxConcurrentEvaluations
+	if gc.config != nil && gc.config.MaxConcurrentEvaluations > 0 {
+		maxConcurrent = gc.config.MaxConcurrentEvaluations
+	}
+
+	// If we have fewer policies than the concurrency limit, use sequential evaluation
+	if len(policies) <= maxConcurrent {
+		gc.evaluatePoliciesSequential(policies)
+		return
+	}
+
+	// Use worker pool for parallel evaluation
+	gc.evaluatePoliciesParallel(policies, maxConcurrent)
+
+	// Record policy phase metrics after evaluation
+	gc.recordPolicyPhaseMetrics()
+}
+
+// recordPolicyPhaseMetrics records metrics for policy phases.
+func (gc *GCController) recordPolicyPhaseMetrics() {
+	if !gc.policyInformer.HasSynced() {
+		return
+	}
+
+	policies := gc.policyInformer.GetStore().List()
+	phaseCounts := make(map[string]float64)
+
+	for _, obj := range policies {
+		policy := gc.convertToPolicy(obj)
+		if policy == nil {
+			continue
+		}
+
+		phase := policy.Status.Phase
+		if phase == "" {
+			phase = "Active"
+		}
+		phaseCounts[phase]++
+	}
+
+	// Update metrics for each phase
+	for phase, count := range phaseCounts {
+		recordPolicyPhase(phase, count)
+	}
+
+	// Reset phases that are no longer present
+	knownPhases := []string{"Active", "Paused", "Error"}
+	for _, phase := range knownPhases {
+		if _, exists := phaseCounts[phase]; !exists {
+			recordPolicyPhase(phase, 0)
+		}
+	}
+}
+
+// evaluatePoliciesSequential evaluates policies sequentially (for small numbers).
+func (gc *GCController) evaluatePoliciesSequential(policies []interface{}) {
+	for _, obj := range policies {
+		// Check context cancellation between policy evaluations
+		select {
+		case <-gc.ctx.Done():
+			klog.V(4).Info("Stopping policy evaluation: context canceled")
+			return
+		default:
+		}
+
+		policy := gc.convertToPolicy(obj)
+		if policy == nil {
+			continue
+		}
+
+		// Skip paused policies (check spec.paused, not status.phase)
+		if policy.Spec.Paused {
+			continue
+		}
+
+		if err := gc.evaluatePolicy(policy); err != nil {
+			gcErr := gcerrors.WithPolicy(err, policy.Namespace, policy.Name)
+			if gcErr.Type == "" {
+				gcErr.Type = "evaluation_failed"
+			}
+			klog.Errorf("Error evaluating policy %s/%s: %v", policy.Namespace, policy.Name, gcErr)
+		}
+	}
+}
+
+// evaluatePoliciesParallel evaluates policies in parallel using a worker pool.
+func (gc *GCController) evaluatePoliciesParallel(policies []interface{}, maxConcurrent int) {
+	// Create a channel for policies to evaluate
+	policyChan := make(chan *v1alpha1.GarbageCollectionPolicy, len(policies))
+
+	// Convert policies and send to channel
+	for _, obj := range policies {
+		policy := gc.convertToPolicy(obj)
+		if policy == nil {
+			continue
+		}
+		// Skip paused policies (check spec.paused, not status.phase)
+		if policy.Spec.Paused {
+			continue
+		}
+		policyChan <- policy
+	}
+	close(policyChan)
+
+	// Create worker pool
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, maxConcurrent)
+
+	// Process policies with worker pool
+	for policy := range policyChan {
+		// Check context cancellation
+		select {
+		case <-gc.ctx.Done():
+			klog.V(4).Info("Stopping policy evaluation: context canceled")
+			// Drain remaining policies from channel
+			for range policyChan {
+			}
+			wg.Wait()
+			return
+		default:
+		}
+
+		// Acquire semaphore
+		semaphore <- struct{}{}
+		wg.Add(1)
+
+		// Evaluate policy in goroutine
+		go func(p *v1alpha1.GarbageCollectionPolicy) {
+			defer wg.Done()
+			defer func() { <-semaphore }() // Release semaphore
+
+			if err := gc.evaluatePolicy(p); err != nil {
+				gcErr := gcerrors.WithPolicy(err, p.Namespace, p.Name)
+				if gcErr.Type == "" {
+					gcErr.Type = "evaluation_failed"
+				}
+				klog.Errorf("Error evaluating policy %s/%s: %v", p.Namespace, p.Name, gcErr)
+			}
+		}(policy)
+	}
+
+	// Wait for all workers to complete
+	wg.Wait()
+}
+
+// convertToPolicy converts an unstructured object to a GarbageCollectionPolicy.
+// Returns nil if conversion fails or object type is unexpected.
+func (gc *GCController) convertToPolicy(obj interface{}) *v1alpha1.GarbageCollectionPolicy {
+	// Convert unstructured to GarbageCollectionPolicy
+	unstructuredObj, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		klog.Warningf("Unexpected object type in policy informer: %T", obj)
+		return nil
+	}
+
+	// Convert to typed object
+	policy := &v1alpha1.GarbageCollectionPolicy{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, policy); err != nil {
+		gcErr := gcerrors.Wrap(err, "conversion_failed", "failed to convert unstructured to GarbageCollectionPolicy")
+		gcErr.PolicyNamespace = unstructuredObj.GetNamespace()
+		gcErr.PolicyName = unstructuredObj.GetName()
+		klog.Errorf("Error converting unstructured to GarbageCollectionPolicy: %v", gcErr)
+		return nil
+	}
+
+	return policy
+}
+
+// evaluatePolicy evaluates a single policy.
+//
+//nolint:gocyclo // Policy evaluation logic is inherently complex
+func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy) error {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		recordEvaluationDuration(policy.Namespace, policy.Name, duration)
+	}()
+
+	klog.V(4).Infof("Evaluating policy %s/%s", policy.Namespace, policy.Name)
+
+	// Get or create resource informer for this policy
+	informer, err := gc.getOrCreateResourceInformer(policy)
+	if err != nil {
+		gcErr := gcerrors.Wrap(err, "informer_creation_failed", "failed to get resource informer")
+		gcErr.PolicyNamespace = policy.Namespace
+		gcErr.PolicyName = policy.Name
+		recordError(policy.Namespace, policy.Name, "informer_creation_failed")
+		klog.Errorf("Error creating resource informer for policy %s/%s: %v", policy.Namespace, policy.Name, gcErr)
+		return gcErr
+	}
+
+	// Get all resources from cache
+	resources := informer.GetStore().List()
+
+	matchedCount := int64(0)
+	deletedCount := int64(0)
+	pendingCount := int64(0)
+
+	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
+	resourceKind := policy.Spec.TargetResource.Kind
+
+	// Collect resources to delete
+	resourcesToDelete := make([]*unstructured.Unstructured, 0)
+	resourcesToDeleteReasons := make(map[string]string) // resource UID -> reason
+
+	for _, obj := range resources {
+		// Check context cancellation during resource iteration
+		select {
+		case <-gc.ctx.Done():
+			klog.V(4).Infof("Stopping policy evaluation for %s/%s: context canceled", policy.Namespace, policy.Name)
+			return nil
+		default:
+		}
+
+		resource, ok := obj.(*unstructured.Unstructured)
+		if !ok {
+			continue
+		}
+
+		// Check if resource matches selectors
+		if !gc.matchesSelectors(resource, &policy.Spec.TargetResource) {
+			continue
+		}
+
+		matchedCount++
+		recordResourceMatched(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind)
+
+		// Check if resource should be deleted
+		shouldDelete, reason := gc.shouldDelete(resource, policy)
+		if !shouldDelete {
+			pendingCount++
+			continue
+		}
+
+		// Add to deletion list
+		resourcesToDelete = append(resourcesToDelete, resource)
+		resourcesToDeleteReasons[string(resource.GetUID())] = reason
+	}
+
+	// Delete resources in batches
+	if len(resourcesToDelete) > 0 {
+		rateLimiter := gc.getOrCreateRateLimiter(policy)
+		batchSize := gc.getBatchSize(policy)
+
+		// Process deletions in batches
+		for i := 0; i < len(resourcesToDelete); i += batchSize {
+			// Check context cancellation between batches
+			select {
+			case <-gc.ctx.Done():
+				klog.V(4).Infof("Stopping batch deletion for %s/%s: context canceled", policy.Namespace, policy.Name)
+				return nil
+			default:
+			}
+
+			end := i + batchSize
+			if end > len(resourcesToDelete) {
+				end = len(resourcesToDelete)
+			}
+			batch := resourcesToDelete[i:end]
+
+			// Delete batch
+			// Track deletion attempts (total resources in batch)
+			deletionAttempts := int64(len(batch))
+			batchDeleted, batchErrors := gc.deleteBatch(gc.ctx, batch, policy, rateLimiter, resourcesToDeleteReasons)
+			deletedCount += batchDeleted
+
+			// Track deletion failures
+			if len(batchErrors) > 0 {
+				recordError(policy.Namespace, policy.Name, "deletion_failed")
+			}
+
+			// Log errors
+			for _, err := range batchErrors {
+				if gc.eventRecorder != nil {
+					gc.eventRecorder.RecordEvaluationFailed(policy, err)
+				}
+				klog.Errorf("Error deleting batch for policy %s/%s: %v", policy.Namespace, policy.Name, err)
+			}
+
+			// Log deletion attempt metrics
+			klog.V(4).Infof("Policy %s/%s: attempted %d deletions, succeeded %d, failed %d",
+				policy.Namespace, policy.Name, deletionAttempts, batchDeleted, int64(len(batchErrors)))
+		}
+	}
+
+	// Record pending resources metric
+	if pendingCount > 0 {
+		recordResourcesPending(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, pendingCount)
+	}
+
+	// Update policy status with timeout context
+	if gc.statusUpdater != nil {
+		// Use timeout context for status updates to prevent hanging
+		statusCtx, statusCancel := context.WithTimeout(gc.ctx, 10*time.Second)
+		defer statusCancel()
+
+		if err := gc.statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount); err != nil {
+			// Check if error is due to context cancellation/timeout
+			if statusCtx.Err() != nil {
+				klog.V(4).Infof("Status update canceled or timed out for policy %s/%s: %v", policy.Namespace, policy.Name, statusCtx.Err())
+				return nil // Don't treat cancellation as error
+			}
+			gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
+			gcErr.PolicyNamespace = policy.Namespace
+			gcErr.PolicyName = policy.Name
+			recordError(policy.Namespace, policy.Name, "status_update_failed")
+			if gc.eventRecorder != nil {
+				gc.eventRecorder.RecordStatusUpdateFailed(policy, gcErr)
+			}
+			klog.Errorf("Error updating policy status for %s/%s: %v", policy.Namespace, policy.Name, gcErr)
+		}
+	}
+
+	// Record policy evaluation event
+	if gc.eventRecorder != nil {
+		gc.eventRecorder.RecordPolicyEvaluated(policy, matchedCount, deletedCount, pendingCount)
+	}
+
+	return nil
+}
+
+// matchesSelectors checks if a resource matches the target resource selectors.
+func (gc *GCController) matchesSelectors(resource *unstructured.Unstructured, target *v1alpha1.TargetResourceSpec) bool {
+	// Normalize namespace: empty defaults to "*" (cluster-wide) to match webhook behavior
+	namespace := target.Namespace
+	if namespace == "" {
+		namespace = "*"
+	}
+
+	// Check namespace
+	if namespace != "*" {
+		if resource.GetNamespace() != namespace {
+			return false
+		}
+	}
+
+	// Check label selector
+	if target.LabelSelector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(target.LabelSelector)
+		if err != nil {
+			gcErr := gcerrors.Wrap(err, "invalid_label_selector", "invalid label selector")
+			klog.Errorf("Invalid label selector: %v", gcErr)
+			return false
+		}
+
+		resourceLabels := labels.Set(resource.GetLabels())
+		if !selector.Matches(resourceLabels) {
+			return false
+		}
+	}
+
+	// Check field selector
+	// Field selectors are evaluated in-memory only (not pushed down to API server).
+	// Unlike label selectors which are sent to the API server to reduce watch/list volume,
+	// field selectors are evaluated after resources are fetched. This means:
+	// - Field selectors do NOT reduce API server load or network traffic
+	// - All resources matching the GVR/namespace/labelSelector are fetched and cached
+	// - Field selector filtering happens in the controller's memory
+	// For better performance, prefer label selectors when possible.
+	if target.FieldSelector != nil {
+		for key, value := range target.FieldSelector.MatchFields {
+			fieldPath := parseFieldPath(key)
+			fieldValue, found, err := unstructured.NestedString(resource.Object, fieldPath...)
+			if err != nil || !found || fieldValue != value {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// shouldDelete determines if a resource should be deleted based on TTL and conditions.
+func (gc *GCController) shouldDelete(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy) (shouldDelete bool, reason string) {
+	// Check conditions first
+	if policy.Spec.Conditions != nil {
+		if !gc.meetsConditions(resource, policy.Spec.Conditions) {
+			return false, "condition_not_met"
+		}
+	}
+
+	// Calculate expiration time
+	expirationTime, err := gc.calculateExpirationTime(resource, &policy.Spec.TTL)
+	if err != nil {
+		klog.V(4).Infof("Could not calculate expiration time for resource %s/%s: %v", resource.GetNamespace(), resource.GetName(), err)
+		return false, ReasonNoTTL
+	}
+
+	if expirationTime.IsZero() {
+		return false, ReasonNoTTL
+	}
+
+	// Check if expired
+	if time.Now().After(expirationTime) {
+		return true, "ttl_expired"
+	}
+
+	return false, "not_expired"
+}
+
+// calculateExpirationTime calculates the absolute expiration time for a resource based on policy.
+// Returns zero time if TTL cannot be calculated or is invalid.
+func (gc *GCController) calculateExpirationTime(resource *unstructured.Unstructured, ttlSpec *v1alpha1.TTLSpec) (time.Time, error) {
+	// Option 1: Fixed TTL (seconds after creation)
+	if ttlSpec.SecondsAfterCreation != nil {
+		creationTime := resource.GetCreationTimestamp().Time
+		return creationTime.Add(time.Duration(*ttlSpec.SecondsAfterCreation) * time.Second), nil
+	}
+
+	// Option 2: Dynamic TTL from field
+	if ttlSpec.FieldPath != "" {
+		fieldPath := parseFieldPath(ttlSpec.FieldPath)
+
+		// Try to get as int64 first
+		value, found, _ := unstructured.NestedInt64(resource.Object, fieldPath...)
+		if found {
+			creationTime := resource.GetCreationTimestamp().Time
+			return creationTime.Add(time.Duration(value) * time.Second), nil
+		}
+
+		// Try as string for mappings
+		strValue, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
+		if found {
+			// Option 3: Mapped TTL
+			if len(ttlSpec.Mappings) > 0 {
+				var ttl int64
+				if mappedTTL, ok := ttlSpec.Mappings[strValue]; ok {
+					ttl = mappedTTL
+				} else if ttlSpec.Default != nil {
+					ttl = *ttlSpec.Default
+				} else {
+					return time.Time{}, fmt.Errorf("%w: %s", ErrNoMappingForFieldValue, strValue)
+				}
+				creationTime := resource.GetCreationTimestamp().Time
+				return creationTime.Add(time.Duration(ttl) * time.Second), nil
+			}
+		}
+
+		if !found && ttlSpec.Default != nil {
+			creationTime := resource.GetCreationTimestamp().Time
+			return creationTime.Add(time.Duration(*ttlSpec.Default) * time.Second), nil
+		}
+		return time.Time{}, fmt.Errorf("%w: %s", ErrFieldPathNotFound, ttlSpec.FieldPath)
+	}
+
+	// Option 4: Relative TTL (relative to another timestamp field)
+	if ttlSpec.RelativeTo != "" && ttlSpec.SecondsAfter != nil {
+		fieldPath := parseFieldPath(ttlSpec.RelativeTo)
+		timestampStr, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
+		if !found {
+			return time.Time{}, fmt.Errorf("%w: %s", ErrRelativeTimestampFieldNotFound, ttlSpec.RelativeTo)
+		}
+
+		timestamp, err := time.Parse(time.RFC3339, timestampStr)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("%w: %w", ErrInvalidTimestampFormat, err)
+		}
+
+		// Calculate absolute expiration time from the relative timestamp
+		expirationTime := timestamp.Add(time.Duration(*ttlSpec.SecondsAfter) * time.Second)
+		if time.Now().After(expirationTime) {
+			return time.Time{}, fmt.Errorf("%w", ErrRelativeTTLExpired)
+		}
+		return expirationTime, nil
+	}
+
+	return time.Time{}, fmt.Errorf("%w", ErrNoValidTTLConfiguration)
+}
+
+// calculateTTL calculates the TTL in seconds for a resource based on policy.
+// Deprecated: Use calculateExpirationTime instead for accurate relative TTL handling.
+// This function is kept for backward compatibility and testing.
+func (gc *GCController) calculateTTL(resource *unstructured.Unstructured, ttlSpec *v1alpha1.TTLSpec) (int64, error) {
+	expirationTime, err := gc.calculateExpirationTime(resource, ttlSpec)
+	if err != nil {
+		return 0, err
+	}
+
+	// For relative TTL, return seconds remaining
+	if ttlSpec.RelativeTo != "" && ttlSpec.SecondsAfter != nil {
+		ttlSeconds := int64(time.Until(expirationTime).Seconds())
+		if ttlSeconds <= 0 {
+			return 0, fmt.Errorf("%w", ErrRelativeTTLExpired)
+		}
+		return ttlSeconds, nil
+	}
+
+	// For other TTL modes, return seconds after creation
+	creationTime := resource.GetCreationTimestamp().Time
+	return int64(expirationTime.Sub(creationTime).Seconds()), nil
+}
+
+// meetsConditions checks if a resource meets the deletion conditions.
+func (gc *GCController) meetsConditions(resource *unstructured.Unstructured, conditions *v1alpha1.ConditionsSpec) bool {
+	if !gc.meetsPhaseConditions(resource, conditions.Phase) {
+		return false
+	}
+	if !gc.meetsLabelConditions(resource, conditions.HasLabels) {
+		return false
+	}
+	if !gc.meetsAnnotationConditions(resource, conditions.HasAnnotations) {
+		return false
+	}
+	if !gc.meetsFieldConditions(resource, conditions.And) {
+		return false
+	}
+	return true
+}
+
+// meetsPhaseConditions checks if resource phase matches any of the required phases.
+func (gc *GCController) meetsPhaseConditions(resource *unstructured.Unstructured, phases []string) bool {
+	if len(phases) == 0 {
+		return true
+	}
+	phase, found, _ := unstructured.NestedString(resource.Object, "status", "phase")
+	if !found {
+		return false
+	}
+	for _, p := range phases {
+		if phase == p {
+			return true
+		}
+	}
+	return false
+}
+
+// meetsLabelConditions checks if resource labels match the required conditions.
+func (gc *GCController) meetsLabelConditions(resource *unstructured.Unstructured, labelConds []v1alpha1.LabelCondition) bool {
+	resourceLabels := resource.GetLabels()
+	for _, labelCond := range labelConds {
+		value, exists := resourceLabels[labelCond.Key]
+		switch labelCond.Operator {
+		case "Exists":
+			if !exists {
+				return false
+			}
+		case "Equals", "":
+			if !exists || value != labelCond.Value {
+				return false
+			}
+		case "In":
+			if !exists {
+				return false
+			}
+			// Check if value is in the Values list (if Values is set) or matches Value
+			found := false
+			if labelCond.Value != "" {
+				found = value == labelCond.Value
+			}
+			// LabelCondition doesn't have Values field, so In operator checks against Value only
+			// This matches the documented behavior where In checks if label value equals the specified value
+			if !found {
+				return false
+			}
+		case "NotIn":
+			if !exists {
+				// Label doesn't exist, so it's "not in" any value - condition satisfied
+				continue
+			}
+			// Check if value is NOT in the Values list (if Values is set) or doesn't match Value
+			if value == labelCond.Value {
+				return false
+			}
+		default:
+			// Unknown operator - fail safe by rejecting
+			klog.Warningf("Unknown label condition operator: %s, rejecting match", labelCond.Operator)
+			return false
+		}
+	}
+	return true
+}
+
+// meetsAnnotationConditions checks if resource annotations match the required conditions.
+func (gc *GCController) meetsAnnotationConditions(resource *unstructured.Unstructured, annConds []v1alpha1.AnnotationCondition) bool {
+	resourceAnnotations := resource.GetAnnotations()
+	for _, annCond := range annConds {
+		value, exists := resourceAnnotations[annCond.Key]
+		if !exists || value != annCond.Value {
+			return false
+		}
+	}
+	return true
+}
+
+// meetsFieldConditions checks if resource fields match the required conditions.
+func (gc *GCController) meetsFieldConditions(resource *unstructured.Unstructured, fieldConds []v1alpha1.FieldCondition) bool {
+	for _, fieldCond := range fieldConds {
+		fieldPath := parseFieldPath(fieldCond.FieldPath)
+		fieldValue, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
+		if !found {
+			return false
+		}
+		if !gc.matchesFieldOperator(fieldValue, fieldCond) {
+			return false
+		}
+	}
+	return true
+}
+
+// matchesFieldOperator checks if field value matches the operator condition.
+func (gc *GCController) matchesFieldOperator(fieldValue string, fieldCond v1alpha1.FieldCondition) bool {
+	switch fieldCond.Operator {
+	case "Equals":
+		return fieldValue == fieldCond.Value
+	case "NotEquals":
+		return fieldValue != fieldCond.Value
+	case "In":
+		for _, v := range fieldCond.Values {
+			if fieldValue == v {
+				return true
+			}
+		}
+		return false
+	case "NotIn":
+		for _, v := range fieldCond.Values {
+			if fieldValue == v {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+// deleteResource deletes a resource based on policy behavior.
+func (gc *GCController) deleteResource(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
+	// Rate limiting
+	if err := rateLimiter.Wait(gc.ctx); err != nil {
+		return err
+	}
+
+	// Dry run check
+	if policy.Spec.Behavior.DryRun {
+		klog.Infof("[DRY RUN] Would delete resource %s/%s", resource.GetNamespace(), resource.GetName())
+		return nil
+	}
+
+	// Get GVR using pluralization
+	// TODO: Replace with RESTMapper-based resolution (see ROADMAP.md)
+	// Current pluralization may fail for irregular Kinds/CRDs, but maintains backward compatibility
+	gvr := schema.GroupVersionResource{
+		Group:    resource.GroupVersionKind().Group,
+		Version:  resource.GroupVersionKind().Version,
+		Resource: validation.PluralizeKind(resource.GetKind()),
+	}
+
+	// Delete options
+	deleteOptions := &metav1.DeleteOptions{}
+	if policy.Spec.Behavior.GracePeriodSeconds != nil {
+		deleteOptions.GracePeriodSeconds = policy.Spec.Behavior.GracePeriodSeconds
+	}
+
+	var propagationPolicy metav1.DeletionPropagation
+	switch policy.Spec.Behavior.PropagationPolicy {
+	case "Foreground":
+		propagationPolicy = "Foreground"
+	case "Orphan":
+		propagationPolicy = "Orphan"
+	default:
+		propagationPolicy = "Background"
+	}
+	deleteOptions.PropagationPolicy = &propagationPolicy
+
+	// Delete the resource
+	namespace := resource.GetNamespace()
+	var err error
+	if namespace == "" {
+		err = gc.dynamicClient.Resource(gvr).Delete(gc.ctx, resource.GetName(), *deleteOptions)
+	} else {
+		err = gc.dynamicClient.Resource(gvr).Namespace(namespace).Delete(gc.ctx, resource.GetName(), *deleteOptions)
+	}
+
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	return nil
+}
+
+// getOrCreateResourceInformer gets or creates a resource informer for a policy.
+func (gc *GCController) getOrCreateResourceInformer(policy *v1alpha1.GarbageCollectionPolicy) (cache.SharedInformer, error) {
+	// Check if informer already exists (with read lock)
+	gc.resourceInformersMu.RLock()
+	if informer, ok := gc.resourceInformers[policy.UID]; ok {
+		gc.resourceInformersMu.RUnlock()
+		return informer, nil
+	}
+	gc.resourceInformersMu.RUnlock()
+
+	// Acquire write lock for creating new informer
+	gc.resourceInformersMu.Lock()
+	defer gc.resourceInformersMu.Unlock()
+
+	// Double-check after acquiring write lock (another goroutine might have created it)
+	if informer, ok := gc.resourceInformers[policy.UID]; ok {
+		return informer, nil
+	}
+
+	// Create GVR
+	gvr, err := validation.ParseGVR(policy.Spec.TargetResource.APIVersion, policy.Spec.TargetResource.Kind)
+	if err != nil {
+		return nil, fmt.Errorf("invalid target resource: %w", err)
+	}
+
+	// Determine namespace
+	// Normalize: empty defaults to "*" (cluster-wide) to match webhook behavior
+	namespace := policy.Spec.TargetResource.Namespace
+	if namespace == "" {
+		namespace = "*"
+	}
+	// Translate "*" to NamespaceAll (empty string) for cluster-wide watching
+	if namespace == "*" {
+		namespace = metav1.NamespaceAll
+	}
+
+	// Create informer factory using configured interval
+	interval := DefaultGCInterval
+	if gc.config != nil {
+		interval = gc.config.GCInterval
+	}
+	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
+		gc.dynamicClient,
+		interval,
+		namespace,
+		func(options *metav1.ListOptions) {
+			if policy.Spec.TargetResource.LabelSelector != nil {
+				selector, err := metav1.LabelSelectorAsSelector(policy.Spec.TargetResource.LabelSelector)
+				if err == nil {
+					options.LabelSelector = selector.String()
+				}
+			}
+		},
+	)
+
+	// Create informer
+	informer := factory.ForResource(gvr).Informer()
+
+	// Store informer and factory
+	gc.resourceInformers[policy.UID] = informer
+	gc.resourceInformerFactories[policy.UID] = factory
+
+	// Update metrics
+	recordInformerCount(len(gc.resourceInformers))
+
+	// Start informer factory
+	factory.Start(gc.ctx.Done())
+
+	// Wait for cache sync with timeout
+	syncCtx, syncCancel := context.WithTimeout(gc.ctx, DefaultCacheSyncTimeout)
+	defer syncCancel()
+
+	if !cache.WaitForCacheSync(syncCtx.Done(), informer.HasSynced) {
+		// Clean up on failure
+		delete(gc.resourceInformers, policy.UID)
+		delete(gc.resourceInformerFactories, policy.UID)
+		if syncCtx.Err() != nil {
+			return nil, fmt.Errorf("resource informer cache sync timed out: %w", syncCtx.Err())
+		}
+		return nil, fmt.Errorf("%w", ErrResourceInformerCacheSyncFailed)
+	}
+
+	klog.V(4).Infof("Created resource informer for policy %s/%s (UID: %s)", policy.Namespace, policy.Name, policy.UID)
+	return informer, nil
+}
+
+// handlePolicyDelete handles policy deletion events and cleans up associated resource informers.
+func (gc *GCController) handlePolicyDelete(obj interface{}) {
+	var policy *v1alpha1.GarbageCollectionPolicy
+
+	// Handle different object types (unstructured or typed)
+	switch o := obj.(type) {
+	case *unstructured.Unstructured:
+		policy = &v1alpha1.GarbageCollectionPolicy{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, policy); err != nil {
+			klog.Errorf("Error converting unstructured to GarbageCollectionPolicy in delete handler: %v", err)
+			return
+		}
+	case *v1alpha1.GarbageCollectionPolicy:
+		policy = o
+	case cache.DeletedFinalStateUnknown:
+		// Handle deleted final state unknown
+		if unstructuredObj, ok := o.Obj.(*unstructured.Unstructured); ok {
+			policy = &v1alpha1.GarbageCollectionPolicy{}
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, policy); err != nil {
+				gcErr := gcerrors.Wrap(err, "conversion_failed", "failed to convert unstructured to GarbageCollectionPolicy in delete handler")
+				klog.Errorf("Error converting unstructured to GarbageCollectionPolicy in delete handler: %v", gcErr)
+				return
+			}
+		} else {
+			klog.Warningf("Unexpected object type in delete handler: %T", o.Obj)
+			return
+		}
+	default:
+		klog.Warningf("Unexpected object type in delete handler: %T", obj)
+		return
+	}
+
+	if policy == nil {
+		return
+	}
+
+	klog.V(2).Infof("Policy %s/%s deleted, cleaning up resource informer and rate limiter", policy.Namespace, policy.Name)
+	gc.cleanupResourceInformer(policy.UID)
+	gc.cleanupRateLimiter(policy.UID)
+}
+
+// handlePolicyUpdate handles policy update events and recreates informer if needed.
+func (gc *GCController) handlePolicyUpdate(oldObj, newObj interface{}) {
+	var oldPolicy, newPolicy *v1alpha1.GarbageCollectionPolicy
+
+	// Convert old object
+	switch o := oldObj.(type) {
+	case *unstructured.Unstructured:
+		oldPolicy = &v1alpha1.GarbageCollectionPolicy{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, oldPolicy); err != nil {
+			gcErr := gcerrors.Wrap(err, "conversion_failed", "failed to convert old unstructured to GarbageCollectionPolicy")
+			klog.Errorf("Error converting old unstructured to GarbageCollectionPolicy: %v", gcErr)
+			return
+		}
+	case *v1alpha1.GarbageCollectionPolicy:
+		oldPolicy = o
+	default:
+		return
+	}
+
+	// Convert new object
+	switch o := newObj.(type) {
+	case *unstructured.Unstructured:
+		newPolicy = &v1alpha1.GarbageCollectionPolicy{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, newPolicy); err != nil {
+			gcErr := gcerrors.Wrap(err, "conversion_failed", "failed to convert new unstructured to GarbageCollectionPolicy")
+			klog.Errorf("Error converting new unstructured to GarbageCollectionPolicy: %v", gcErr)
+			return
+		}
+	case *v1alpha1.GarbageCollectionPolicy:
+		newPolicy = o
+	default:
+		return
+	}
+
+	if oldPolicy == nil || newPolicy == nil {
+		return
+	}
+
+	// Check if target resource spec changed (which would require informer recreation)
+	oldSpec := oldPolicy.Spec.TargetResource
+	newSpec := newPolicy.Spec.TargetResource
+
+	// Compare key fields that affect informer creation
+	if oldSpec.APIVersion != newSpec.APIVersion ||
+		oldSpec.Kind != newSpec.Kind ||
+		oldSpec.Namespace != newSpec.Namespace ||
+		!labelSelectorsEqual(oldSpec.LabelSelector, newSpec.LabelSelector) {
+		klog.V(2).Infof("Policy %s/%s target resource spec changed, recreating informer", newPolicy.Namespace, newPolicy.Name)
+		// Clean up old informer
+		gc.cleanupResourceInformer(oldPolicy.UID)
+		// New informer will be created on next evaluation
+	}
+}
+
+// labelSelectorsEqual compares two label selectors for equality.
+func labelSelectorsEqual(a, b *metav1.LabelSelector) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+
+	// Convert to selectors and compare their string representations
+	selectorA, errA := metav1.LabelSelectorAsSelector(a)
+	selectorB, errB := metav1.LabelSelectorAsSelector(b)
+
+	// If either conversion fails, consider them different
+	if errA != nil || errB != nil {
+		return false
+	}
+
+	// Compare selector string representations
+	return selectorA.String() == selectorB.String()
+}
+
+// cleanupResourceInformer cleans up a resource informer for a given policy UID.
+func (gc *GCController) cleanupResourceInformer(policyUID types.UID) {
+	gc.resourceInformersMu.Lock()
+	defer gc.resourceInformersMu.Unlock()
+
+	_, informerExists := gc.resourceInformers[policyUID]
+	_, factoryExists := gc.resourceInformerFactories[policyUID]
+
+	if !informerExists && !factoryExists {
+		// Already cleaned up or never existed
+		return
+	}
+
+	// Stop the informer factory (which will stop all informers created by it)
+	if factoryExists {
+		// DynamicSharedInformerFactory doesn't have a Stop method,
+		// but stopping is handled by context cancellation.
+		// We just need to remove it from our tracking.
+		delete(gc.resourceInformerFactories, policyUID)
+	}
+
+	// Remove informer from map
+	if informerExists {
+		delete(gc.resourceInformers, policyUID)
+		klog.V(4).Infof("Cleaned up resource informer for policy UID: %s", policyUID)
+	}
+
+	// Update metrics
+	recordInformerCount(len(gc.resourceInformers))
+}
+
+// cleanupAllResourceInformers cleans up all resource informers (used during shutdown).
+func (gc *GCController) cleanupAllResourceInformers() {
+	gc.resourceInformersMu.Lock()
+	defer gc.resourceInformersMu.Unlock()
+
+	count := len(gc.resourceInformers)
+	if count > 0 {
+		klog.Infof("Cleaning up %d resource informer(s) during shutdown", count)
+	}
+
+	// Clear all informers and factories
+	gc.resourceInformers = make(map[types.UID]cache.SharedInformer)
+	gc.resourceInformerFactories = make(map[types.UID]dynamicinformer.DynamicSharedInformerFactory)
+}
+
+// getOrCreateRateLimiter gets or creates a rate limiter for a policy.
+func (gc *GCController) getOrCreateRateLimiter(policy *v1alpha1.GarbageCollectionPolicy) *RateLimiter {
+	// Determine rate limit for this policy
+	maxDeletionsPerSecond := DefaultMaxDeletionsPerSecond
+	if policy.Spec.Behavior.MaxDeletionsPerSecond > 0 {
+		maxDeletionsPerSecond = policy.Spec.Behavior.MaxDeletionsPerSecond
+	}
+
+	// Check if rate limiter already exists (with read lock)
+	gc.rateLimitersMu.RLock()
+	if limiter, ok := gc.rateLimiters[policy.UID]; ok {
+		// Update rate if it changed
+		if limiter != nil {
+			// Update rate to match policy configuration
+			limiter.SetRate(maxDeletionsPerSecond)
+		}
+		gc.rateLimitersMu.RUnlock()
+		return limiter
+	}
+	gc.rateLimitersMu.RUnlock()
+
+	// Acquire write lock for creating new rate limiter
+	gc.rateLimitersMu.Lock()
+	defer gc.rateLimitersMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if limiter, ok := gc.rateLimiters[policy.UID]; ok {
+		limiter.SetRate(maxDeletionsPerSecond)
+		return limiter
+	}
+
+	// Create new rate limiter
+	limiter := NewRateLimiter(maxDeletionsPerSecond)
+	gc.rateLimiters[policy.UID] = limiter
+
+	// Update metrics
+	recordRateLimiterCount(len(gc.rateLimiters))
+
+	klog.V(4).Infof("Created rate limiter for policy %s/%s (UID: %s, rate: %d/sec)", policy.Namespace, policy.Name, policy.UID, maxDeletionsPerSecond)
+	return limiter
+}
+
+// cleanupRateLimiter cleans up a rate limiter for a given policy UID.
+func (gc *GCController) cleanupRateLimiter(policyUID types.UID) {
+	gc.rateLimitersMu.Lock()
+	defer gc.rateLimitersMu.Unlock()
+
+	if _, exists := gc.rateLimiters[policyUID]; exists {
+		delete(gc.rateLimiters, policyUID)
+		klog.V(4).Infof("Cleaned up rate limiter for policy UID: %s", policyUID)
+	}
+
+	// Update metrics
+	recordRateLimiterCount(len(gc.rateLimiters))
+}
+
+// cleanupAllRateLimiters cleans up all rate limiters (used during shutdown).
+func (gc *GCController) cleanupAllRateLimiters() {
+	gc.rateLimitersMu.Lock()
+	defer gc.rateLimitersMu.Unlock()
+
+	count := len(gc.rateLimiters)
+	if count > 0 {
+		klog.Infof("Cleaning up %d rate limiter(s) during shutdown", count)
+	}
+
+	gc.rateLimiters = make(map[types.UID]*RateLimiter)
+}
+
+// getBatchSize returns the batch size for a policy.
+func (gc *GCController) getBatchSize(policy *v1alpha1.GarbageCollectionPolicy) int {
+	batchSize := DefaultBatchSize
+	if gc.config != nil {
+		batchSize = gc.config.BatchSize
+	}
+	if policy.Spec.Behavior.BatchSize > 0 {
+		batchSize = policy.Spec.Behavior.BatchSize
+	}
+	return batchSize
+}
+
+// deleteBatch deletes a batch of resources.
+// Returns the number of successfully deleted resources and any errors encountered.
+func (gc *GCController) deleteBatch(
+	ctx context.Context,
+	batch []*unstructured.Unstructured,
+	policy *v1alpha1.GarbageCollectionPolicy,
+	rateLimiter *RateLimiter,
+	reasons map[string]string,
+) (int64, []error) {
+	deletedCount := int64(0)
+	errors := make([]error, 0)
+
+	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
+	resourceKind := policy.Spec.TargetResource.Kind
+
+	for _, resource := range batch {
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			return deletedCount, errors
+		default:
+		}
+
+		// Rate limiting (per resource)
+		if err := rateLimiter.Wait(ctx); err != nil {
+			errors = append(errors, fmt.Errorf("rate limiter error: %w", err))
+			continue
+		}
+
+		// Delete the resource with exponential backoff
+		deleteStart := time.Now()
+		if err := gc.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter); err != nil {
+			gcErr := gcerrors.WithResource(
+				gcerrors.WithPolicy(err, policy.Namespace, policy.Name),
+				resource.GetNamespace(),
+				resource.GetName(),
+			)
+			gcErr.Type = "deletion_failed"
+			recordError(policy.Namespace, policy.Name, "deletion_failed")
+			errors = append(errors, gcErr)
+			continue
+		}
+
+		deletedCount++
+		duration := time.Since(deleteStart).Seconds()
+		reason := reasons[string(resource.GetUID())]
+		recordResourceDeleted(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, reason, duration)
+		if gc.eventRecorder != nil {
+			gc.eventRecorder.RecordResourceDeleted(policy, resource, reason)
+		}
+		klog.V(2).Infof("Deleted resource %s/%s (reason: %s)", resource.GetNamespace(), resource.GetName(), reason)
+	}
+
+	return deletedCount, errors
+}
