@@ -16,7 +16,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
-	"github.com/kube-zen/zen-gc/pkg/config"
 )
 
 func TestGCController_Start(t *testing.T) {
