@@ -18,7 +18,7 @@
 replicaCount: 2
 
 image:
-  repository: docker.io/kube-zen/gc-controller
+  repository: docker.io/kubezen/gc-controller
   pullPolicy: IfNotPresent
   # Default to Chart.AppVersion (0.0.1-alpha), but can be overridden
   # Empty string means it will use Chart.AppVersion from deployment template
