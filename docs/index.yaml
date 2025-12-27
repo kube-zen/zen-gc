@@ -3,9 +3,9 @@ entries:
   gc-controller:
   - apiVersion: v2
     appVersion: 0.0.1-alpha
-    created: "2025-12-27T17:41:32.354739963Z"
+    created: "2025-12-27T20:50:30.955771746Z"
     description: A Helm chart for the Generic Garbage Collection Controller for Kubernetes
-    digest: bb7fb576dd88a5b18d15812d72a784dd3c65ede1db1035e8404cab04085c3052
+    digest: 1a3eb57d05e0ee1fed4f449b8ea9e46c1f84b812b342a117c7c2ef4753612422
     home: https://github.com/kube-zen/zen-gc
     keywords:
     - kubernetes
@@ -22,4 +22,4 @@ entries:
     urls:
     - https://kube-zen.github.io/zen-gc/gc-controller-0.0.1-alpha.tgz
     version: 0.0.1-alpha
-generated: "2025-12-27T17:41:32.354072549Z"
+generated: "2025-12-27T20:50:30.955123854Z"
