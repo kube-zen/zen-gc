@@ -16,8 +16,11 @@ name: Build Multi-Arch Images
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+      - '0.0.1-alpha'
   workflow_dispatch:
 
 env:
@@ -49,6 +52,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=0.0.1-alpha,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/tags/0.0.1-alpha' || github.ref == 'refs/tags/v0.0.1-alpha' }}
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
