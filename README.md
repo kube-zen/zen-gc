@@ -172,3 +172,9 @@ This is an early-stage proposal. Feedback and contributions are welcome!
 - [Kubernetes TTL-after-finished](https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/)
 - [Kubernetes Enhancement Proposals](https://github.com/kubernetes/enhancements)
 
+## Links
+
+- **Website**: https://kube-zen.io
+- **Helm chart (Artifact Hub)**: https://artifacthub.io/packages/helm/zengc/gc-controller
+- **6-min explainer (no demo)**: https://www.youtube.com/watch?v=P8afhcgjWVQ&list=PL1AGc_sKXJBdInu0yffTJxN828oaCuqwx
+
