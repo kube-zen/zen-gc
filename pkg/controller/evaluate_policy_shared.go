@@ -51,10 +51,10 @@ func evaluatePolicyResourcesShared(
 	resources := informer.GetStore().List()
 
 	result := &PolicyEvaluationResult{
-		MatchedCount:            int64(0),
-		DeletedCount:            int64(0),
-		PendingCount:            int64(0),
-		ResourcesToDelete:       make([]*unstructured.Unstructured, 0),
+		MatchedCount:             int64(0),
+		DeletedCount:             int64(0),
+		PendingCount:             int64(0),
+		ResourcesToDelete:        make([]*unstructured.Unstructured, 0),
 		ResourcesToDeleteReasons: make(map[string]string),
 	}
 
@@ -194,4 +194,3 @@ func updatePolicyStatusShared(
 
 	return nil
 }
-

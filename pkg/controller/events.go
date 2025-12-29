@@ -59,7 +59,7 @@ func NewEventRecorder(client kubernetes.Interface) *EventRecorder {
 }
 
 // RecordPolicyEvaluated records that a policy was evaluated.
-// Note: Events for CRDs may not be supported by all Kubernetes clusters.
+// Events for CRDs may not be supported by all Kubernetes clusters.
 // This function logs errors but does not fail if event recording fails.
 func (er *EventRecorder) RecordPolicyEvaluated(
 	policy *v1alpha1.GarbageCollectionPolicy,
@@ -79,7 +79,7 @@ func (er *EventRecorder) RecordPolicyEvaluated(
 }
 
 // RecordResourceDeleted records that a resource was deleted.
-// Note: Events for CRDs may not be supported by all Kubernetes clusters.
+// Events for CRDs may not be supported by all Kubernetes clusters.
 // This function logs errors but does not fail if event recording fails.
 func (er *EventRecorder) RecordResourceDeleted(
 	policy *v1alpha1.GarbageCollectionPolicy,
@@ -100,7 +100,7 @@ func (er *EventRecorder) RecordResourceDeleted(
 }
 
 // RecordEvaluationFailed records that policy evaluation failed.
-// Note: Events for CRDs may not be supported by all Kubernetes clusters.
+// Events for CRDs may not be supported by all Kubernetes clusters.
 // This function logs errors but does not fail if event recording fails.
 func (er *EventRecorder) RecordEvaluationFailed(
 	policy *v1alpha1.GarbageCollectionPolicy,
@@ -120,7 +120,7 @@ func (er *EventRecorder) RecordEvaluationFailed(
 }
 
 // RecordStatusUpdateFailed records that status update failed.
-// Note: Events for CRDs may not be supported by all Kubernetes clusters.
+// Events for CRDs may not be supported by all Kubernetes clusters.
 // This function logs errors but does not fail if event recording fails.
 func (er *EventRecorder) RecordStatusUpdateFailed(
 	policy *v1alpha1.GarbageCollectionPolicy,
@@ -148,7 +148,7 @@ func getResourceName(obj runtime.Object) string {
 }
 
 // RecordPolicyCreated records that a policy was created.
-// Note: Events for CRDs may not be supported by all Kubernetes clusters.
+// Events for CRDs may not be supported by all Kubernetes clusters.
 // This function logs errors but does not fail if event recording fails.
 func (er *EventRecorder) RecordPolicyCreated(policy *v1alpha1.GarbageCollectionPolicy) {
 	if er == nil || er.recorder == nil {
@@ -164,7 +164,7 @@ func (er *EventRecorder) RecordPolicyCreated(policy *v1alpha1.GarbageCollectionP
 }
 
 // RecordPolicyUpdated records that a policy was updated.
-// Note: Events for CRDs may not be supported by all Kubernetes clusters.
+// Events for CRDs may not be supported by all Kubernetes clusters.
 // This function logs errors but does not fail if event recording fails.
 func (er *EventRecorder) RecordPolicyUpdated(policy *v1alpha1.GarbageCollectionPolicy) {
 	if er == nil || er.recorder == nil {
@@ -180,7 +180,7 @@ func (er *EventRecorder) RecordPolicyUpdated(policy *v1alpha1.GarbageCollectionP
 }
 
 // RecordPolicyDeleted records that a policy was deleted.
-// Note: Events for CRDs may not be supported by all Kubernetes clusters.
+// Events for CRDs may not be supported by all Kubernetes clusters.
 // This function logs errors but does not fail if event recording fails.
 func (er *EventRecorder) RecordPolicyDeleted(policy *v1alpha1.GarbageCollectionPolicy) {
 	if er == nil || er.recorder == nil {

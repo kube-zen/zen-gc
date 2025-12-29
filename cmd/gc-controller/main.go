@@ -150,9 +150,9 @@ func main() {
 			Port:    9443,
 			CertDir: "", // We'll handle webhook separately for now
 		}),
-		HealthProbeBindAddress: ":8081", // Health probes on separate port (controller-runtime requirement)
-		LeaderElection:         *enableLeaderElection,
-		LeaderElectionID:      "gc-controller-leader-election",
+		HealthProbeBindAddress:  ":8081", // Health probes on separate port (controller-runtime requirement)
+		LeaderElection:          *enableLeaderElection,
+		LeaderElectionID:        "gc-controller-leader-election",
 		LeaderElectionNamespace: namespace,
 	})
 	if err != nil {
@@ -237,4 +237,3 @@ func main() {
 
 	klog.Info("GC controller shutdown complete")
 }
-

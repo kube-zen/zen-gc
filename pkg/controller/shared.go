@@ -68,7 +68,7 @@ const (
 	OperatorNotIn = "NotIn"
 )
 
-// Constants for policy phases
+// Constants for policy phases.
 const (
 	// PolicyPhaseActive indicates the policy is active and processing resources.
 	PolicyPhaseActive = "Active"
