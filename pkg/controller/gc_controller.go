@@ -88,6 +88,9 @@ var (
 
 	// ErrNoValidTTLConfiguration indicates no valid TTL configuration.
 	ErrNoValidTTLConfiguration = errors.New("no valid TTL configuration")
+
+	// ErrNoDeleter indicates no deleter was provided.
+	ErrNoDeleter = errors.New("no deleter provided")
 )
 
 // GCController manages garbage collection policies.

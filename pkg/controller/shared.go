@@ -35,7 +35,7 @@ import (
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
 )
 
-// Constants for deletion reasons and error types
+// Constants for deletion reasons and error types.
 const (
 	// ReasonTTLExpired indicates that a resource's TTL has expired.
 	ReasonTTLExpired = "ttl_expired"
@@ -50,7 +50,7 @@ const (
 	ErrorTypeEvaluationFailed = "evaluation_failed"
 )
 
-// Constants for deletion propagation policies
+// Constants for deletion propagation policies.
 const (
 	// PropagationPolicyForeground indicates foreground deletion propagation.
 	PropagationPolicyForeground = "Foreground"
@@ -62,7 +62,7 @@ const (
 	PropagationPolicyOrphan = "Orphan"
 )
 
-// Constants for field condition operators
+// Constants for field condition operators.
 const (
 	// OperatorNotIn indicates a "NotIn" operator for field conditions.
 	OperatorNotIn = "NotIn"
@@ -312,7 +312,7 @@ func deleteResourceWithBackoffShared(
 		} else if deleterWithoutCtx != nil {
 			err = deleterWithoutCtx.DeleteResourceWithoutContext(resource, policy, rateLimiter)
 		} else {
-			return false, fmt.Errorf("no deleter provided")
+			return false, fmt.Errorf("%w", ErrNoDeleter)
 		}
 		if err != nil {
 			// Check if error is retryable
@@ -520,4 +520,3 @@ func matchesSelectorsShared(resource *unstructured.Unstructured, target *v1alpha
 
 	return true
 }
-

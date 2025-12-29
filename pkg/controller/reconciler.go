@@ -216,7 +216,7 @@ func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha
 	}
 
 	// Evaluate resources and collect those to delete
-	matchedCount, _, pendingCount, resourcesToDelete, resourcesToDeleteReasons, err := evaluatePolicyResourcesShared(ctx, r, policy, informer)
+	evalResult, err := evaluatePolicyResourcesShared(ctx, r, policy, informer)
 	if err != nil {
 		return err
 	}
@@ -225,24 +225,25 @@ func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha
 	resourceKind := policy.Spec.TargetResource.Kind
 
 	// Delete resources in batches
-	deletedCount, err := deleteResourcesInBatchesShared(ctx, r, policy, resourcesToDelete, resourcesToDeleteReasons)
+	deletedCount, err := deleteResourcesInBatchesShared(ctx, r, policy, evalResult.ResourcesToDelete, evalResult.ResourcesToDeleteReasons)
 	if err != nil {
 		return err
 	}
+	evalResult.DeletedCount = deletedCount
 
 	// Record pending resources metric
-	if pendingCount > 0 {
-		recordResourcesPending(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, pendingCount)
+	if evalResult.PendingCount > 0 {
+		recordResourcesPending(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, evalResult.PendingCount)
 	}
 
 	// Update policy status
-	if err := updatePolicyStatusShared(ctx, r, policy, matchedCount, deletedCount, pendingCount); err != nil {
+	if err := updatePolicyStatusShared(ctx, r, policy, evalResult.MatchedCount, evalResult.DeletedCount, evalResult.PendingCount); err != nil {
 		return err
 	}
 
 	// Record policy evaluation event
 	if r.eventRecorder != nil {
-		r.eventRecorder.RecordPolicyEvaluated(policy, matchedCount, deletedCount, pendingCount)
+		r.eventRecorder.RecordPolicyEvaluated(policy, evalResult.MatchedCount, evalResult.DeletedCount, evalResult.PendingCount)
 	}
 
 	return nil
@@ -299,10 +300,6 @@ func (r *GCPolicyReconciler) meetsConditions(resource *unstructured.Unstructured
 
 
 
-// matchesFieldOperator checks if field value matches the operator condition.
-func (r *GCPolicyReconciler) matchesFieldOperator(fieldValue string, fieldCond v1alpha1.FieldCondition) bool {
-	return matchesFieldOperatorShared(fieldValue, fieldCond)
-}
 
 // deleteResource deletes a resource based on policy behavior.
 func (r *GCPolicyReconciler) deleteResource(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
@@ -627,7 +624,8 @@ func (r *GCPolicyReconciler) recordPolicyPhaseMetrics(ctx context.Context) {
 
 	phaseCounts := make(map[string]float64)
 
-	for _, policy := range policyList.Items {
+	for i := range policyList.Items {
+		policy := &policyList.Items[i]
 		phase := policy.Status.Phase
 		if phase == "" {
 			// Determine phase from spec

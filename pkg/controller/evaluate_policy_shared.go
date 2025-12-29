@@ -46,27 +46,27 @@ func evaluatePolicyResourcesShared(
 	evaluator PolicyEvaluator,
 	policy *v1alpha1.GarbageCollectionPolicy,
 	informer cache.SharedInformer,
-) (matchedCount, deletedCount, pendingCount int64, resourcesToDelete []*unstructured.Unstructured, resourcesToDeleteReasons map[string]string, err error) {
+) (*PolicyEvaluationResult, error) {
 	// Get all resources from cache
 	resources := informer.GetStore().List()
 
-	matchedCount = int64(0)
-	deletedCount = int64(0)
-	pendingCount = int64(0)
+	result := &PolicyEvaluationResult{
+		MatchedCount:            int64(0),
+		DeletedCount:            int64(0),
+		PendingCount:            int64(0),
+		ResourcesToDelete:       make([]*unstructured.Unstructured, 0),
+		ResourcesToDeleteReasons: make(map[string]string),
+	}
 
 	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
 	resourceKind := policy.Spec.TargetResource.Kind
-
-	// Collect resources to delete
-	resourcesToDelete = make([]*unstructured.Unstructured, 0)
-	resourcesToDeleteReasons = make(map[string]string) // resource UID -> reason
 
 	for _, obj := range resources {
 		// Check context cancellation during resource iteration
 		select {
 		case <-ctx.Done():
 			klog.V(4).Infof("Stopping policy evaluation for %s/%s: context canceled", policy.Namespace, policy.Name)
-			return matchedCount, deletedCount, pendingCount, resourcesToDelete, resourcesToDeleteReasons, nil
+			return result, nil
 		default:
 		}
 
@@ -80,22 +80,22 @@ func evaluatePolicyResourcesShared(
 			continue
 		}
 
-		matchedCount++
+		result.MatchedCount++
 		recordResourceMatched(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind)
 
 		// Check if resource should be deleted
 		shouldDelete, reason := evaluator.shouldDelete(resource, policy)
 		if !shouldDelete {
-			pendingCount++
+			result.PendingCount++
 			continue
 		}
 
 		// Add to deletion list
-		resourcesToDelete = append(resourcesToDelete, resource)
-		resourcesToDeleteReasons[string(resource.GetUID())] = reason
+		result.ResourcesToDelete = append(result.ResourcesToDelete, resource)
+		result.ResourcesToDeleteReasons[string(resource.GetUID())] = reason
 	}
 
-	return matchedCount, deletedCount, pendingCount, resourcesToDelete, resourcesToDeleteReasons, nil
+	return result, nil
 }
 
 // deleteResourcesInBatchesShared deletes resources in batches.

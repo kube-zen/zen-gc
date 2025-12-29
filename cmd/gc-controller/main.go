@@ -59,6 +59,11 @@ var (
 	buildDate = "unknown"
 )
 
+func init() {
+	// Log version information at startup
+	klog.V(2).Infof("GC Controller version: %s, commit: %s, build date: %s", version, commit, buildDate)
+}
+
 var (
 	metricsAddr              = flag.String("metrics-addr", ":8080", "The address the metric endpoint binds to")
 	webhookAddr              = flag.String("webhook-addr", ":9443", "The address the webhook endpoint binds to")
