@@ -29,8 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -62,8 +60,6 @@ var (
 )
 
 var (
-	kubeconfig               = flag.String("kubeconfig", "", "Path to kubeconfig file. If not set, uses in-cluster config")
-	masterURL                = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig")
 	metricsAddr              = flag.String("metrics-addr", ":8080", "The address the metric endpoint binds to")
 	webhookAddr              = flag.String("webhook-addr", ":9443", "The address the webhook endpoint binds to")
 	webhookCertFile          = flag.String("webhook-cert-file", "/etc/webhook/certs/tls.crt", "Path to TLS certificate file")
@@ -87,11 +83,8 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Build config
-	restCfg, err := buildConfig(*masterURL, *kubeconfig)
-	if err != nil {
-		klog.Fatalf("Error building kubeconfig: %v", err)
-	}
+	// Get config using controller-runtime (handles kubeconfig flag automatically)
+	restCfg := ctrl.GetConfigOrDie()
 
 	// Create dynamic client (still needed for resource informers)
 	dynamicClient, err := dynamic.NewForConfig(restCfg)
@@ -240,16 +233,3 @@ func main() {
 	klog.Info("GC controller shutdown complete")
 }
 
-// buildConfig builds a Kubernetes config from the given master URL and kubeconfig path.
-func buildConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
-	if kubeconfigPath == "" {
-		// Try in-cluster config first
-		if config, err := rest.InClusterConfig(); err == nil {
-			return config, nil
-		}
-		// Fall back to default kubeconfig location
-		kubeconfigPath = clientcmd.RecommendedHomeFile
-	}
-
-	return clientcmd.BuildConfigFromFlags(masterURL, kubeconfigPath)
-}

@@ -2,7 +2,7 @@
 
 ## Overview
 
-`zen-gc` is a Kubernetes controller that implements generic garbage collection policies for any Kubernetes resource. It follows the standard Kubernetes controller pattern with informers, work queues, and reconciliation loops.
+`zen-gc` is a Kubernetes controller that implements generic garbage collection policies for any Kubernetes resource. It uses [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) for event-driven reconciliation, built-in leader election, and standard Kubernetes controller patterns.
 
 ## System Architecture
 
@@ -60,27 +60,29 @@ The entry point that:
 ```mermaid
 sequenceDiagram
     participant Main
-    participant LeaderElection
-    participant GCController
+    participant Manager
+    participant Reconciler
     participant MetricsServer
     
-    Main->>LeaderElection: Start Leader Election
-    LeaderElection->>GCController: Start (if leader)
-    GCController->>GCController: Initialize Informers
-    GCController->>GCController: Start Workers
-    GCController->>MetricsServer: Register Metrics
-    MetricsServer->>MetricsServer: Start HTTP Server
-    Note over GCController: Process Policies
-    Main->>GCController: Stop (on signal)
-    GCController->>GCController: Graceful Shutdown
+    Main->>Manager: Create Manager (with leader election)
+    Manager->>Manager: Start Leader Election
+    Manager->>Reconciler: Setup Controller
+    Manager->>Manager: Start Cache Sync
+    Manager->>Reconciler: Trigger Reconcile (on policy changes)
+    Reconciler->>Reconciler: Evaluate Policy
+    Reconciler->>MetricsServer: Record Metrics
+    MetricsServer->>MetricsServer: Expose Metrics
+    Note over Reconciler: Event-Driven Reconciliation
+    Main->>Manager: Stop (on signal)
+    Manager->>Manager: Graceful Shutdown
 ```
 
-### 2. GC Controller (`pkg/controller/gc_controller.go`)
+### 2. GC Policy Reconciler (`pkg/controller/reconciler.go`)
 
-Core controller logic:
+Core reconciliation logic using controller-runtime:
 
 **Responsibilities:**
-- Watch `GarbageCollectionPolicy` CRDs
+- Reconcile `GarbageCollectionPolicy` resources (event-driven)
 - Create dynamic informers for target resources
 - Evaluate policies against resources
 - Delete resources that match TTL/conditions
@@ -88,11 +90,17 @@ Core controller logic:
 - Emit metrics and events
 
 **Key Methods:**
-- `NewGCController()`: Initialize controller with clients
-- `Start()`: Start informers and workers
-- `evaluatePolicies()`: Main reconciliation loop
+- `NewGCPolicyReconciler()`: Initialize reconciler with clients
+- `Reconcile()`: Main reconciliation function (triggered by policy changes)
 - `evaluatePolicy()`: Evaluate single policy
 - `deleteResource()`: Delete resource with rate limiting
+- `SetupWithManager()`: Register reconciler with controller-runtime Manager
+
+**Architecture:**
+- Event-driven: Reconcile is triggered by policy changes (create, update, delete)
+- Automatic requeue: Policies are requeued based on evaluation interval
+- Built-in leader election: Only the leader processes policies
+- Automatic cache sync: Manager handles cache synchronization
 
 ```mermaid
 flowchart TD

@@ -37,7 +37,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: gc-controller
-          image: docker.io/kube-zen/gc-controller:latest
+          image: docker.io/kubezen/gc-controller:latest
           imagePullPolicy: IfNotPresent
           args:
             - --metrics-addr=:8080

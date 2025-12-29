@@ -138,12 +138,15 @@ type GCController struct {
 }
 
 // NewGCController creates a new GC controller with default configuration.
-// Deprecated: Use NewGCControllerWithConfig instead.
+// Deprecated: This implementation has been replaced by GCPolicyReconciler using controller-runtime.
+// Use NewGCPolicyReconciler instead. This function is kept for backward compatibility with tests.
 func NewGCController(dynamicClient dynamic.Interface, statusUpdater *StatusUpdater, eventRecorder *EventRecorder) (*GCController, error) {
 	return NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, config.NewControllerConfig())
 }
 
 // NewGCControllerWithConfig creates a new GC controller with the given configuration.
+// Deprecated: This implementation has been replaced by GCPolicyReconciler using controller-runtime.
+// Use NewGCPolicyReconciler instead. This function is kept for backward compatibility with tests.
 func NewGCControllerWithConfig(dynamicClient dynamic.Interface, statusUpdater *StatusUpdater, eventRecorder *EventRecorder, cfg *config.ControllerConfig) (*GCController, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 

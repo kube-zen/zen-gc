@@ -16,6 +16,8 @@ import (
 )
 
 // LeaderElection manages leader election for GC controller HA.
+// Deprecated: This implementation has been replaced by controller-runtime Manager's built-in leader election.
+// The Manager handles leader election automatically. This code is kept for reference only.
 type LeaderElection struct {
 	client    kubernetes.Interface
 	namespace string

@@ -14,41 +14,42 @@ The GC controller supports leader election for High Availability (HA) deployment
 
 ### Leader Election Mechanism
 
-The controller uses Kubernetes Lease API for leader election:
+The controller uses [controller-runtime's built-in leader election](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager#Manager), which uses the Kubernetes Lease API:
 
 1. **Lease Resource**: A `Lease` object is created in the controller namespace
-2. **Lease Duration**: 15 seconds (how long a leader holds the lease)
-3. **Renew Deadline**: 10 seconds (time to renew before losing leadership)
-4. **Retry Period**: 2 seconds (how often to retry acquiring leadership)
+2. **Lease Duration**: 15 seconds (how long a leader holds the lease) - configurable via Manager
+3. **Renew Deadline**: 10 seconds (time to renew before losing leadership) - configurable via Manager
+4. **Retry Period**: 2 seconds (how often to retry acquiring leadership) - configurable via Manager
+
+**Note**: As of v0.0.2-alpha, leader election is handled automatically by controller-runtime Manager. The custom `LeaderElection` implementation has been replaced.
 
 ### Leader Responsibilities
 
-When a controller instance becomes the leader:
+When a controller instance becomes the leader (via controller-runtime Manager):
 
-1. Starts the GC controller (policy evaluation, resource deletion)
-2. Sets `gc_leader_election_status` metric to `1`
-3. Increments `gc_leader_election_transitions_total` counter
-4. Logs: `"Became leader (identity: <pod-name>, namespace: <ns>, name: <lease-name>)"`
+1. Manager starts the reconciler and begins processing policy reconciliations
+2. Only the leader's reconciler processes `GarbageCollectionPolicy` resources
+3. Metrics and health endpoints are available on all replicas
+4. Leader election status is managed by controller-runtime
 
 ### Follower Behavior
 
 When a controller instance is not the leader:
 
-1. Does not process GC policies
-2. Sets `gc_leader_election_status` metric to `0`
-3. `/readyz` endpoint returns `503 Service Unavailable`
-4. Continues to expose metrics and health checks
-5. Monitors for leadership opportunities
+1. Manager does not start reconciliation (only leader processes policies)
+2. `/readyz` endpoint returns `503 Service Unavailable` (managed by Manager)
+3. `/healthz` endpoint returns `200 OK` on all replicas
+4. Metrics server runs on all replicas
+5. Manager monitors for leadership opportunities automatically
 
 ### Leadership Loss
 
 When a leader loses leadership:
 
-1. Stops the GC controller gracefully
-2. Sets `gc_leader_election_status` metric to `0`
-3. Increments `gc_leader_election_transitions_total` counter
-4. Logs: `"Lost leadership (identity: <pod-name>)"`
-5. Attempts to reacquire leadership
+1. Manager stops reconciliation gracefully
+2. Manager attempts to reacquire leadership automatically
+3. Another replica becomes leader and starts processing
+4. Zero downtime failover (seamless transition)
 
 ## Configuration
 

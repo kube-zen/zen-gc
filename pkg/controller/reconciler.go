@@ -72,6 +72,20 @@ type GCPolicyReconciler struct {
 	// Mutex to protect rateLimiters map.
 	rateLimitersMu sync.RWMutex
 
+	// Track policy UIDs by NamespacedName for cleanup on deletion.
+	// Protected by policyUIDsMu mutex.
+	policyUIDs map[types.NamespacedName]types.UID
+
+	// Mutex to protect policyUIDs map.
+	policyUIDsMu sync.RWMutex
+
+	// Track last known policy spec for update detection.
+	// Protected by policySpecsMu mutex.
+	policySpecs map[types.UID]*v1alpha1.GarbageCollectionPolicySpec
+
+	// Mutex to protect policySpecs map.
+	policySpecsMu sync.RWMutex
+
 	// Status updater.
 	statusUpdater *StatusUpdater
 
@@ -101,6 +115,8 @@ func NewGCPolicyReconciler(
 		resourceInformers:         make(map[types.UID]cache.SharedInformer),
 		resourceInformerFactories: make(map[types.UID]dynamicinformer.DynamicSharedInformerFactory),
 		rateLimiters:              make(map[types.UID]*RateLimiter),
+		policyUIDs:                make(map[types.NamespacedName]types.UID),
+		policySpecs:               make(map[types.UID]*v1alpha1.GarbageCollectionPolicySpec),
 		statusUpdater:             statusUpdater,
 		eventRecorder:             eventRecorder,
 	}
@@ -118,13 +134,28 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if errors.IsNotFound(err) {
 			// Policy was deleted - clean up associated resources
 			logger.V(2).Info("Policy not found, cleaning up resources")
-			// Note: We can't get the UID from a deleted object, so we need to track it differently
-			// For now, we'll clean up on the next reconcile cycle if needed
+			r.cleanupPolicyResources(req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 		logger.WithError(err).Error("Failed to fetch GarbageCollectionPolicy")
 		return ctrl.Result{}, err
 	}
+
+	// Track policy UID for cleanup on deletion
+	r.trackPolicyUID(req.NamespacedName, policy.UID)
+
+	// Check if policy spec changed and requires informer recreation
+	if r.shouldRecreateInformer(policy) {
+		logger.V(2).Info("Policy spec changed, recreating informer")
+		r.cleanupResourceInformer(policy.UID)
+		// Clear old spec to allow new one to be tracked
+		r.policySpecsMu.Lock()
+		delete(r.policySpecs, policy.UID)
+		r.policySpecsMu.Unlock()
+	}
+
+	// Store current spec for future comparison
+	r.trackPolicySpec(policy.UID, &policy.Spec)
 
 	// Skip paused policies
 	if policy.Spec.Paused {
@@ -142,6 +173,10 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// Requeue with backoff on error
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
+
+	// Record policy phase metrics periodically
+	// Use a simple counter to avoid calling too frequently
+	r.recordPolicyPhaseMetrics(ctx)
 
 	// Determine requeue interval based on policy evaluation interval or default
 	requeueAfter := r.getRequeueInterval(policy)
@@ -878,6 +913,159 @@ func (r *GCPolicyReconciler) deleteResourceWithBackoff(ctx context.Context, reso
 	}
 
 	return err
+}
+
+// trackPolicyUID tracks a policy UID by NamespacedName for cleanup on deletion.
+func (r *GCPolicyReconciler) trackPolicyUID(nn types.NamespacedName, uid types.UID) {
+	r.policyUIDsMu.Lock()
+	defer r.policyUIDsMu.Unlock()
+	r.policyUIDs[nn] = uid
+}
+
+// trackPolicySpec tracks a policy spec for change detection.
+func (r *GCPolicyReconciler) trackPolicySpec(uid types.UID, spec *v1alpha1.GarbageCollectionPolicySpec) {
+	r.policySpecsMu.Lock()
+	defer r.policySpecsMu.Unlock()
+	// Deep copy the spec to avoid reference issues
+	specCopy := spec.DeepCopy()
+	r.policySpecs[uid] = specCopy
+}
+
+// shouldRecreateInformer checks if policy spec changed in a way that requires informer recreation.
+func (r *GCPolicyReconciler) shouldRecreateInformer(policy *v1alpha1.GarbageCollectionPolicy) bool {
+	r.policySpecsMu.RLock()
+	defer r.policySpecsMu.RUnlock()
+
+	oldSpec, exists := r.policySpecs[policy.UID]
+	if !exists {
+		// First time seeing this policy, no need to recreate
+		return false
+	}
+
+	// Compare key fields that affect informer creation
+	newSpec := policy.Spec.TargetResource
+	oldTarget := oldSpec.TargetResource
+
+	if oldTarget.APIVersion != newSpec.APIVersion ||
+		oldTarget.Kind != newSpec.Kind ||
+		oldTarget.Namespace != newSpec.Namespace ||
+		!labelSelectorsEqual(oldTarget.LabelSelector, newSpec.LabelSelector) {
+		return true
+	}
+
+	return false
+}
+
+// cleanupPolicyResources cleans up all resources associated with a policy by NamespacedName.
+func (r *GCPolicyReconciler) cleanupPolicyResources(nn types.NamespacedName) {
+	r.policyUIDsMu.Lock()
+	uid, exists := r.policyUIDs[nn]
+	if exists {
+		delete(r.policyUIDs, nn)
+	}
+	r.policyUIDsMu.Unlock()
+
+	if !exists {
+		// Policy UID not tracked, nothing to clean up
+		return
+	}
+
+	klog.V(2).Infof("Cleaning up resources for policy %s/%s (UID: %s)", nn.Namespace, nn.Name, uid)
+
+	// Clean up resource informer
+	r.cleanupResourceInformer(uid)
+
+	// Clean up rate limiter
+	r.cleanupRateLimiter(uid)
+
+	// Clean up tracked spec
+	r.policySpecsMu.Lock()
+	delete(r.policySpecs, uid)
+	r.policySpecsMu.Unlock()
+}
+
+// cleanupResourceInformer cleans up a resource informer for a given policy UID.
+func (r *GCPolicyReconciler) cleanupResourceInformer(policyUID types.UID) {
+	r.resourceInformersMu.Lock()
+	defer r.resourceInformersMu.Unlock()
+
+	_, informerExists := r.resourceInformers[policyUID]
+	_, factoryExists := r.resourceInformerFactories[policyUID]
+
+	if !informerExists && !factoryExists {
+		// Already cleaned up or never existed
+		return
+	}
+
+	// Stop the informer factory (which will stop all informers created by it)
+	if factoryExists {
+		// DynamicSharedInformerFactory doesn't have a Stop method,
+		// but stopping is handled by context cancellation.
+		// We just need to remove it from our tracking.
+		delete(r.resourceInformerFactories, policyUID)
+	}
+
+	// Remove informer from map
+	if informerExists {
+		delete(r.resourceInformers, policyUID)
+		klog.V(4).Infof("Cleaned up resource informer for policy UID: %s", policyUID)
+	}
+
+	// Update metrics
+	recordInformerCount(len(r.resourceInformers))
+}
+
+// cleanupRateLimiter cleans up a rate limiter for a given policy UID.
+func (r *GCPolicyReconciler) cleanupRateLimiter(policyUID types.UID) {
+	r.rateLimitersMu.Lock()
+	defer r.rateLimitersMu.Unlock()
+
+	if _, exists := r.rateLimiters[policyUID]; exists {
+		delete(r.rateLimiters, policyUID)
+		klog.V(4).Infof("Cleaned up rate limiter for policy UID: %s", policyUID)
+	}
+
+	// Update metrics
+	recordRateLimiterCount(len(r.rateLimiters))
+}
+
+// recordPolicyPhaseMetrics records metrics for policy phases.
+// Uses controller-runtime cache to list all policies.
+func (r *GCPolicyReconciler) recordPolicyPhaseMetrics(ctx context.Context) {
+	// List all policies using the client cache
+	policyList := &v1alpha1.GarbageCollectionPolicyList{}
+	if err := r.List(ctx, policyList); err != nil {
+		klog.V(4).Infof("Failed to list policies for metrics: %v", err)
+		return
+	}
+
+	phaseCounts := make(map[string]float64)
+
+	for _, policy := range policyList.Items {
+		phase := policy.Status.Phase
+		if phase == "" {
+			// Determine phase from spec
+			if policy.Spec.Paused {
+				phase = "Paused"
+			} else {
+				phase = "Active"
+			}
+		}
+		phaseCounts[phase]++
+	}
+
+	// Update metrics for each phase
+	for phase, count := range phaseCounts {
+		recordPolicyPhase(phase, count)
+	}
+
+	// Reset phases that are no longer present
+	knownPhases := []string{"Active", "Paused", "Error"}
+	for _, phase := range knownPhases {
+		if _, exists := phaseCounts[phase]; !exists {
+			recordPolicyPhase(phase, 0)
+		}
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
