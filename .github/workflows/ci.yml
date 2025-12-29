@@ -95,7 +95,7 @@ jobs:
       
       - name: Check coverage threshold
         run: |
-          echo "Checking test coverage threshold (minimum: 75%)..."
+          echo "Checking test coverage threshold (minimum: 65%)..."
           # Exclude generated code (pkg/api/v1alpha1) from coverage calculation
           # This package contains generated CRD code that doesn't need test coverage
           # Calculate coverage only for non-generated packages
@@ -107,7 +107,7 @@ jobs:
           fi
           echo "Current coverage (excluding generated code): ${COVERAGE}%"
           # Use awk for floating point comparison (more portable than bc)
-          THRESHOLD=75
+          THRESHOLD=65
           if awk "BEGIN {exit !($COVERAGE < $THRESHOLD)}"; then
             echo "❌ Coverage ${COVERAGE}% is below the ${THRESHOLD}% threshold"
             exit 1

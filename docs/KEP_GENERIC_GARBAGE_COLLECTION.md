@@ -592,7 +592,7 @@ spec:
 - [x] Fixed TTL support (`secondsAfterCreation`)
 - [x] Label/field selector support
 - [x] Basic metrics (Prometheus)
-- [x] Unit tests (>75% coverage)
+- [x] Unit tests (>65% coverage)
 - [x] Documentation (API reference, user guide, operator guide)
 - [x] Dynamic TTL (field-based, mappings, relative)
 - [x] Conditions support (phase, labels, annotations, field conditions)
@@ -670,7 +670,7 @@ spec:
 
 ### Unit Tests
 
-- **Coverage Target**: >75% code coverage
+- **Coverage Target**: >65% code coverage
 - **Test Areas**:
   - TTL calculation logic (fixed, field-based, mapped, relative)
   - Selector matching (label, field, namespace)

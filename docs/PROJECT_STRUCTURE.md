@@ -40,7 +40,7 @@ zen-gc/
 - ✅ Full-featured GC controller implementation
 - ✅ Comprehensive CRD with flexible TTL and condition support
 - ✅ Production features (rate limiting, metrics, HA)
-- ✅ Extensive test coverage (>75%)
+- ✅ Extensive test coverage (>65%)
 - ✅ Complete documentation
 - ✅ Open source and actively maintained
 

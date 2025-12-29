@@ -106,7 +106,6 @@ func TestGCPolicyReconciler_Reconcile_NotFound(t *testing.T) {
 
 	ctx := context.Background()
 	result, err := reconciler.Reconcile(ctx, req)
-
 	if err != nil {
 		t.Errorf("Reconcile() should not error on not found, got: %v", err)
 	}
@@ -157,7 +156,6 @@ func TestGCPolicyReconciler_Reconcile_PausedPolicy(t *testing.T) {
 
 	ctx := context.Background()
 	result, err := reconciler.Reconcile(ctx, req)
-
 	if err != nil {
 		t.Errorf("Reconcile() should not error on paused policy, got: %v", err)
 	}
@@ -211,7 +209,6 @@ func TestGCPolicyReconciler_Reconcile_PolicyDeletion(t *testing.T) {
 	req := reconcile.Request{NamespacedName: nn}
 	ctx := context.Background()
 	result, err := reconciler.Reconcile(ctx, req)
-
 	if err != nil {
 		t.Errorf("Reconcile() should not error on deletion, got: %v", err)
 	}

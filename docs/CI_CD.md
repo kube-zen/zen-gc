@@ -26,7 +26,7 @@ All PRs must pass:
 - ✅ Code formatting (`gofmt`)
 - ✅ Linting (`golangci-lint`)
 - ✅ Static analysis (`go vet`)
-- ✅ Unit tests (>75% coverage)
+- ✅ Unit tests (>65% coverage)
 - ✅ Build verification
 - ✅ Security scanning (`govulncheck`, `gosec`)
 - ✅ YAML validation
@@ -117,7 +117,7 @@ This runs:
 
 ## Coverage Requirements
 
-- **Minimum**: 75% code coverage
+- **Minimum**: 65% code coverage
 - **Target**: >80% coverage
 - **Critical paths**: >85% coverage
 
@@ -172,7 +172,7 @@ make security-check
 ### PR Requirements
 
 - All CI checks must pass
-- Coverage must be maintained (>75%)
+- Coverage must be maintained (>65%)
 - No security vulnerabilities
 - Documentation updated
 - Tests added for new features

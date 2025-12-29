@@ -33,11 +33,11 @@ go tool cover -html=coverage.out
 
 ### Coverage Requirements
 
-- **Minimum**: 75% code coverage
+- **Minimum**: 65% code coverage
 - **Target**: >80% coverage
 - **Critical paths**: >85% coverage
 
-Coverage is checked automatically in CI and will fail if below 75%.
+Coverage is checked automatically in CI and will fail if below 65%.
 
 ## Integration Tests
 

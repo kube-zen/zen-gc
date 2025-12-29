@@ -155,7 +155,7 @@ spec:
 - ✅ **Rate Limiting**: Configurable deletion rate per policy to prevent API server overload
 - ✅ **Dry-Run Mode**: Test policies safely before enabling actual deletion
 - ✅ **Production Features**: Prometheus metrics, Kubernetes events, leader election for HA
-- ✅ **Well Tested**: >75% test coverage with comprehensive unit and integration tests
+- ✅ **Well Tested**: >65% test coverage with comprehensive unit and integration tests
 
 ## Status
 
