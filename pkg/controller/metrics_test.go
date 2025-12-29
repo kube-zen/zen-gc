@@ -23,7 +23,7 @@ func TestRecordResourceMatched(t *testing.T) {
 
 func TestRecordResourceDeleted(t *testing.T) {
 	recordResourceDeleted("default", "test-policy", "v1", "ConfigMap", ReasonTTLExpired, 0.5)
-	recordResourceDeleted("default", "test-policy", "v1", "Pod", "condition_not_met", 0.3)
+	recordResourceDeleted("default", "test-policy", "v1", "Pod", ReasonConditionNotMet, 0.3)
 
 	// Verify metric was recorded
 }
@@ -57,7 +57,7 @@ func TestMetrics_AllFunctions(t *testing.T) {
 
 	t.Run("recordResourceDeleted", func(t *testing.T) {
 		recordResourceDeleted("ns1", "policy1", "v1", "ConfigMap", ReasonTTLExpired, 0.1)
-		recordResourceDeleted("ns1", "policy1", "v1", "Pod", "condition_not_met", 0.2)
+		recordResourceDeleted("ns1", "policy1", "v1", "Pod", ReasonConditionNotMet, 0.2)
 	})
 
 	t.Run("recordError", func(t *testing.T) {

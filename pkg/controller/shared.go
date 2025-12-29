@@ -25,6 +25,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -41,6 +42,9 @@ const (
 
 	// ReasonNotExpired indicates that a resource's TTL has not expired.
 	ReasonNotExpired = "not_expired"
+
+	// ReasonConditionNotMet indicates that a resource does not meet the deletion conditions.
+	ReasonConditionNotMet = "condition_not_met"
 
 	// ErrorTypeEvaluationFailed indicates that policy evaluation failed.
 	ErrorTypeEvaluationFailed = "evaluation_failed"
@@ -464,5 +468,56 @@ func matchesFieldOperatorShared(fieldValue string, fieldCond v1alpha1.FieldCondi
 	default:
 		return false
 	}
+}
+
+// matchesSelectorsShared checks if a resource matches the target resource selectors.
+func matchesSelectorsShared(resource *unstructured.Unstructured, target *v1alpha1.TargetResourceSpec) bool {
+	// Normalize namespace: empty defaults to "*" (cluster-wide) to match webhook behavior
+	namespace := target.Namespace
+	if namespace == "" {
+		namespace = "*"
+	}
+
+	// Check namespace
+	if namespace != "*" {
+		if resource.GetNamespace() != namespace {
+			return false
+		}
+	}
+
+	// Check label selector
+	if target.LabelSelector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(target.LabelSelector)
+		if err != nil {
+			gcErr := gcerrors.Wrap(err, "invalid_label_selector", "invalid label selector")
+			klog.Errorf("Invalid label selector: %v", gcErr)
+			return false
+		}
+
+		resourceLabels := labels.Set(resource.GetLabels())
+		if !selector.Matches(resourceLabels) {
+			return false
+		}
+	}
+
+	// Check field selector
+	// Field selectors are evaluated in-memory only (not pushed down to API server).
+	// Unlike label selectors which are sent to the API server to reduce watch/list volume,
+	// field selectors are evaluated after resources are fetched. This means:
+	// - Field selectors do NOT reduce API server load or network traffic
+	// - All resources matching the GVR/namespace/labelSelector are fetched and cached
+	// - Field selector filtering happens in the controller's memory
+	// For better performance, prefer label selectors when possible.
+	if target.FieldSelector != nil {
+		for key, value := range target.FieldSelector.MatchFields {
+			fieldPath := parseFieldPath(key)
+			fieldValue, found, err := unstructured.NestedString(resource.Object, fieldPath...)
+			if err != nil || !found || fieldValue != value {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 

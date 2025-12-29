@@ -101,8 +101,8 @@ func TestGCController_shouldDelete_ConditionNotMet(t *testing.T) {
 	if shouldDelete {
 		t.Errorf("shouldDelete() = true, want false (condition not met)")
 	}
-	if reason != "condition_not_met" {
-		t.Errorf("shouldDelete() reason = %q, want 'condition_not_met'", reason)
+	if reason != ReasonConditionNotMet {
+		t.Errorf("shouldDelete() reason = %q, want %q", reason, ReasonConditionNotMet)
 	}
 }
 

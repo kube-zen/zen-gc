@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -216,98 +215,19 @@ func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha
 		return gcErr
 	}
 
-	// Get all resources from cache
-	resources := informer.GetStore().List()
-
-	matchedCount := int64(0)
-	deletedCount := int64(0)
-	pendingCount := int64(0)
+	// Evaluate resources and collect those to delete
+	matchedCount, _, pendingCount, resourcesToDelete, resourcesToDeleteReasons, err := evaluatePolicyResourcesShared(ctx, r, policy, informer)
+	if err != nil {
+		return err
+	}
 
 	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
 	resourceKind := policy.Spec.TargetResource.Kind
 
-	// Collect resources to delete
-	resourcesToDelete := make([]*unstructured.Unstructured, 0)
-	resourcesToDeleteReasons := make(map[string]string) // resource UID -> reason
-
-	for _, obj := range resources {
-		// Check context cancellation during resource iteration
-		select {
-		case <-ctx.Done():
-			klog.V(4).Infof("Stopping policy evaluation for %s/%s: context canceled", policy.Namespace, policy.Name)
-			return nil
-		default:
-		}
-
-		resource, ok := obj.(*unstructured.Unstructured)
-		if !ok {
-			continue
-		}
-
-		// Check if resource matches selectors
-		if !r.matchesSelectors(resource, &policy.Spec.TargetResource) {
-			continue
-		}
-
-		matchedCount++
-		recordResourceMatched(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind)
-
-		// Check if resource should be deleted
-		shouldDelete, reason := r.shouldDelete(resource, policy)
-		if !shouldDelete {
-			pendingCount++
-			continue
-		}
-
-		// Add to deletion list
-		resourcesToDelete = append(resourcesToDelete, resource)
-		resourcesToDeleteReasons[string(resource.GetUID())] = reason
-	}
-
 	// Delete resources in batches
-	if len(resourcesToDelete) > 0 {
-		rateLimiter := r.getOrCreateRateLimiter(policy)
-		batchSize := r.getBatchSize(policy)
-
-		// Process deletions in batches
-		for i := 0; i < len(resourcesToDelete); i += batchSize {
-			// Check context cancellation between batches
-			select {
-			case <-ctx.Done():
-				klog.V(4).Infof("Stopping batch deletion for %s/%s: context canceled", policy.Namespace, policy.Name)
-				return nil
-			default:
-			}
-
-			end := i + batchSize
-			if end > len(resourcesToDelete) {
-				end = len(resourcesToDelete)
-			}
-			batch := resourcesToDelete[i:end]
-
-			// Delete batch
-			// Track deletion attempts (total resources in batch)
-			deletionAttempts := int64(len(batch))
-			batchDeleted, batchErrors := r.deleteBatch(ctx, batch, policy, rateLimiter, resourcesToDeleteReasons)
-			deletedCount += batchDeleted
-
-			// Track deletion failures
-			if len(batchErrors) > 0 {
-				recordError(policy.Namespace, policy.Name, "deletion_failed")
-			}
-
-			// Log errors
-			for _, err := range batchErrors {
-				if r.eventRecorder != nil {
-					r.eventRecorder.RecordEvaluationFailed(policy, err)
-				}
-				klog.Errorf("Error deleting batch for policy %s/%s: %v", policy.Namespace, policy.Name, err)
-			}
-
-			// Log deletion attempt metrics
-			klog.V(4).Infof("Policy %s/%s: attempted %d deletions, succeeded %d, failed %d",
-				policy.Namespace, policy.Name, deletionAttempts, batchDeleted, int64(len(batchErrors)))
-		}
+	deletedCount, err := deleteResourcesInBatchesShared(ctx, r, policy, resourcesToDelete, resourcesToDeleteReasons)
+	if err != nil {
+		return err
 	}
 
 	// Record pending resources metric
@@ -315,27 +235,9 @@ func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha
 		recordResourcesPending(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, pendingCount)
 	}
 
-	// Update policy status with timeout context
-	if r.statusUpdater != nil {
-		// Use timeout context for status updates to prevent hanging
-		statusCtx, statusCancel := context.WithTimeout(ctx, 10*time.Second)
-		defer statusCancel()
-
-		if err := r.statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount); err != nil {
-			// Check if error is due to context cancellation/timeout
-			if statusCtx.Err() != nil {
-				klog.V(4).Infof("Status update canceled or timed out for policy %s/%s: %v", policy.Namespace, policy.Name, statusCtx.Err())
-				return nil // Don't treat cancellation as error
-			}
-			gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
-			gcErr.PolicyNamespace = policy.Namespace
-			gcErr.PolicyName = policy.Name
-			recordError(policy.Namespace, policy.Name, "status_update_failed")
-			if r.eventRecorder != nil {
-				r.eventRecorder.RecordStatusUpdateFailed(policy, gcErr)
-			}
-			klog.Errorf("Error updating policy status for %s/%s: %v", policy.Namespace, policy.Name, gcErr)
-		}
+	// Update policy status
+	if err := updatePolicyStatusShared(ctx, r, policy, matchedCount, deletedCount, pendingCount); err != nil {
+		return err
 	}
 
 	// Record policy evaluation event
@@ -346,55 +248,14 @@ func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha
 	return nil
 }
 
+// getStatusUpdater returns the status updater (implements PolicyEvaluator).
+func (r *GCPolicyReconciler) getStatusUpdater() *StatusUpdater {
+	return r.statusUpdater
+}
+
 // matchesSelectors checks if a resource matches the target resource selectors.
 func (r *GCPolicyReconciler) matchesSelectors(resource *unstructured.Unstructured, target *v1alpha1.TargetResourceSpec) bool {
-	// Normalize namespace: empty defaults to "*" (cluster-wide) to match webhook behavior
-	namespace := target.Namespace
-	if namespace == "" {
-		namespace = "*"
-	}
-
-	// Check namespace
-	if namespace != "*" {
-		if resource.GetNamespace() != namespace {
-			return false
-		}
-	}
-
-	// Check label selector
-	if target.LabelSelector != nil {
-		selector, err := metav1.LabelSelectorAsSelector(target.LabelSelector)
-		if err != nil {
-			gcErr := gcerrors.Wrap(err, "invalid_label_selector", "invalid label selector")
-			klog.Errorf("Invalid label selector: %v", gcErr)
-			return false
-		}
-
-		resourceLabels := labels.Set(resource.GetLabels())
-		if !selector.Matches(resourceLabels) {
-			return false
-		}
-	}
-
-	// Check field selector
-	// Field selectors are evaluated in-memory only (not pushed down to API server).
-	// Unlike label selectors which are sent to the API server to reduce watch/list volume,
-	// field selectors are evaluated after resources are fetched. This means:
-	// - Field selectors do NOT reduce API server load or network traffic
-	// - All resources matching the GVR/namespace/labelSelector are fetched and cached
-	// - Field selector filtering happens in the controller's memory
-	// For better performance, prefer label selectors when possible.
-	if target.FieldSelector != nil {
-		for key, value := range target.FieldSelector.MatchFields {
-			fieldPath := parseFieldPath(key)
-			fieldValue, found, err := unstructured.NestedString(resource.Object, fieldPath...)
-			if err != nil || !found || fieldValue != value {
-				return false
-			}
-		}
-	}
-
-	return true
+	return matchesSelectorsShared(resource, target)
 }
 
 // shouldDelete determines if a resource should be deleted based on TTL and conditions.
@@ -402,7 +263,7 @@ func (r *GCPolicyReconciler) shouldDelete(resource *unstructured.Unstructured, p
 	// Check conditions first
 	if policy.Spec.Conditions != nil {
 		if !r.meetsConditions(resource, policy.Spec.Conditions) {
-			return false, "condition_not_met"
+			return false, ReasonConditionNotMet
 		}
 	}
 
@@ -436,25 +297,7 @@ func (r *GCPolicyReconciler) meetsConditions(resource *unstructured.Unstructured
 	return meetsConditionsShared(resource, conditions)
 }
 
-// meetsPhaseConditions checks if resource phase matches any of the required phases.
-func (r *GCPolicyReconciler) meetsPhaseConditions(resource *unstructured.Unstructured, phases []string) bool {
-	return meetsPhaseConditionsShared(resource, phases)
-}
 
-// meetsLabelConditions checks if resource labels match the required conditions.
-func (r *GCPolicyReconciler) meetsLabelConditions(resource *unstructured.Unstructured, labelConds []v1alpha1.LabelCondition) bool {
-	return meetsLabelConditionsShared(resource, labelConds)
-}
-
-// meetsAnnotationConditions checks if resource annotations match the required conditions.
-func (r *GCPolicyReconciler) meetsAnnotationConditions(resource *unstructured.Unstructured, annConds []v1alpha1.AnnotationCondition) bool {
-	return meetsAnnotationConditionsShared(resource, annConds)
-}
-
-// meetsFieldConditions checks if resource fields match the required conditions.
-func (r *GCPolicyReconciler) meetsFieldConditions(resource *unstructured.Unstructured, fieldConds []v1alpha1.FieldCondition) bool {
-	return meetsFieldConditionsShared(resource, fieldConds)
-}
 
 // matchesFieldOperator checks if field value matches the operator condition.
 func (r *GCPolicyReconciler) matchesFieldOperator(fieldValue string, fieldCond v1alpha1.FieldCondition) bool {

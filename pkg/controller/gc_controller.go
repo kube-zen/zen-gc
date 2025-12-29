@@ -26,7 +26,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -652,53 +651,7 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 
 // matchesSelectors checks if a resource matches the target resource selectors.
 func (gc *GCController) matchesSelectors(resource *unstructured.Unstructured, target *v1alpha1.TargetResourceSpec) bool {
-	// Normalize namespace: empty defaults to "*" (cluster-wide) to match webhook behavior
-	namespace := target.Namespace
-	if namespace == "" {
-		namespace = "*"
-	}
-
-	// Check namespace
-	if namespace != "*" {
-		if resource.GetNamespace() != namespace {
-			return false
-		}
-	}
-
-	// Check label selector
-	if target.LabelSelector != nil {
-		selector, err := metav1.LabelSelectorAsSelector(target.LabelSelector)
-		if err != nil {
-			gcErr := gcerrors.Wrap(err, "invalid_label_selector", "invalid label selector")
-			klog.Errorf("Invalid label selector: %v", gcErr)
-			return false
-		}
-
-		resourceLabels := labels.Set(resource.GetLabels())
-		if !selector.Matches(resourceLabels) {
-			return false
-		}
-	}
-
-	// Check field selector
-	// Field selectors are evaluated in-memory only (not pushed down to API server).
-	// Unlike label selectors which are sent to the API server to reduce watch/list volume,
-	// field selectors are evaluated after resources are fetched. This means:
-	// - Field selectors do NOT reduce API server load or network traffic
-	// - All resources matching the GVR/namespace/labelSelector are fetched and cached
-	// - Field selector filtering happens in the controller's memory
-	// For better performance, prefer label selectors when possible.
-	if target.FieldSelector != nil {
-		for key, value := range target.FieldSelector.MatchFields {
-			fieldPath := parseFieldPath(key)
-			fieldValue, found, err := unstructured.NestedString(resource.Object, fieldPath...)
-			if err != nil || !found || fieldValue != value {
-				return false
-			}
-		}
-	}
-
-	return true
+	return matchesSelectorsShared(resource, target)
 }
 
 // shouldDelete determines if a resource should be deleted based on TTL and conditions.
@@ -706,7 +659,7 @@ func (gc *GCController) shouldDelete(resource *unstructured.Unstructured, policy
 	// Check conditions first
 	if policy.Spec.Conditions != nil {
 		if !gc.meetsConditions(resource, policy.Spec.Conditions) {
-			return false, "condition_not_met"
+			return false, ReasonConditionNotMet
 		}
 	}
 
@@ -763,25 +716,6 @@ func (gc *GCController) meetsConditions(resource *unstructured.Unstructured, con
 	return meetsConditionsShared(resource, conditions)
 }
 
-// meetsPhaseConditions checks if resource phase matches any of the required phases.
-func (gc *GCController) meetsPhaseConditions(resource *unstructured.Unstructured, phases []string) bool {
-	return meetsPhaseConditionsShared(resource, phases)
-}
-
-// meetsLabelConditions checks if resource labels match the required conditions.
-func (gc *GCController) meetsLabelConditions(resource *unstructured.Unstructured, labelConds []v1alpha1.LabelCondition) bool {
-	return meetsLabelConditionsShared(resource, labelConds)
-}
-
-// meetsAnnotationConditions checks if resource annotations match the required conditions.
-func (gc *GCController) meetsAnnotationConditions(resource *unstructured.Unstructured, annConds []v1alpha1.AnnotationCondition) bool {
-	return meetsAnnotationConditionsShared(resource, annConds)
-}
-
-// meetsFieldConditions checks if resource fields match the required conditions.
-func (gc *GCController) meetsFieldConditions(resource *unstructured.Unstructured, fieldConds []v1alpha1.FieldCondition) bool {
-	return meetsFieldConditionsShared(resource, fieldConds)
-}
 
 // matchesFieldOperator checks if field value matches the operator condition.
 func (gc *GCController) matchesFieldOperator(fieldValue string, fieldCond v1alpha1.FieldCondition) bool {
