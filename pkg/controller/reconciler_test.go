@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -34,7 +33,7 @@ import (
 )
 
 // setupTestReconciler creates a test reconciler with fake clients.
-func setupTestReconciler(t *testing.T) (*GCPolicyReconciler, client.Client, dynamic.Interface) {
+func setupTestReconciler(t *testing.T) (*GCPolicyReconciler, client.Client) {
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add v1alpha1 to scheme: %v", err)
@@ -60,11 +59,11 @@ func setupTestReconciler(t *testing.T) (*GCPolicyReconciler, client.Client, dyna
 		config.NewControllerConfig(),
 	)
 
-	return reconciler, fakeClient, dynamicClient
+	return reconciler, fakeClient
 }
 
 func TestNewGCPolicyReconciler(t *testing.T) {
-	reconciler, _, _ := setupTestReconciler(t)
+	reconciler, _ := setupTestReconciler(t)
 
 	if reconciler == nil {
 		t.Fatal("NewGCPolicyReconciler() returned nil reconciler")
@@ -96,7 +95,7 @@ func TestNewGCPolicyReconciler(t *testing.T) {
 }
 
 func TestGCPolicyReconciler_Reconcile_NotFound(t *testing.T) {
-	reconciler, fakeClient, _ := setupTestReconciler(t)
+	reconciler, fakeClient := setupTestReconciler(t)
 
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -125,7 +124,7 @@ func TestGCPolicyReconciler_Reconcile_NotFound(t *testing.T) {
 }
 
 func TestGCPolicyReconciler_Reconcile_PausedPolicy(t *testing.T) {
-	reconciler, fakeClient, _ := setupTestReconciler(t)
+	reconciler, fakeClient := setupTestReconciler(t)
 
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -170,7 +169,7 @@ func TestGCPolicyReconciler_Reconcile_PausedPolicy(t *testing.T) {
 }
 
 func TestGCPolicyReconciler_Reconcile_PolicyDeletion(t *testing.T) {
-	reconciler, fakeClient, _ := setupTestReconciler(t)
+	reconciler, fakeClient := setupTestReconciler(t)
 
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -241,7 +240,7 @@ func TestGCPolicyReconciler_Reconcile_PolicyDeletion(t *testing.T) {
 }
 
 func TestGCPolicyReconciler_shouldRecreateInformer(t *testing.T) {
-	reconciler, _, _ := setupTestReconciler(t)
+	reconciler, _ := setupTestReconciler(t)
 
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -293,7 +292,7 @@ func TestGCPolicyReconciler_shouldRecreateInformer(t *testing.T) {
 }
 
 func TestGCPolicyReconciler_trackPolicyUID(t *testing.T) {
-	reconciler, _, _ := setupTestReconciler(t)
+	reconciler, _ := setupTestReconciler(t)
 
 	nn := types.NamespacedName{Name: "test", Namespace: "default"}
 	uid := types.UID("test-uid")
@@ -314,7 +313,7 @@ func TestGCPolicyReconciler_trackPolicyUID(t *testing.T) {
 }
 
 func TestGCPolicyReconciler_SetupWithManager(t *testing.T) {
-	reconciler, _, _ := setupTestReconciler(t)
+	reconciler, _ := setupTestReconciler(t)
 
 	// Verify reconciler has SetupWithManager method
 	// This test just ensures the method exists and can be called
@@ -328,7 +327,7 @@ func TestGCPolicyReconciler_SetupWithManager(t *testing.T) {
 }
 
 func TestGCPolicyReconciler_cleanupResourceInformer(t *testing.T) {
-	reconciler, _, _ := setupTestReconciler(t)
+	reconciler, _ := setupTestReconciler(t)
 
 	uid := types.UID("test-uid")
 
@@ -358,7 +357,7 @@ func TestGCPolicyReconciler_cleanupResourceInformer(t *testing.T) {
 }
 
 func TestGCPolicyReconciler_cleanupRateLimiter(t *testing.T) {
-	reconciler, _, _ := setupTestReconciler(t)
+	reconciler, _ := setupTestReconciler(t)
 
 	uid := types.UID("test-uid")
 
@@ -387,7 +386,7 @@ func TestGCPolicyReconciler_cleanupRateLimiter(t *testing.T) {
 }
 
 func TestGCPolicyReconciler_getRequeueInterval(t *testing.T) {
-	reconciler, _, _ := setupTestReconciler(t)
+	reconciler, _ := setupTestReconciler(t)
 
 	interval := reconciler.getRequeueInterval()
 
