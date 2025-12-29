@@ -46,7 +46,7 @@ func evaluatePolicyResourcesShared(
 	evaluator PolicyEvaluator,
 	policy *v1alpha1.GarbageCollectionPolicy,
 	informer cache.SharedInformer,
-) (*PolicyEvaluationResult, error) {
+) *PolicyEvaluationResult {
 	// Get all resources from cache
 	resources := informer.GetStore().List()
 
@@ -66,7 +66,7 @@ func evaluatePolicyResourcesShared(
 		select {
 		case <-ctx.Done():
 			klog.V(4).Infof("Stopping policy evaluation for %s/%s: context canceled", policy.Namespace, policy.Name)
-			return result, nil
+			return result
 		default:
 		}
 
@@ -95,7 +95,7 @@ func evaluatePolicyResourcesShared(
 		result.ResourcesToDeleteReasons[string(resource.GetUID())] = reason
 	}
 
-	return result, nil
+	return result
 }
 
 // deleteResourcesInBatchesShared deletes resources in batches.
@@ -105,9 +105,9 @@ func deleteResourcesInBatchesShared(
 	policy *v1alpha1.GarbageCollectionPolicy,
 	resourcesToDelete []*unstructured.Unstructured,
 	resourcesToDeleteReasons map[string]string,
-) (int64, error) {
+) int64 {
 	if len(resourcesToDelete) == 0 {
-		return 0, nil
+		return 0
 	}
 
 	rateLimiter := evaluator.getOrCreateRateLimiter(policy)
@@ -120,7 +120,7 @@ func deleteResourcesInBatchesShared(
 		select {
 		case <-ctx.Done():
 			klog.V(4).Infof("Stopping batch deletion for %s/%s: context canceled", policy.Namespace, policy.Name)
-			return deletedCount, nil
+			return deletedCount
 		default:
 		}
 
@@ -155,7 +155,7 @@ func deleteResourcesInBatchesShared(
 			policy.Namespace, policy.Name, deletionAttempts, batchDeleted, int64(len(batchErrors)))
 	}
 
-	return deletedCount, nil
+	return deletedCount
 }
 
 // updatePolicyStatusShared updates the policy status.

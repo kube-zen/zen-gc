@@ -20,10 +20,9 @@ import "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 // PolicyEvaluationResult contains the results of evaluating a policy.
 type PolicyEvaluationResult struct {
-	MatchedCount            int64
-	DeletedCount            int64
-	PendingCount            int64
-	ResourcesToDelete       []*unstructured.Unstructured
+	MatchedCount             int64
+	DeletedCount             int64
+	PendingCount             int64
+	ResourcesToDelete        []*unstructured.Unstructured
 	ResourcesToDeleteReasons map[string]string
 }
-

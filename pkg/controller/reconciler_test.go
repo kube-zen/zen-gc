@@ -389,11 +389,7 @@ func TestGCPolicyReconciler_cleanupRateLimiter(t *testing.T) {
 func TestGCPolicyReconciler_getRequeueInterval(t *testing.T) {
 	reconciler, _, _ := setupTestReconciler(t)
 
-	policy := &v1alpha1.GarbageCollectionPolicy{
-		Spec: v1alpha1.GarbageCollectionPolicySpec{},
-	}
-
-	interval := reconciler.getRequeueInterval(policy)
+	interval := reconciler.getRequeueInterval()
 
 	if interval <= 0 {
 		t.Errorf("Requeue interval should be positive, got: %v", interval)
@@ -403,5 +399,3 @@ func TestGCPolicyReconciler_getRequeueInterval(t *testing.T) {
 		t.Errorf("Expected default interval %v, got %v", DefaultGCInterval, interval)
 	}
 }
-
-

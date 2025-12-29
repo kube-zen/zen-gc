@@ -719,7 +719,6 @@ func (gc *GCController) meetsConditions(resource *unstructured.Unstructured, con
 	return meetsConditionsShared(resource, conditions)
 }
 
-
 // matchesFieldOperator checks if field value matches the operator condition.
 func (gc *GCController) matchesFieldOperator(fieldValue string, fieldCond v1alpha1.FieldCondition) bool {
 	return matchesFieldOperatorShared(fieldValue, fieldCond)

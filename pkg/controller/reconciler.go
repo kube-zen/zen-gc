@@ -158,15 +158,15 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Skip paused policies
 	if policy.Spec.Paused {
 		logger.V(4).Info("Policy is paused, skipping evaluation")
-		return ctrl.Result{RequeueAfter: r.getRequeueInterval(policy)}, nil
+		return ctrl.Result{RequeueAfter: r.getRequeueInterval()}, nil
 	}
 
 	// Evaluate the policy
-		if err := r.evaluatePolicy(ctx, policy); err != nil {
-			gcErr := gcerrors.WithPolicy(err, policy.Namespace, policy.Name)
-			if gcErr.Type == "" {
-				gcErr.Type = ErrorTypeEvaluationFailed
-			}
+	if err := r.evaluatePolicy(ctx, policy); err != nil {
+		gcErr := gcerrors.WithPolicy(err, policy.Namespace, policy.Name)
+		if gcErr.Type == "" {
+			gcErr.Type = ErrorTypeEvaluationFailed
+		}
 		logger.WithError(gcErr).Error("Error evaluating policy")
 		// Requeue with backoff on error
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
@@ -177,13 +177,13 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	r.recordPolicyPhaseMetrics(ctx)
 
 	// Determine requeue interval based on policy evaluation interval or default
-	requeueAfter := r.getRequeueInterval(policy)
+	requeueAfter := r.getRequeueInterval()
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
 // getRequeueInterval returns the requeue interval for a policy.
 // Uses policy-specific evaluation interval if configured, otherwise uses default.
-func (r *GCPolicyReconciler) getRequeueInterval(policy *v1alpha1.GarbageCollectionPolicy) time.Duration {
+func (r *GCPolicyReconciler) getRequeueInterval() time.Duration {
 	// TODO: Add EvaluationInterval field to GarbageCollectionPolicySpec if needed
 	// For now, use the default GC interval from config
 	interval := DefaultGCInterval
@@ -216,19 +216,13 @@ func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha
 	}
 
 	// Evaluate resources and collect those to delete
-	evalResult, err := evaluatePolicyResourcesShared(ctx, r, policy, informer)
-	if err != nil {
-		return err
-	}
+	evalResult := evaluatePolicyResourcesShared(ctx, r, policy, informer)
 
 	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
 	resourceKind := policy.Spec.TargetResource.Kind
 
 	// Delete resources in batches
-	deletedCount, err := deleteResourcesInBatchesShared(ctx, r, policy, evalResult.ResourcesToDelete, evalResult.ResourcesToDeleteReasons)
-	if err != nil {
-		return err
-	}
+	deletedCount := deleteResourcesInBatchesShared(ctx, r, policy, evalResult.ResourcesToDelete, evalResult.ResourcesToDeleteReasons)
 	evalResult.DeletedCount = deletedCount
 
 	// Record pending resources metric
@@ -297,9 +291,6 @@ func (r *GCPolicyReconciler) calculateExpirationTime(resource *unstructured.Unst
 func (r *GCPolicyReconciler) meetsConditions(resource *unstructured.Unstructured, conditions *v1alpha1.ConditionsSpec) bool {
 	return meetsConditionsShared(resource, conditions)
 }
-
-
-
 
 // deleteResource deletes a resource based on policy behavior.
 func (r *GCPolicyReconciler) deleteResource(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
@@ -658,4 +649,3 @@ func (r *GCPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.GarbageCollectionPolicy{}).
 		Complete(r)
 }
-
