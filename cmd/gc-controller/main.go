@@ -19,7 +19,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"net/http"
 	"os"
@@ -27,18 +26,21 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
 	"github.com/kube-zen/zen-gc/pkg/controller"
-	"github.com/kube-zen/zen-gc/pkg/webhook"
+	gcwebhook "github.com/kube-zen/zen-gc/pkg/webhook"
 )
 
 const (
@@ -86,25 +88,26 @@ func main() {
 	defer cancel()
 
 	// Build config
-	cfg, err := buildConfig(*masterURL, *kubeconfig)
+	restCfg, err := buildConfig(*masterURL, *kubeconfig)
 	if err != nil {
 		klog.Fatalf("Error building kubeconfig: %v", err)
 	}
 
-	// Create dynamic client
-	dynamicClient, err := dynamic.NewForConfig(cfg)
+	// Create dynamic client (still needed for resource informers)
+	dynamicClient, err := dynamic.NewForConfig(restCfg)
 	if err != nil {
 		klog.Fatalf("Error building dynamic client: %v", err)
 	}
 
-	// Create Kubernetes client for leader election and events
-	kubeClient, err := kubernetes.NewForConfig(cfg)
+	// Create Kubernetes client for events
+	kubeClient, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
 		klog.Fatalf("Error building Kubernetes client: %v", err)
 	}
 
-	// Add GarbageCollectionPolicy to scheme
-	if err := v1alpha1.AddToScheme(scheme.Scheme); err != nil {
+	// Create scheme and add GarbageCollectionPolicy types
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		klog.Fatalf("Error adding scheme: %v", err)
 	}
 
@@ -139,29 +142,59 @@ func main() {
 	// Create event recorder
 	eventRecorder := controller.NewEventRecorder(kubeClient)
 
-	// Create GC controller with configuration
-	gcController, err := controller.NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, controllerConfig)
+	// Create controller-runtime Manager
+	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: *metricsAddr,
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port:    9443,
+			CertDir: "", // We'll handle webhook separately for now
+		}),
+		HealthProbeBindAddress: ":8081",
+		LeaderElection:         *enableLeaderElection,
+		LeaderElectionID:      "gc-controller-leader-election",
+		LeaderElectionNamespace: namespace,
+	})
 	if err != nil {
-		klog.Fatalf("Error creating GC controller: %v", err)
+		klog.Fatalf("Error creating controller manager: %v", err)
 	}
 
-	// Setup leader election if enabled (needed for metrics server readiness check)
-	var leaderElection *controller.LeaderElection
-	if *enableLeaderElection {
-		leaderElection, err = controller.NewLeaderElection(kubeClient, namespace, "gc-controller-leader-election")
-		if err != nil {
-			klog.Fatalf("Error creating leader election: %v", err)
-		}
+	// Create GC policy reconciler
+	reconciler := controller.NewGCPolicyReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		dynamicClient,
+		statusUpdater,
+		eventRecorder,
+		controllerConfig,
+	)
+
+	// Setup reconciler with manager
+	if err := reconciler.SetupWithManager(mgr); err != nil {
+		klog.Fatalf("Error setting up reconciler: %v", err)
 	}
 
-	// Start metrics server (pass leaderElection for readiness check)
-	go startMetricsServer(*metricsAddr, leaderElection)
+	// Add health checks
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		klog.Fatalf("Error adding health check: %v", err)
+	}
 
-	// Start webhook server if enabled
-	var webhookServer *webhook.WebhookServer
+	// Add readiness check (only leader is ready)
+	if err := mgr.AddReadyzCheck("readyz", func(req *http.Request) error {
+		// In controller-runtime, only the leader is ready
+		// This is handled automatically by the manager
+		return nil
+	}); err != nil {
+		klog.Fatalf("Error adding readiness check: %v", err)
+	}
+
+	// Start webhook server if enabled (separate from controller-runtime webhook server)
+	var webhookServer *gcwebhook.WebhookServer
 	if *enableWebhook {
 		var err error
-		webhookServer, err = webhook.NewWebhookServer(*webhookAddr, *webhookCertFile, *webhookKeyFile)
+		webhookServer, err = gcwebhook.NewWebhookServer(*webhookAddr, *webhookCertFile, *webhookKeyFile)
 		if err != nil {
 			klog.Fatalf("Error creating webhook server: %v", err)
 		}
@@ -198,69 +231,11 @@ func main() {
 		}
 	}
 
-	// Setup leader election callbacks if enabled
-	if *enableLeaderElection {
-		if leaderElection == nil {
-			klog.Fatalf("Leader election not initialized")
-		}
-
-		// Set callbacks
-		leaderElection.SetCallbacks(
-			func(ctx context.Context) {
-				// Started leading - start controller
-				if err := gcController.Start(); err != nil {
-					klog.Fatalf("Error starting GC controller: %v", err)
-				}
-				klog.Info("GC controller started (leader)")
-			},
-			func() {
-				// Stopped leading - stop controller
-				gcController.Stop()
-				klog.Info("GC controller stopped (lost leadership)")
-			},
-		)
-
-		// Run leader election (blocks until context is canceled).
-		klog.Info("Starting leader election...")
-		go func() {
-			if err := leaderElection.Run(ctx); err != nil {
-				klog.Fatalf("Leader election error: %v", err)
-			}
-		}()
-
-		klog.Info("Waiting for leadership...")
-	} else {
-		// No leader election - start controller directly
-		if err := gcController.Start(); err != nil {
-			klog.Fatalf("Error starting GC controller: %v", err)
-		}
-		klog.Info("GC controller is running (no leader election). Press Ctrl+C to stop.")
+	// Start the manager (this blocks until context is canceled)
+	klog.Info("Starting GC controller manager...")
+	if err := mgr.Start(ctx); err != nil {
+		klog.Fatalf("Error starting manager: %v", err)
 	}
-
-	// Wait for shutdown signal
-	<-ctx.Done()
-	klog.Info("Shutdown signal received, initiating graceful shutdown...")
-
-	// Create shutdown context with timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), DefaultShutdownTimeout)
-	defer shutdownCancel()
-
-	// Stop controller gracefully (with timeout)
-	done := make(chan struct{})
-	go func() {
-		gcController.Stop()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		klog.Info("Controller stopped successfully")
-	case <-shutdownCtx.Done():
-		klog.Warning("Controller shutdown timed out, forcing exit")
-	}
-
-	// Webhook server shutdown is handled automatically via context cancellation
-	// No explicit Stop() call needed
 
 	klog.Info("GC controller shutdown complete")
 }
@@ -277,41 +252,4 @@ func buildConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
 	}
 
 	return clientcmd.BuildConfigFromFlags(masterURL, kubeconfigPath)
-}
-
-// startMetricsServer starts the Prometheus metrics server.
-func startMetricsServer(addr string, leaderElection *controller.LeaderElection) {
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
-	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		// If leader election is enabled, only the leader should be ready
-		if leaderElection != nil && !leaderElection.IsLeader() {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte("Not leader"))
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
-	})
-	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"version":"` + version + `","commit":"` + commit + `","buildDate":"` + buildDate + `"}`))
-	})
-
-	server := &http.Server{
-		Addr:         addr,
-		Handler:      mux,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
-
-	klog.Infof("Starting metrics server on %s", addr)
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		klog.Fatalf("Error starting metrics server: %v", err)
-	}
 }
