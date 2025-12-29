@@ -85,7 +85,7 @@ func TestEventRecorder_RecordResourceDeleted(t *testing.T) {
 		},
 	}
 	// Should not panic
-	recorder.RecordResourceDeleted(policy, resource, "ttl_expired")
+	recorder.RecordResourceDeleted(policy, resource, ReasonTTLExpired)
 }
 
 func TestEventRecorder_RecordEvaluationFailed(t *testing.T) {

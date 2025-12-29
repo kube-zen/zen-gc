@@ -41,12 +41,9 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --metrics-addr=:8080
-            - --webhook-addr=:9443
-            - --webhook-cert-file=/etc/webhook/certs/tls.crt
-            - --webhook-key-file=/etc/webhook/certs/tls.key
             - --enable-leader-election=true
             - --leader-election-namespace=$(POD_NAMESPACE)
-            - --enable-webhook=true
+            - --enable-webhook=false
             - --gc-interval=1m
             - --max-deletions-per-second=10
             - --batch-size=50
@@ -58,13 +55,6 @@ spec:
             - name: health
               containerPort: 8081
               protocol: TCP
-            - name: webhook
-              containerPort: 9443
-              protocol: TCP
-          volumeMounts:
-            - name: webhook-certs
-              mountPath: /etc/webhook/certs
-              readOnly: true
           livenessProbe:
             httpGet:
               path: /healthz
@@ -93,7 +83,4 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-      volumes:
-        - name: webhook-certs
-          secret:
-            secretName: gc-controller-webhook-cert
+

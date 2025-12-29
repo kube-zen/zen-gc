@@ -181,8 +181,8 @@ func TestGCController_deleteBatch(t *testing.T) {
 
 	batch := []*unstructured.Unstructured{resource1, resource2}
 	reasons := map[string]string{
-		"uid-1": "ttl_expired",
-		"uid-2": "ttl_expired",
+		"uid-1": ReasonTTLExpired,
+		"uid-2": ReasonTTLExpired,
 	}
 	rateLimiter := NewRateLimiter(10)
 	ctx := context.Background()
@@ -240,7 +240,7 @@ func TestGCController_deleteBatch_ContextCanceled(t *testing.T) {
 			},
 		},
 	}
-	reasons := map[string]string{"uid-1": "ttl_expired"}
+	reasons := map[string]string{"uid-1": ReasonTTLExpired}
 	rateLimiter := NewRateLimiter(10)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately

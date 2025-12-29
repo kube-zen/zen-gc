@@ -279,7 +279,7 @@ func TestGCController_meetsConditions_FieldConditions(t *testing.T) {
 			},
 			conditions: &v1alpha1.ConditionsSpec{
 				And: []v1alpha1.FieldCondition{
-					{FieldPath: "spec.severity", Operator: "NotIn", Values: []string{"LOW", "INFO"}},
+					{FieldPath: "spec.severity", Operator: OperatorNotIn, Values: []string{"LOW", "INFO"}},
 				},
 			},
 			expectedMatch: true,

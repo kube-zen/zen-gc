@@ -81,15 +81,14 @@ func (s *StatusUpdater) UpdateStatus(
 
 	// Set phase based on spec.paused and evaluation state
 	// Phase is controller-owned output only, not user-settable
-	phase := "Active"
+	phase := PolicyPhaseActive
 	if policy.Spec.Paused {
-		phase = "Paused"
+		phase = PolicyPhasePaused
 	}
 	// "Error" phase should be set by controller when evaluation fails consistently
 	// For now, we keep existing phase if it's "Error", otherwise use computed phase
-	const errorPhase = "Error"
-	if policy.Status.Phase == errorPhase {
-		phase = errorPhase // Preserve error state until cleared by successful evaluation
+	if policy.Status.Phase == PolicyPhaseError {
+		phase = PolicyPhaseError // Preserve error state until cleared by successful evaluation
 	}
 	statusObj["phase"] = phase
 
@@ -105,11 +104,11 @@ func (s *StatusUpdater) UpdateStatus(
 		"reason":             "PolicyActive",
 		"message":            "Policy is active and processing resources",
 	}
-	if phase == errorPhase {
+	if phase == PolicyPhaseError {
 		readyCondition["status"] = "False"
 		readyCondition["reason"] = "PolicyError"
 		readyCondition["message"] = "Policy evaluation encountered errors"
-	} else if phase == "Paused" {
+	} else if phase == PolicyPhasePaused {
 		readyCondition["status"] = "False"
 		readyCondition["reason"] = "PolicyPaused"
 		readyCondition["message"] = "Policy is paused"
@@ -117,9 +116,9 @@ func (s *StatusUpdater) UpdateStatus(
 	conditions = append(conditions, readyCondition)
 
 	// Error condition (only set if there are errors)
-	if phase == errorPhase {
+	if phase == PolicyPhaseError {
 		errorCondition := map[string]interface{}{
-			"type":               errorPhase,
+			"type":               PolicyPhaseError,
 			"status":             "True",
 			"lastTransitionTime": nowStr,
 			"reason":             "EvaluationFailed",

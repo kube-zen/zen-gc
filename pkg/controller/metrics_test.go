@@ -6,9 +6,9 @@ import (
 
 func TestRecordPolicyPhase(t *testing.T) {
 	// Test that metric recording doesn't panic
-	recordPolicyPhase("Active", 1.0)
-	recordPolicyPhase("Paused", 1.0)
-	recordPolicyPhase("Error", 1.0)
+	recordPolicyPhase(PolicyPhaseActive, 1.0)
+	recordPolicyPhase(PolicyPhasePaused, 1.0)
+	recordPolicyPhase(PolicyPhaseError, 1.0)
 
 	// Verify metric was recorded (we can't easily check exact values without exposing internals,
 	// but we can verify it doesn't panic)
@@ -22,7 +22,7 @@ func TestRecordResourceMatched(t *testing.T) {
 }
 
 func TestRecordResourceDeleted(t *testing.T) {
-	recordResourceDeleted("default", "test-policy", "v1", "ConfigMap", "ttl_expired", 0.5)
+	recordResourceDeleted("default", "test-policy", "v1", "ConfigMap", ReasonTTLExpired, 0.5)
 	recordResourceDeleted("default", "test-policy", "v1", "Pod", "condition_not_met", 0.3)
 
 	// Verify metric was recorded
@@ -45,9 +45,9 @@ func TestRecordEvaluationDuration(t *testing.T) {
 func TestMetrics_AllFunctions(t *testing.T) {
 	// Test all metric recording functions don't panic
 	t.Run("recordPolicyPhase", func(t *testing.T) {
-		recordPolicyPhase("Active", 1.0)
-		recordPolicyPhase("Paused", 1.0)
-		recordPolicyPhase("Error", 1.0)
+		recordPolicyPhase(PolicyPhaseActive, 1.0)
+		recordPolicyPhase(PolicyPhasePaused, 1.0)
+		recordPolicyPhase(PolicyPhaseError, 1.0)
 	})
 
 	t.Run("recordResourceMatched", func(t *testing.T) {
@@ -56,7 +56,7 @@ func TestMetrics_AllFunctions(t *testing.T) {
 	})
 
 	t.Run("recordResourceDeleted", func(t *testing.T) {
-		recordResourceDeleted("ns1", "policy1", "v1", "ConfigMap", "ttl_expired", 0.1)
+		recordResourceDeleted("ns1", "policy1", "v1", "ConfigMap", ReasonTTLExpired, 0.1)
 		recordResourceDeleted("ns1", "policy1", "v1", "Pod", "condition_not_met", 0.2)
 	})
 

@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
@@ -164,11 +163,11 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// Evaluate the policy
-	if err := r.evaluatePolicy(ctx, policy); err != nil {
-		gcErr := gcerrors.WithPolicy(err, policy.Namespace, policy.Name)
-		if gcErr.Type == "" {
-			gcErr.Type = "evaluation_failed"
-		}
+		if err := r.evaluatePolicy(ctx, policy); err != nil {
+			gcErr := gcerrors.WithPolicy(err, policy.Namespace, policy.Name)
+			if gcErr.Type == "" {
+				gcErr.Type = ErrorTypeEvaluationFailed
+			}
 		logger.WithError(gcErr).Error("Error evaluating policy")
 		// Requeue with backoff on error
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
@@ -420,212 +419,46 @@ func (r *GCPolicyReconciler) shouldDelete(resource *unstructured.Unstructured, p
 
 	// Check if expired
 	if time.Now().After(expirationTime) {
-		return true, "ttl_expired"
+		return true, ReasonTTLExpired
 	}
 
-	return false, "not_expired"
+	return false, ReasonNotExpired
 }
 
 // calculateExpirationTime calculates the absolute expiration time for a resource based on policy.
 // Returns zero time if TTL cannot be calculated or is invalid.
 func (r *GCPolicyReconciler) calculateExpirationTime(resource *unstructured.Unstructured, ttlSpec *v1alpha1.TTLSpec) (time.Time, error) {
-	// Option 1: Fixed TTL (seconds after creation)
-	if ttlSpec.SecondsAfterCreation != nil {
-		creationTime := resource.GetCreationTimestamp().Time
-		return creationTime.Add(time.Duration(*ttlSpec.SecondsAfterCreation) * time.Second), nil
-	}
-
-	// Option 2: Dynamic TTL from field
-	if ttlSpec.FieldPath != "" {
-		fieldPath := parseFieldPath(ttlSpec.FieldPath)
-
-		// Try to get as int64 first
-		value, found, _ := unstructured.NestedInt64(resource.Object, fieldPath...)
-		if found {
-			creationTime := resource.GetCreationTimestamp().Time
-			return creationTime.Add(time.Duration(value) * time.Second), nil
-		}
-
-		// Try as string for mappings
-		strValue, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
-		if found {
-			// Option 3: Mapped TTL
-			if len(ttlSpec.Mappings) > 0 {
-				var ttl int64
-				if mappedTTL, ok := ttlSpec.Mappings[strValue]; ok {
-					ttl = mappedTTL
-				} else if ttlSpec.Default != nil {
-					ttl = *ttlSpec.Default
-				} else {
-					return time.Time{}, fmt.Errorf("%w: %s", ErrNoMappingForFieldValue, strValue)
-				}
-				creationTime := resource.GetCreationTimestamp().Time
-				return creationTime.Add(time.Duration(ttl) * time.Second), nil
-			}
-		}
-
-		if !found && ttlSpec.Default != nil {
-			creationTime := resource.GetCreationTimestamp().Time
-			return creationTime.Add(time.Duration(*ttlSpec.Default) * time.Second), nil
-		}
-		return time.Time{}, fmt.Errorf("%w: %s", ErrFieldPathNotFound, ttlSpec.FieldPath)
-	}
-
-	// Option 4: Relative TTL (relative to another timestamp field)
-	if ttlSpec.RelativeTo != "" && ttlSpec.SecondsAfter != nil {
-		fieldPath := parseFieldPath(ttlSpec.RelativeTo)
-		timestampStr, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
-		if !found {
-			return time.Time{}, fmt.Errorf("%w: %s", ErrRelativeTimestampFieldNotFound, ttlSpec.RelativeTo)
-		}
-
-		timestamp, err := time.Parse(time.RFC3339, timestampStr)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("%w: %w", ErrInvalidTimestampFormat, err)
-		}
-
-		// Calculate absolute expiration time from the relative timestamp
-		expirationTime := timestamp.Add(time.Duration(*ttlSpec.SecondsAfter) * time.Second)
-		if time.Now().After(expirationTime) {
-			return time.Time{}, fmt.Errorf("%w", ErrRelativeTTLExpired)
-		}
-		return expirationTime, nil
-	}
-
-	return time.Time{}, fmt.Errorf("%w", ErrNoValidTTLConfiguration)
+	return calculateExpirationTimeShared(resource, ttlSpec)
 }
 
 // meetsConditions checks if a resource meets the deletion conditions.
 func (r *GCPolicyReconciler) meetsConditions(resource *unstructured.Unstructured, conditions *v1alpha1.ConditionsSpec) bool {
-	if !r.meetsPhaseConditions(resource, conditions.Phase) {
-		return false
-	}
-	if !r.meetsLabelConditions(resource, conditions.HasLabels) {
-		return false
-	}
-	if !r.meetsAnnotationConditions(resource, conditions.HasAnnotations) {
-		return false
-	}
-	if !r.meetsFieldConditions(resource, conditions.And) {
-		return false
-	}
-	return true
+	return meetsConditionsShared(resource, conditions)
 }
 
 // meetsPhaseConditions checks if resource phase matches any of the required phases.
 func (r *GCPolicyReconciler) meetsPhaseConditions(resource *unstructured.Unstructured, phases []string) bool {
-	if len(phases) == 0 {
-		return true
-	}
-	phase, found, _ := unstructured.NestedString(resource.Object, "status", "phase")
-	if !found {
-		return false
-	}
-	for _, p := range phases {
-		if phase == p {
-			return true
-		}
-	}
-	return false
+	return meetsPhaseConditionsShared(resource, phases)
 }
 
 // meetsLabelConditions checks if resource labels match the required conditions.
 func (r *GCPolicyReconciler) meetsLabelConditions(resource *unstructured.Unstructured, labelConds []v1alpha1.LabelCondition) bool {
-	resourceLabels := resource.GetLabels()
-	for _, labelCond := range labelConds {
-		value, exists := resourceLabels[labelCond.Key]
-		switch labelCond.Operator {
-		case "Exists":
-			if !exists {
-				return false
-			}
-		case "Equals", "":
-			if !exists || value != labelCond.Value {
-				return false
-			}
-		case "In":
-			if !exists {
-				return false
-			}
-			// Check if value is in the Values list (if Values is set) or matches Value
-			found := false
-			if labelCond.Value != "" {
-				found = value == labelCond.Value
-			}
-			// LabelCondition doesn't have Values field, so In operator checks against Value only
-			// This matches the documented behavior where In checks if label value equals the specified value
-			if !found {
-				return false
-			}
-		case "NotIn":
-			if !exists {
-				// Label doesn't exist, so it's "not in" any value - condition satisfied
-				continue
-			}
-			// Check if value is NOT in the Values list (if Values is set) or doesn't match Value
-			if value == labelCond.Value {
-				return false
-			}
-		default:
-			// Unknown operator - fail safe by rejecting
-			klog.Warningf("Unknown label condition operator: %s, rejecting match", labelCond.Operator)
-			return false
-		}
-	}
-	return true
+	return meetsLabelConditionsShared(resource, labelConds)
 }
 
 // meetsAnnotationConditions checks if resource annotations match the required conditions.
 func (r *GCPolicyReconciler) meetsAnnotationConditions(resource *unstructured.Unstructured, annConds []v1alpha1.AnnotationCondition) bool {
-	resourceAnnotations := resource.GetAnnotations()
-	for _, annCond := range annConds {
-		value, exists := resourceAnnotations[annCond.Key]
-		if !exists || value != annCond.Value {
-			return false
-		}
-	}
-	return true
+	return meetsAnnotationConditionsShared(resource, annConds)
 }
 
 // meetsFieldConditions checks if resource fields match the required conditions.
 func (r *GCPolicyReconciler) meetsFieldConditions(resource *unstructured.Unstructured, fieldConds []v1alpha1.FieldCondition) bool {
-	for _, fieldCond := range fieldConds {
-		fieldPath := parseFieldPath(fieldCond.FieldPath)
-		fieldValue, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
-		if !found {
-			return false
-		}
-		if !r.matchesFieldOperator(fieldValue, fieldCond) {
-			return false
-		}
-	}
-	return true
+	return meetsFieldConditionsShared(resource, fieldConds)
 }
 
 // matchesFieldOperator checks if field value matches the operator condition.
 func (r *GCPolicyReconciler) matchesFieldOperator(fieldValue string, fieldCond v1alpha1.FieldCondition) bool {
-	switch fieldCond.Operator {
-	case "Equals":
-		return fieldValue == fieldCond.Value
-	case "NotEquals":
-		return fieldValue != fieldCond.Value
-	case "In":
-		for _, v := range fieldCond.Values {
-			if fieldValue == v {
-				return true
-			}
-		}
-		return false
-	case "NotIn":
-		for _, v := range fieldCond.Values {
-			if fieldValue == v {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
-	}
+	return matchesFieldOperatorShared(fieldValue, fieldCond)
 }
 
 // deleteResource deletes a resource based on policy behavior.
@@ -656,15 +489,7 @@ func (r *GCPolicyReconciler) deleteResource(ctx context.Context, resource *unstr
 		deleteOptions.GracePeriodSeconds = policy.Spec.Behavior.GracePeriodSeconds
 	}
 
-	var propagationPolicy metav1.DeletionPropagation
-	switch policy.Spec.Behavior.PropagationPolicy {
-	case "Foreground":
-		propagationPolicy = "Foreground"
-	case "Orphan":
-		propagationPolicy = "Orphan"
-	default:
-		propagationPolicy = "Background"
-	}
+	propagationPolicy := getDeletionPropagationPolicy(policy.Spec.Behavior.PropagationPolicy)
 	deleteOptions.PropagationPolicy = &propagationPolicy
 
 	// Delete the resource
@@ -771,44 +596,22 @@ func (r *GCPolicyReconciler) getOrCreateResourceInformer(ctx context.Context, po
 
 // getOrCreateRateLimiter gets or creates a rate limiter for a policy.
 func (r *GCPolicyReconciler) getOrCreateRateLimiter(policy *v1alpha1.GarbageCollectionPolicy) *RateLimiter {
-	// Determine rate limit for this policy
-	maxDeletionsPerSecond := DefaultMaxDeletionsPerSecond
-	if policy.Spec.Behavior.MaxDeletionsPerSecond > 0 {
-		maxDeletionsPerSecond = policy.Spec.Behavior.MaxDeletionsPerSecond
-	}
+	return getOrCreateRateLimiterShared(r, policy)
+}
 
-	// Check if rate limiter already exists (with read lock)
-	r.rateLimitersMu.RLock()
-	if limiter, ok := r.rateLimiters[policy.UID]; ok {
-		// Update rate if it changed
-		if limiter != nil {
-			// Update rate to match policy configuration
-			limiter.SetRate(maxDeletionsPerSecond)
-		}
-		r.rateLimitersMu.RUnlock()
-		return limiter
-	}
-	r.rateLimitersMu.RUnlock()
+// getRateLimiters returns the rate limiters map (implements RateLimiterManager).
+func (r *GCPolicyReconciler) getRateLimiters() map[types.UID]*RateLimiter {
+	return r.rateLimiters
+}
 
-	// Acquire write lock for creating new rate limiter
-	r.rateLimitersMu.Lock()
-	defer r.rateLimitersMu.Unlock()
+// getRateLimitersMu returns the rate limiters mutex (implements RateLimiterManager).
+func (r *GCPolicyReconciler) getRateLimitersMu() *sync.RWMutex {
+	return &r.rateLimitersMu
+}
 
-	// Double-check after acquiring write lock
-	if limiter, ok := r.rateLimiters[policy.UID]; ok {
-		limiter.SetRate(maxDeletionsPerSecond)
-		return limiter
-	}
-
-	// Create new rate limiter
-	limiter := NewRateLimiter(maxDeletionsPerSecond)
-	r.rateLimiters[policy.UID] = limiter
-
-	// Update metrics
-	recordRateLimiterCount(len(r.rateLimiters))
-
-	klog.V(4).Infof("Created rate limiter for policy %s/%s (UID: %s, rate: %d/sec)", policy.Namespace, policy.Name, policy.UID, maxDeletionsPerSecond)
-	return limiter
+// getConfig returns the controller config (implements RateLimiterManager).
+func (r *GCPolicyReconciler) getConfig() *config.ControllerConfig {
+	return r.config
 }
 
 // getBatchSize returns the batch size for a policy.
@@ -832,87 +635,27 @@ func (r *GCPolicyReconciler) deleteBatch(
 	rateLimiter *RateLimiter,
 	reasons map[string]string,
 ) (int64, []error) {
-	deletedCount := int64(0)
-	errors := make([]error, 0)
+	return deleteBatchShared(ctx, batch, policy, rateLimiter, reasons, r)
+}
 
-	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
-	resourceKind := policy.Spec.TargetResource.Kind
+// DeleteResourceWithBackoff deletes a resource with exponential backoff (implements BatchDeleter).
+func (r *GCPolicyReconciler) DeleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
+	return r.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
+}
 
-	for _, resource := range batch {
-		// Check context cancellation
-		select {
-		case <-ctx.Done():
-			return deletedCount, errors
-		default:
-		}
-
-		// Rate limiting (per resource)
-		if err := rateLimiter.Wait(ctx); err != nil {
-			errors = append(errors, fmt.Errorf("rate limiter error: %w", err))
-			continue
-		}
-
-		// Delete the resource with exponential backoff
-		deleteStart := time.Now()
-		if err := r.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter); err != nil {
-			gcErr := gcerrors.WithResource(
-				gcerrors.WithPolicy(err, policy.Namespace, policy.Name),
-				resource.GetNamespace(),
-				resource.GetName(),
-			)
-			gcErr.Type = "deletion_failed"
-			recordError(policy.Namespace, policy.Name, "deletion_failed")
-			errors = append(errors, gcErr)
-			continue
-		}
-
-		deletedCount++
-		duration := time.Since(deleteStart).Seconds()
-		reason := reasons[string(resource.GetUID())]
-		recordResourceDeleted(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, reason, duration)
-		if r.eventRecorder != nil {
-			r.eventRecorder.RecordResourceDeleted(policy, resource, reason)
-		}
-		klog.V(2).Infof("Deleted resource %s/%s (reason: %s)", resource.GetNamespace(), resource.GetName(), reason)
-	}
-
-	return deletedCount, errors
+// GetEventRecorder returns the event recorder (implements BatchDeleter).
+func (r *GCPolicyReconciler) GetEventRecorder() *EventRecorder {
+	return r.eventRecorder
 }
 
 // deleteResourceWithBackoff deletes a resource with exponential backoff retry logic.
-// This method uses the same backoff logic as the original GCController implementation.
 func (r *GCPolicyReconciler) deleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
-	var lastErr error
+	return deleteResourceWithBackoffShared(ctx, resource, policy, rateLimiter, r, nil)
+}
 
-	err := wait.ExponentialBackoff(DefaultBackoff, func() (bool, error) {
-		// Check if context is canceled
-		select {
-		case <-ctx.Done():
-			return false, ctx.Err()
-		default:
-		}
-		err := r.deleteResource(ctx, resource, policy, rateLimiter)
-		if err != nil {
-			// Check if error is retryable
-			if errors.IsTimeout(err) || errors.IsServerTimeout(err) ||
-				errors.IsTooManyRequests(err) || errors.IsServiceUnavailable(err) {
-				lastErr = err
-				return false, nil // retry
-			}
-			// For NotFound errors, consider it success (already deleted)
-			if errors.IsNotFound(err) {
-				return true, nil // success
-			}
-			return false, err // don't retry
-		}
-		return true, nil // success
-	})
-
-	if wait.Interrupted(err) {
-		return fmt.Errorf("deletion failed after retries: %w", lastErr)
-	}
-
-	return err
+// DeleteResourceWithContext deletes a resource with context (implements ResourceDeleterWithContext).
+func (r *GCPolicyReconciler) DeleteResourceWithContext(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
+	return r.deleteResource(ctx, resource, policy, rateLimiter)
 }
 
 // trackPolicyUID tracks a policy UID by NamespacedName for cleanup on deletion.
@@ -1046,9 +789,9 @@ func (r *GCPolicyReconciler) recordPolicyPhaseMetrics(ctx context.Context) {
 		if phase == "" {
 			// Determine phase from spec
 			if policy.Spec.Paused {
-				phase = "Paused"
+				phase = PolicyPhasePaused
 			} else {
-				phase = "Active"
+				phase = PolicyPhaseActive
 			}
 		}
 		phaseCounts[phase]++
@@ -1060,7 +803,7 @@ func (r *GCPolicyReconciler) recordPolicyPhaseMetrics(ctx context.Context) {
 	}
 
 	// Reset phases that are no longer present
-	knownPhases := []string{"Active", "Paused", "Error"}
+	knownPhases := []string{PolicyPhaseActive, PolicyPhasePaused, PolicyPhaseError}
 	for _, phase := range knownPhases {
 		if _, exists := phaseCounts[phase]; !exists {
 			recordPolicyPhase(phase, 0)

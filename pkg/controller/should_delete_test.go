@@ -35,8 +35,8 @@ func TestGCController_shouldDelete_TTLExpired(t *testing.T) {
 	if !shouldDelete {
 		t.Errorf("shouldDelete() = false, want true (resource is expired)")
 	}
-	if reason != "ttl_expired" {
-		t.Errorf("shouldDelete() reason = %q, want 'ttl_expired'", reason)
+	if reason != ReasonTTLExpired {
+		t.Errorf("shouldDelete() reason = %q, want %q", reason, ReasonTTLExpired)
 	}
 }
 

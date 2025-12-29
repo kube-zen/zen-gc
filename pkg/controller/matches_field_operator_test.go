@@ -100,7 +100,7 @@ func TestGCController_matchesFieldOperator(t *testing.T) {
 			name:       "NotIn - match",
 			fieldValue: "value4",
 			condition: v1alpha1.FieldCondition{
-				Operator: "NotIn",
+				Operator: OperatorNotIn,
 				Values:   []string{"value1", "value2", "value3"},
 			},
 			want: true,
@@ -109,7 +109,7 @@ func TestGCController_matchesFieldOperator(t *testing.T) {
 			name:       "NotIn - no match",
 			fieldValue: "value1",
 			condition: v1alpha1.FieldCondition{
-				Operator: "NotIn",
+				Operator: OperatorNotIn,
 				Values:   []string{"value1", "value2", "value3"},
 			},
 			want: false,

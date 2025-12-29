@@ -182,7 +182,7 @@ func TestGCController_evaluatePoliciesSequential_WithPausedPolicy(t *testing.T) 
 			},
 		},
 		Status: v1alpha1.GarbageCollectionPolicyStatus{
-			Phase: "Paused",
+			Phase: PolicyPhasePaused,
 		},
 	}
 

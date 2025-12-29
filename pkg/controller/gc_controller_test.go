@@ -178,7 +178,7 @@ func TestGCController_evaluatePolicies_WithPausedPolicy(t *testing.T) {
 			},
 		},
 		Status: v1alpha1.GarbageCollectionPolicyStatus{
-			Phase: "Paused",
+			Phase: PolicyPhasePaused,
 		},
 	}
 
@@ -273,7 +273,7 @@ func TestGCController_deleteResource_WithGracePeriod(t *testing.T) {
 			Behavior: v1alpha1.BehaviorSpec{
 				DryRun:             false,
 				GracePeriodSeconds: &gracePeriod,
-				PropagationPolicy:  "Foreground",
+				PropagationPolicy:  PropagationPolicyForeground,
 			},
 		},
 	}

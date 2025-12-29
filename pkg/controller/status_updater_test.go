@@ -122,7 +122,7 @@ func TestStatusUpdater_UpdateStatus_WithExistingStatus(t *testing.T) {
 			},
 		},
 		Status: v1alpha1.GarbageCollectionPolicyStatus{
-			Phase: "Paused", // Existing phase
+			Phase: PolicyPhasePaused, // Existing phase
 		},
 	}
 
@@ -137,7 +137,7 @@ func TestStatusUpdater_UpdateStatus_WithExistingStatus(t *testing.T) {
 		t.Fatalf("Failed to convert policy to unstructured: %v", err)
 	}
 	unstructuredPolicy["status"] = map[string]interface{}{
-		"phase":         "Paused",
+		"phase":         PolicyPhasePaused,
 		"existingField": "should be preserved",
 	}
 	_, err = dynamicClient.Resource(gvr).Namespace("default").Create(
