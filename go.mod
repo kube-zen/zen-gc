@@ -1,10 +1,10 @@
 module github.com/kube-zen/zen-gc
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/prometheus/client_golang v1.19.1
-	golang.org/x/text v0.16.0
+	golang.org/x/text v0.32.0
 	golang.org/x/time v0.3.0
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
