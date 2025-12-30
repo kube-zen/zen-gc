@@ -53,7 +53,8 @@ type GCPolicyReconciler struct {
 	config *config.ControllerConfig
 
 	// shouldReconcile is a function that returns true if reconciliation should proceed
-	// Used for external leader election mode (zen-lead)
+	// DEPRECATED: No longer used. Leader election is handled by controller-runtime Manager.
+	// Kept for backward compatibility but always returns true.
 	shouldReconcile func() bool
 
 	// Resource informers (one per policy).
@@ -126,8 +127,9 @@ func NewGCPolicyReconciler(
 }
 
 // NewGCPolicyReconcilerWithLeaderCheck creates a new GC policy reconciler with leader check function.
-// shouldReconcile is called at the start of Reconcile to determine if reconciliation should proceed.
-// For external mode (zen-lead), this checks if the pod is the leader.
+// DEPRECATED: This function is deprecated. Leader election is now handled by controller-runtime Manager
+// via zen-sdk/pkg/leader.ApplyRequiredLeaderElection(). Use NewGCPolicyReconciler() instead.
+// This function is kept for backward compatibility but shouldReconcile is ignored (always returns true).
 func NewGCPolicyReconcilerWithLeaderCheck(
 	client client.Client,
 	scheme *runtime.Scheme,
@@ -142,16 +144,14 @@ func NewGCPolicyReconcilerWithLeaderCheck(
 		cfg = config.NewControllerConfig()
 	}
 
-	if shouldReconcile == nil {
-		shouldReconcile = func() bool { return true } // Default: always reconcile
-	}
-
+	// DEPRECATED: shouldReconcile is ignored. Leader election is handled by controller-runtime Manager.
+	// Always return true since Manager only calls Reconcile on the leader.
 	return &GCPolicyReconciler{
 		Client:                    client,
 		Scheme:                    scheme,
 		dynamicClient:             dynamicClient,
 		config:                    cfg,
-		shouldReconcile:           shouldReconcile,
+		shouldReconcile:           func() bool { return true }, // Always true (Manager handles leader election)
 		resourceInformers:         make(map[types.UID]cache.SharedInformer),
 		resourceInformerFactories: make(map[types.UID]dynamicinformer.DynamicSharedInformerFactory),
 		rateLimiters:              make(map[types.UID]*RateLimiter),
@@ -168,12 +168,10 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	logger := logging.FromContext(ctx)
 	logger = logger.WithField("policy", fmt.Sprintf("%s/%s", req.Namespace, req.Name))
 
-	// Check if we should reconcile (for external leader election mode)
-	if !r.shouldReconcile() {
-		logger.V(4).Info("Not the leader, skipping reconciliation (external mode)")
-		// Requeue after a short interval to check again
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-	}
+	// DEPRECATED: shouldReconcile check removed. Leader election is handled by controller-runtime Manager.
+	// Manager only calls Reconcile on the leader pod, so this check is unnecessary.
+	// Keeping the function call for backward compatibility but it always returns true.
+	_ = r.shouldReconcile()
 
 	// Fetch the GarbageCollectionPolicy instance
 	policy := &v1alpha1.GarbageCollectionPolicy{}

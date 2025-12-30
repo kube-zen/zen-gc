@@ -70,9 +70,7 @@ var (
 	webhookAddr              = flag.String("webhook-addr", ":9443", "The address the webhook endpoint binds to")
 	webhookCertFile          = flag.String("webhook-cert-file", "/etc/webhook/certs/tls.crt", "Path to TLS certificate file")
 	webhookKeyFile           = flag.String("webhook-key-file", "/etc/webhook/certs/tls.key", "Path to TLS private key file")
-	haMode                   = flag.String("ha-mode", "internal", "HA Mode: none (no leader election), internal (zen-sdk/pkg/leader), or external (zen-lead controller)")
-	enableLeaderElection     = flag.Bool("enable-leader-election", true, "Enable leader election for HA (deprecated: use --ha-mode instead)")
-	leaderElectionNS         = flag.String("leader-election-namespace", "", "Namespace for leader election lease (defaults to POD_NAMESPACE)")
+	leaderElectionID         = flag.String("leader-election-id", "gc-controller-leader-election", "The ID for leader election. Must be unique per controller instance in the same namespace.")
 	enableWebhook            = flag.Bool("enable-webhook", true, "Enable validating webhook server")
 	insecureWebhook          = flag.Bool("insecure-webhook", false, "Allow webhook to start without TLS (testing only, not recommended for production)")
 	gcInterval               = flag.Duration("gc-interval", 1*time.Minute, "Interval between GC evaluation runs")
@@ -93,6 +91,9 @@ func main() {
 	// Get config using controller-runtime (handles kubeconfig flag automatically)
 	restCfg := ctrl.GetConfigOrDie()
 
+	// Apply REST config defaults (via zen-sdk helper)
+	leader.ApplyRestConfigDefaults(restCfg)
+
 	// Create dynamic client (still needed for resource informers)
 	dynamicClient, err := dynamic.NewForConfig(restCfg)
 	if err != nil {
@@ -111,49 +112,10 @@ func main() {
 		klog.Fatalf("Error adding scheme: %v", err)
 	}
 
-	// Determine HA mode (support legacy --enable-leader-election flag)
-	haModeValue := *haMode
-	if *enableLeaderElection == false && haModeValue == "internal" {
-		// Legacy flag takes precedence
-		haModeValue = "none"
-		klog.Warningf("--enable-leader-election=false is deprecated. Use --ha-mode=none instead.")
-	}
-
-	// Get namespace for leader election
-	namespace := *leaderElectionNS
-	if namespace == "" {
-		namespace = os.Getenv("POD_NAMESPACE")
-		if namespace == "" {
-			// Try to read from service account namespace file
-			if ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
-				namespace = string(ns)
-			} else {
-				namespace = "gc-system"
-			}
-		}
-	}
-
-	// Configure leader election based on HA mode
-	var externalWatcher *leader.Watcher
-	var shouldReconcile func() bool
-
-	switch haModeValue {
-	case "none":
-		shouldReconcile = func() bool { return true } // Always reconcile
-		klog.Warningf("Running in SINGLE mode (no HA). Accepting split-brain risk. Not recommended for production.")
-	case "internal":
-		shouldReconcile = func() bool { return true } // Manager handles leader election
-		klog.Infof("Running in INTERNAL mode (built-in leader election via zen-sdk/pkg/leader)")
-	case "external":
-		shouldReconcile = func() bool {
-			if externalWatcher == nil {
-				return false // Not initialized yet
-			}
-			return externalWatcher.GetIsLeader()
-		}
-		klog.Infof("Running in EXTERNAL mode (zen-lead controller). Waiting for leader election...")
-	default:
-		klog.Fatalf("Invalid --ha-mode: %s. Must be 'none', 'internal', or 'external'", haModeValue)
+	// Get namespace for leader election (required, hard-fail if missing)
+	namespace, err := leader.RequirePodNamespace()
+	if err != nil {
+		klog.Fatalf("Failed to determine pod namespace for leader election: %v", err)
 	}
 
 	// Load controller configuration
@@ -173,7 +135,7 @@ func main() {
 	// Create event recorder
 	eventRecorder := controller.NewEventRecorder(kubeClient)
 
-	// Create controller-runtime Manager with leader election configuration
+	// Create controller-runtime Manager with mandatory leader election
 	mgrOpts := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -186,68 +148,23 @@ func main() {
 		HealthProbeBindAddress: ":8081", // Health probes on separate port (controller-runtime requirement)
 	}
 
-	// Configure leader election based on mode
-	if haModeValue == "internal" {
-		leaderOpts := leader.Options{
-			LeaseName: "gc-controller-leader-election",
-			Enable:    true,
-			Namespace: namespace,
-		}
-		mgrOpts = leader.ManagerOptions(mgrOpts, leaderOpts)
-	} else {
-		// none or external: no internal leader election
-		mgrOpts.LeaderElection = false
-	}
+	// Apply mandatory leader election (always enabled for HA safety)
+	leader.ApplyRequiredLeaderElection(&mgrOpts, "gc-controller", namespace, *leaderElectionID)
 
 	mgr, err := ctrl.NewManager(restCfg, mgrOpts)
 	if err != nil {
 		klog.Fatalf("Error creating controller manager: %v", err)
 	}
 
-	// Setup external watcher for external mode (must be done after manager is created)
-	if haModeValue == "external" {
-		watcher, err := leader.NewWatcher(mgr.GetClient(), func(isLeader bool) {
-			if isLeader {
-				klog.Infof("Elected as leader via zen-lead. Starting reconciliation...")
-			} else {
-				klog.Infof("Lost leadership via zen-lead. Pausing reconciliation...")
-			}
-		})
-		if err != nil {
-			klog.Fatalf("Error creating external leader watcher: %v", err)
-		}
-		externalWatcher = watcher
-
-		// Start watching in background
-		go func() {
-			if err := watcher.Watch(ctx); err != nil && err != context.Canceled {
-				klog.Errorf("Error watching leader status: %v", err)
-			}
-		}()
-	}
-
-	// Create GC policy reconciler with leader check function for external mode
-	var reconciler *controller.GCPolicyReconciler
-	if haModeValue == "external" {
-		reconciler = controller.NewGCPolicyReconcilerWithLeaderCheck(
-			mgr.GetClient(),
-			mgr.GetScheme(),
-			dynamicClient,
-			statusUpdater,
-			eventRecorder,
-			controllerConfig,
-			shouldReconcile,
-		)
-	} else {
-		reconciler = controller.NewGCPolicyReconciler(
-			mgr.GetClient(),
-			mgr.GetScheme(),
-			dynamicClient,
-			statusUpdater,
-			eventRecorder,
-			controllerConfig,
-		)
-	}
+	// Create GC policy reconciler (leader election handled by controller-runtime Manager)
+	reconciler := controller.NewGCPolicyReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		dynamicClient,
+		statusUpdater,
+		eventRecorder,
+		controllerConfig,
+	)
 
 	// Setup reconciler with manager
 	if err := reconciler.SetupWithManager(mgr); err != nil {
