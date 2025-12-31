@@ -11,21 +11,21 @@ on:
 
 jobs:
   check:
-    uses: kube-zen/zen-oss-standards/.github/workflows/release-helm.yml@v1.0.0
+    uses: kube-zen/zen-oss-standards/.github/workflows/ci.yml@v1.0.0
     secrets: inherit
     with:
       go_version: '1.24'
       runs_race: false  # Set to true if project.yaml has runsRace: true
 
   test:
-    uses: kube-zen/zen-oss-standards/.github/workflows/release-helm.yml@v1.0.0
+    uses: kube-zen/zen-oss-standards/.github/workflows/ci.yml@v1.0.0
     secrets: inherit
     with:
       go_version: '1.24'
       runs_race: false
 
   build:
-    uses: kube-zen/zen-oss-standards/.github/workflows/release-helm.yml@v1.0.0
+    uses: kube-zen/zen-oss-standards/.github/workflows/ci.yml@v1.0.0
     secrets: inherit
     with:
       go_version: '1.24'

@@ -95,6 +95,15 @@ if [ -f "$SCRIPT_DIR/go.mod" ]; then
     else
         echo "  ⚠ .golangci.yml not found (recommended)"
     fi
+    
+    # S137: Check for replace directives (OSS repos should not have them)
+    if grep -q "^replace " "$SCRIPT_DIR/go.mod"; then
+        echo "  ❌ go.mod contains 'replace' directive (not allowed in OSS repos)"
+        echo "     Use go.work for local development overrides instead"
+        FAILED=1
+    else
+        echo "  ✅ No 'replace' directives in go.mod"
+    fi
 fi
 
 echo ""

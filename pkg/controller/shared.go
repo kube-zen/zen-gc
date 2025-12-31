@@ -34,6 +34,7 @@ import (
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
 	"github.com/kube-zen/zen-sdk/pkg/gc/backoff"
 	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
+	sdkttl "github.com/kube-zen/zen-sdk/pkg/gc/ttl"
 )
 
 // Constants for deletion reasons and error types.
@@ -200,71 +201,23 @@ func deleteBatchShared(
 type TTLCalculator interface{}
 
 // calculateExpirationTimeShared is a shared implementation for calculating expiration time.
+// This now delegates to zen-sdk/pkg/gc/ttl for the actual evaluation.
 func calculateExpirationTimeShared(resource *unstructured.Unstructured, ttlSpec *v1alpha1.TTLSpec) (time.Time, error) {
-	// Option 1: Fixed TTL (seconds after creation)
-	if ttlSpec.SecondsAfterCreation != nil {
-		creationTime := resource.GetCreationTimestamp().Time
-		return creationTime.Add(time.Duration(*ttlSpec.SecondsAfterCreation) * time.Second), nil
+	// Convert v1alpha1.TTLSpec to zen-sdk ttl.Spec
+	sdkSpec := convertToSDKTTLSpec(ttlSpec)
+	return sdkttl.CalculateExpirationTime(resource, sdkSpec)
+}
+
+// convertToSDKTTLSpec converts zen-gc's TTLSpec to zen-sdk's ttl.Spec
+func convertToSDKTTLSpec(gcSpec *v1alpha1.TTLSpec) *sdkttl.Spec {
+	return &sdkttl.Spec{
+		SecondsAfterCreation: gcSpec.SecondsAfterCreation,
+		FieldPath:            gcSpec.FieldPath,
+		Mappings:             gcSpec.Mappings,
+		Default:              gcSpec.Default,
+		RelativeTo:           gcSpec.RelativeTo,
+		SecondsAfter:         gcSpec.SecondsAfter,
 	}
-
-	// Option 2: Dynamic TTL from field
-	if ttlSpec.FieldPath != "" {
-		fieldPath := parseFieldPath(ttlSpec.FieldPath)
-
-		// Try to get as int64 first
-		value, found, _ := unstructured.NestedInt64(resource.Object, fieldPath...)
-		if found {
-			creationTime := resource.GetCreationTimestamp().Time
-			return creationTime.Add(time.Duration(value) * time.Second), nil
-		}
-
-		// Try as string for mappings
-		strValue, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
-		if found {
-			// Option 3: Mapped TTL
-			if len(ttlSpec.Mappings) > 0 {
-				var ttl int64
-				if mappedTTL, ok := ttlSpec.Mappings[strValue]; ok {
-					ttl = mappedTTL
-				} else if ttlSpec.Default != nil {
-					ttl = *ttlSpec.Default
-				} else {
-					return time.Time{}, fmt.Errorf("%w: %s", ErrNoMappingForFieldValue, strValue)
-				}
-				creationTime := resource.GetCreationTimestamp().Time
-				return creationTime.Add(time.Duration(ttl) * time.Second), nil
-			}
-		}
-
-		if !found && ttlSpec.Default != nil {
-			creationTime := resource.GetCreationTimestamp().Time
-			return creationTime.Add(time.Duration(*ttlSpec.Default) * time.Second), nil
-		}
-		return time.Time{}, fmt.Errorf("%w: %s", ErrFieldPathNotFound, ttlSpec.FieldPath)
-	}
-
-	// Option 4: Relative TTL (relative to another timestamp field)
-	if ttlSpec.RelativeTo != "" && ttlSpec.SecondsAfter != nil {
-		fieldPath := parseFieldPath(ttlSpec.RelativeTo)
-		timestampStr, found, _ := unstructured.NestedString(resource.Object, fieldPath...)
-		if !found {
-			return time.Time{}, fmt.Errorf("%w: %s", ErrRelativeTimestampFieldNotFound, ttlSpec.RelativeTo)
-		}
-
-		timestamp, err := time.Parse(time.RFC3339, timestampStr)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("%w: %w", ErrInvalidTimestampFormat, err)
-		}
-
-		// Calculate absolute expiration time from the relative timestamp
-		expirationTime := timestamp.Add(time.Duration(*ttlSpec.SecondsAfter) * time.Second)
-		if time.Now().After(expirationTime) {
-			return time.Time{}, fmt.Errorf("%w", ErrRelativeTTLExpired)
-		}
-		return expirationTime, nil
-	}
-
-	return time.Time{}, fmt.Errorf("%w", ErrNoValidTTLConfiguration)
 }
 
 // getDeletionPropagationPolicy converts a string policy to metav1.DeletionPropagation.
