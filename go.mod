@@ -3,7 +3,7 @@ module github.com/kube-zen/zen-gc
 go 1.24
 
 require (
-	github.com/kube-zen/zen-sdk v0.0.0-20251231020410-f6e4bc8c2fc3
+	github.com/kube-zen/zen-sdk v0.1.0-alpha
 	github.com/prometheus/client_golang v1.19.1
 	golang.org/x/text v0.17.0
 	golang.org/x/time v0.3.0
@@ -65,5 +65,3 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
-
-replace github.com/kube-zen/zen-sdk => ../zen-sdk
