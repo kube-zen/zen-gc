@@ -1,0 +1,20 @@
+# Example: Thin caller for Security reusable workflow
+# Copy this to .github/workflows/security.yml in your repo
+
+name: Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+jobs:
+  security:
+    uses: kube-zen/zen-oss-standards/.github/workflows/release-helm.yml@v1.0.0
+    secrets: inherit
+    with:
+      go_version: '1.24'
+

@@ -266,3 +266,8 @@ helm-repo-index:
 
 helm-all: helm-lint helm-test helm-package helm-repo-index
 	@echo "✅ All Helm tasks complete"
+
+check:
+	@scripts/ci/check.sh
+test-race:
+	@go test -v -race -timeout=15m ./...

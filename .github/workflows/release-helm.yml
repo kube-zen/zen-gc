@@ -1,0 +1,21 @@
+# Example: Thin caller for Release Helm Chart reusable workflow
+# Copy this to .github/workflows/release-helm.yml in your repo
+# Only include if hasHelmChart=true in project.yaml
+
+name: Release Helm Chart
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '*.*.*-*'  # e.g., 0.0.1-alpha
+  workflow_dispatch:
+
+jobs:
+  release:
+    uses: kube-zen/zen-oss-standards/.github/workflows/release-helm.yml@v1.0.0
+    secrets: inherit
+    with:
+      chart_name: 'zen-gc'  # Update with your chart name
+      chart_path: 'charts'  # Update with your chart path
+

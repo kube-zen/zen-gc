@@ -1,3 +1,6 @@
+# Example: Thin caller for CI reusable workflow
+# Copy this to .github/workflows/ci.yml in your repo
+
 name: CI
 
 on:
@@ -6,254 +9,24 @@ on:
   pull_request:
     branches: [main, develop]
 
-env:
-  GO_VERSION: '1.24'
-
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-      
-      - name: Install dependencies
-        run: go mod download
-      
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
-        with:
-          version: v1.64.8
-          args: --timeout=5m
-          skip-cache: true
-          skip-pkg-cache: true
-          skip-build-cache: true
-      
-      - name: Run go vet
-        run: go vet ./...
-      
-      - name: Check formatting
-        run: |
-          # Exclude generated files from formatting check
-          UNFORMATTED=$(gofmt -s -l . | grep -v "zz_generated\|_generated\|\.pb\.go" || true)
-          if [ -n "$UNFORMATTED" ]; then
-            echo "Code is not formatted. Run 'go fmt ./...'"
-            echo "$UNFORMATTED"
-            exit 1
-          fi
-      
-      - name: Check go mod tidy
-        run: |
-          go mod tidy
-          if ! git diff --exit-code go.mod go.sum; then
-            echo "go.mod or go.sum needs updates. Run 'go mod tidy'"
-            git diff go.mod go.sum
-            exit 1
-          fi
-      
-      - name: Install yamllint
-        run: pip install yamllint
-      
-      - name: Lint YAML files
-        run: |
-          yamllint -d '{extends: default, rules: {line-length: {max: 120}, document-start: {present: false}, empty-lines: {max: 0}}}' \
-            deploy/ examples/ || true
+  check:
+    uses: kube-zen/zen-oss-standards/.github/workflows/release-helm.yml@v1.0.0
+    secrets: inherit
+    with:
+      go_version: '1.24'
+      runs_race: false  # Set to true if project.yaml has runsRace: true
 
   test:
-    name: Test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-      
-      - name: Install dependencies
-        run: go mod download
-      
-      - name: Run unit tests
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic -timeout=10m ./pkg/...
-      
-      - name: Run integration tests
-        run: go test -v -timeout=5m ./test/integration/...
-      
-      - name: Check coverage threshold
-        run: |
-          echo "Checking test coverage threshold (minimum: 65%)..."
-          # Exclude generated code (pkg/api/v1alpha1) from coverage calculation
-          # This package contains generated CRD code that doesn't need test coverage
-          # Calculate coverage only for non-generated packages
-          go test -coverprofile=coverage_nogen.out -covermode=atomic ./pkg/config ./pkg/controller ./pkg/errors ./pkg/logging ./pkg/validation ./pkg/webhook > /dev/null 2>&1 || true
-          COVERAGE=$(go tool cover -func=coverage_nogen.out 2>/dev/null | tail -1 | awk '{print $3}' | sed 's/%//')
-          if [ -z "$COVERAGE" ]; then
-            # Fallback: calculate from full coverage excluding api package
-            COVERAGE=$(go tool cover -func=coverage.out | grep -v "pkg/api/v1alpha1" | grep "total:" | awk '{print $3}' | sed 's/%//')
-          fi
-          echo "Current coverage (excluding generated code): ${COVERAGE}%"
-          # Use awk for floating point comparison (more portable than bc)
-          THRESHOLD=65
-          if awk "BEGIN {exit !($COVERAGE < $THRESHOLD)}"; then
-            echo "❌ Coverage ${COVERAGE}% is below the ${THRESHOLD}% threshold"
-            exit 1
-          else
-            echo "✅ Coverage ${COVERAGE}% meets the ${THRESHOLD}% threshold"
-          fi
-      
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.out
-          flags: unit
-          name: unit-coverage
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-          handle_no_reports_found: ignore
+    uses: kube-zen/zen-oss-standards/.github/workflows/release-helm.yml@v1.0.0
+    secrets: inherit
+    with:
+      go_version: '1.24'
+      runs_race: false
 
   build:
-    name: Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-      
-      - name: Install dependencies
-        run: go mod download
-      
-      - name: Build
-        run: |
-          mkdir -p bin
-          go build -o bin/gc-controller ./cmd/gc-controller
-      
-      - name: Verify binary
-        run: |
-          if [ ! -f bin/gc-controller ]; then
-            echo "Binary not found"
-            exit 1
-          fi
-          file bin/gc-controller
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      
-      - name: Run govulncheck
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./... || true  # Don't fail CI on vulnerabilities (report only)
-      
-      - name: Run gosec
-        uses: securego/gosec@master
-        with:
-          args: '-no-fail -fmt json -out gosec-report.json ./...'
-        continue-on-error: true
-      
-      - name: Upload gosec results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gosec-report
-          path: gosec-report.json
-      
-      - name: Set up Docker Buildx
-        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Build Docker image for security scan
-        id: build-image
-        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: false
-          tags: gc-controller:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-        continue-on-error: true
-      
-      - name: Check if Docker image exists
-        id: check-image
-        if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
-        run: |
-          if docker image inspect gc-controller:test >/dev/null 2>&1; then
-            echo "image_exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Docker image exists"
-          else
-            echo "image_exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Docker image not found, skipping Trivy scan"
-          fi
-        continue-on-error: true
-      
-      - name: Run Trivy vulnerability scanner
-        if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') && steps.check-image.outputs.image_exists == 'true'
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: gc-controller:test
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'  # Don't fail CI, just report
-        continue-on-error: true
-      
-      - name: Upload Trivy results to GitHub Security
-        if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') && hashFiles('trivy-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: 'trivy-results.sarif'
-        continue-on-error: true
-      
-      - name: Run Trivy filesystem scan
-        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-      
-      - name: Check for outdated base images
-        run: |
-          echo "Checking for outdated base images..."
-          echo "Current base images:"
-          grep "^FROM" Dockerfile | grep -v "^#" || true
-          echo ""
-          echo "To update base images:"
-          echo "1. Check latest versions at https://hub.docker.com/"
-          echo "2. Pull latest image: docker pull alpine:3.19"
-          echo "3. Get SHA: docker inspect alpine:3.19 | grep RepoDigests"
-          echo "4. Update Dockerfile with new SHA"
+    uses: kube-zen/zen-oss-standards/.github/workflows/release-helm.yml@v1.0.0
+    secrets: inherit
+    with:
+      go_version: '1.24'
 

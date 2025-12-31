@@ -1,0 +1,21 @@
+# Example: Thin caller for Release Image reusable workflow
+# Copy this to .github/workflows/release-image.yml in your repo
+# Only include if projectType=controller and imageName is set
+
+name: Release Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '*.*.*-*'  # e.g., 0.0.1-alpha
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: kube-zen/zen-oss-standards/.github/workflows/release-helm.yml@v1.0.0
+    secrets: inherit
+    with:
+      image_name: 'kubezen/zen-gc'  # Update with your image name from project.yaml
+      registry: 'docker.io'
+
