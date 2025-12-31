@@ -39,6 +39,7 @@ import (
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
 	"github.com/kube-zen/zen-gc/pkg/logging"
 	"github.com/kube-zen/zen-gc/pkg/validation"
+	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
 
 const (
@@ -119,7 +120,7 @@ type GCController struct {
 
 	// Per-policy rate limiters (one per policy).
 	// Protected by rateLimitersMu mutex.
-	rateLimiters map[types.UID]*RateLimiter
+	rateLimiters map[types.UID]*ratelimiter.RateLimiter
 
 	// Mutex to protect rateLimiters map.
 	rateLimitersMu sync.RWMutex
@@ -177,7 +178,7 @@ func NewGCControllerWithConfig(dynamicClient dynamic.Interface, statusUpdater *S
 		policyInformer:            policyInformer,
 		resourceInformers:         make(map[types.UID]cache.SharedInformer),
 		resourceInformerFactories: make(map[types.UID]dynamicinformer.DynamicSharedInformerFactory),
-		rateLimiters:              make(map[types.UID]*RateLimiter),
+		rateLimiters:              make(map[types.UID]*ratelimiter.RateLimiter),
 		statusUpdater:             statusUpdater,
 		eventRecorder:             eventRecorder,
 		ctx:                       ctx,
@@ -725,7 +726,7 @@ func (gc *GCController) matchesFieldOperator(fieldValue string, fieldCond v1alph
 }
 
 // deleteResource deletes a resource based on policy behavior.
-func (gc *GCController) deleteResource(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
+func (gc *GCController) deleteResource(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error {
 	// Rate limiting
 	if err := rateLimiter.Wait(gc.ctx); err != nil {
 		return err
@@ -1021,12 +1022,12 @@ func (gc *GCController) cleanupAllResourceInformers() {
 }
 
 // getOrCreateRateLimiter gets or creates a rate limiter for a policy.
-func (gc *GCController) getOrCreateRateLimiter(policy *v1alpha1.GarbageCollectionPolicy) *RateLimiter {
+func (gc *GCController) getOrCreateRateLimiter(policy *v1alpha1.GarbageCollectionPolicy) *ratelimiter.RateLimiter {
 	return getOrCreateRateLimiterShared(gc, policy)
 }
 
 // getRateLimiters returns the rate limiters map (implements RateLimiterManager).
-func (gc *GCController) getRateLimiters() map[types.UID]*RateLimiter {
+func (gc *GCController) getRateLimiters() map[types.UID]*ratelimiter.RateLimiter {
 	return gc.rateLimiters
 }
 

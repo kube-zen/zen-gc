@@ -27,12 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
+	"github.com/kube-zen/zen-sdk/pkg/gc/backoff"
+	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
 
 // Constants for deletion reasons and error types.
@@ -83,13 +84,13 @@ const (
 // RateLimiterManager manages rate limiters for policies.
 // This interface allows both GCController and GCPolicyReconciler to use shared rate limiter logic.
 type RateLimiterManager interface {
-	getRateLimiters() map[types.UID]*RateLimiter
+	getRateLimiters() map[types.UID]*ratelimiter.RateLimiter
 	getRateLimitersMu() *sync.RWMutex
 	getConfig() *config.ControllerConfig
 }
 
 // getOrCreateRateLimiterShared is a shared implementation for getting or creating a rate limiter.
-func getOrCreateRateLimiterShared(mgr RateLimiterManager, policy *v1alpha1.GarbageCollectionPolicy) *RateLimiter {
+func getOrCreateRateLimiterShared(mgr RateLimiterManager, policy *v1alpha1.GarbageCollectionPolicy) *ratelimiter.RateLimiter {
 	// Determine rate limit for this policy
 	maxDeletionsPerSecond := DefaultMaxDeletionsPerSecond
 	if policy.Spec.Behavior.MaxDeletionsPerSecond > 0 {
@@ -122,8 +123,8 @@ func getOrCreateRateLimiterShared(mgr RateLimiterManager, policy *v1alpha1.Garba
 		return limiter
 	}
 
-	// Create new rate limiter
-	limiter := NewRateLimiter(maxDeletionsPerSecond)
+	// Create new rate limiter using zen-sdk
+	limiter := ratelimiter.NewRateLimiter(maxDeletionsPerSecond)
 	rateLimiters[policy.UID] = limiter
 
 	// Update metrics
@@ -135,7 +136,7 @@ func getOrCreateRateLimiterShared(mgr RateLimiterManager, policy *v1alpha1.Garba
 
 // BatchDeleter provides methods needed for batch deletion.
 type BatchDeleter interface {
-	DeleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error
+	DeleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error
 	GetEventRecorder() *EventRecorder
 }
 
@@ -144,7 +145,7 @@ func deleteBatchShared(
 	ctx context.Context,
 	batch []*unstructured.Unstructured,
 	policy *v1alpha1.GarbageCollectionPolicy,
-	rateLimiter *RateLimiter,
+	rateLimiter *ratelimiter.RateLimiter,
 	reasons map[string]string,
 	deleter BatchDeleter,
 ) (int64, []error) {
@@ -293,48 +294,66 @@ func deleteResourceWithBackoffShared(
 	ctx context.Context,
 	resource *unstructured.Unstructured,
 	policy *v1alpha1.GarbageCollectionPolicy,
-	rateLimiter *RateLimiter,
+	rateLimiter *ratelimiter.RateLimiter,
 	deleterWithCtx ResourceDeleterWithContext,
 	deleterWithoutCtx ResourceDeleterWithoutContext,
 ) error {
 	var lastErr error
 
-	err := wait.ExponentialBackoff(DefaultBackoff, func() (bool, error) {
+	// Use zen-sdk backoff
+	backoffConfig := backoff.DefaultConfig()
+	b := backoff.NewBackoff(backoffConfig)
+
+	for !b.IsExhausted() {
 		// Check if context is canceled
 		select {
 		case <-ctx.Done():
-			return false, ctx.Err()
+			return ctx.Err()
 		default:
 		}
+
 		var err error
 		if deleterWithCtx != nil {
 			err = deleterWithCtx.DeleteResourceWithContext(ctx, resource, policy, rateLimiter)
 		} else if deleterWithoutCtx != nil {
 			err = deleterWithoutCtx.DeleteResourceWithoutContext(resource, policy, rateLimiter)
 		} else {
-			return false, fmt.Errorf("%w", ErrNoDeleter)
+			return fmt.Errorf("%w", ErrNoDeleter)
 		}
-		if err != nil {
-			// Check if error is retryable
-			if k8serrors.IsTimeout(err) || k8serrors.IsServerTimeout(err) ||
-				k8serrors.IsTooManyRequests(err) || k8serrors.IsServiceUnavailable(err) {
-				lastErr = err
-				return false, nil // retry
-			}
-			// For NotFound errors, consider it success (already deleted)
-			if k8serrors.IsNotFound(err) {
-				return true, nil // success
-			}
-			return false, err // don't retry
-		}
-		return true, nil // success
-	})
 
-	if wait.Interrupted(err) {
-		return fmt.Errorf("deletion failed after retries: %w", lastErr)
+		if err == nil {
+			return nil // success
+		}
+
+		// Check if error is retryable
+		if k8serrors.IsTimeout(err) || k8serrors.IsServerTimeout(err) ||
+			k8serrors.IsTooManyRequests(err) || k8serrors.IsServiceUnavailable(err) {
+			lastErr = err
+			// Wait for backoff duration before retry
+			duration := b.Next()
+			if duration == 0 {
+				break // exhausted
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(duration):
+				// Continue to retry
+			}
+			continue
+		}
+
+		// For NotFound errors, consider it success (already deleted)
+		if k8serrors.IsNotFound(err) {
+			return nil // success
+		}
+
+		// Non-retryable error
+		return err
 	}
 
-	return err
+	// Backoff exhausted
+	return fmt.Errorf("deletion failed after retries: %w", lastErr)
 }
 
 // meetsConditionsShared checks if a resource meets the deletion conditions.

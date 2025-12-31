@@ -40,6 +40,7 @@ import (
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
 	"github.com/kube-zen/zen-gc/pkg/logging"
 	"github.com/kube-zen/zen-gc/pkg/validation"
+	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
 
 // GCPolicyReconciler reconciles GarbageCollectionPolicy resources.
@@ -70,7 +71,7 @@ type GCPolicyReconciler struct {
 
 	// Per-policy rate limiters (one per policy).
 	// Protected by rateLimitersMu mutex.
-	rateLimiters map[types.UID]*RateLimiter
+	rateLimiters map[types.UID]*ratelimiter.RateLimiter
 
 	// Mutex to protect rateLimiters map.
 	rateLimitersMu sync.RWMutex
@@ -118,7 +119,7 @@ func NewGCPolicyReconciler(
 		shouldReconcile:           func() bool { return true }, // Default: always reconcile
 		resourceInformers:         make(map[types.UID]cache.SharedInformer),
 		resourceInformerFactories: make(map[types.UID]dynamicinformer.DynamicSharedInformerFactory),
-		rateLimiters:              make(map[types.UID]*RateLimiter),
+		rateLimiters:              make(map[types.UID]*ratelimiter.RateLimiter),
 		policyUIDs:                make(map[types.NamespacedName]types.UID),
 		policySpecs:               make(map[types.UID]*v1alpha1.GarbageCollectionPolicySpec),
 		statusUpdater:             statusUpdater,
@@ -154,7 +155,7 @@ func NewGCPolicyReconcilerWithLeaderCheck(
 		shouldReconcile:           func() bool { return true }, // Always true (Manager handles leader election)
 		resourceInformers:         make(map[types.UID]cache.SharedInformer),
 		resourceInformerFactories: make(map[types.UID]dynamicinformer.DynamicSharedInformerFactory),
-		rateLimiters:              make(map[types.UID]*RateLimiter),
+		rateLimiters:              make(map[types.UID]*ratelimiter.RateLimiter),
 		policyUIDs:                make(map[types.NamespacedName]types.UID),
 		policySpecs:               make(map[types.UID]*v1alpha1.GarbageCollectionPolicySpec),
 		statusUpdater:             statusUpdater,
@@ -340,7 +341,7 @@ func (r *GCPolicyReconciler) meetsConditions(resource *unstructured.Unstructured
 }
 
 // deleteResource deletes a resource based on policy behavior.
-func (r *GCPolicyReconciler) deleteResource(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
+func (r *GCPolicyReconciler) deleteResource(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error {
 	// Rate limiting
 	if err := rateLimiter.Wait(ctx); err != nil {
 		return err
@@ -473,12 +474,12 @@ func (r *GCPolicyReconciler) getOrCreateResourceInformer(ctx context.Context, po
 }
 
 // getOrCreateRateLimiter gets or creates a rate limiter for a policy.
-func (r *GCPolicyReconciler) getOrCreateRateLimiter(policy *v1alpha1.GarbageCollectionPolicy) *RateLimiter {
+func (r *GCPolicyReconciler) getOrCreateRateLimiter(policy *v1alpha1.GarbageCollectionPolicy) *ratelimiter.RateLimiter {
 	return getOrCreateRateLimiterShared(r, policy)
 }
 
 // getRateLimiters returns the rate limiters map (implements RateLimiterManager).
-func (r *GCPolicyReconciler) getRateLimiters() map[types.UID]*RateLimiter {
+func (r *GCPolicyReconciler) getRateLimiters() map[types.UID]*ratelimiter.RateLimiter {
 	return r.rateLimiters
 }
 
@@ -510,7 +511,7 @@ func (r *GCPolicyReconciler) deleteBatch(
 	ctx context.Context,
 	batch []*unstructured.Unstructured,
 	policy *v1alpha1.GarbageCollectionPolicy,
-	rateLimiter *RateLimiter,
+	rateLimiter *ratelimiter.RateLimiter,
 	reasons map[string]string,
 ) (int64, []error) {
 	return deleteBatchShared(ctx, batch, policy, rateLimiter, reasons, r)
