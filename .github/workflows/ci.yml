@@ -1,6 +1,3 @@
-# Example: Thin caller for CI reusable workflow
-# Copy this to .github/workflows/ci.yml in your repo
-
 name: CI
 
 on:
@@ -10,23 +7,78 @@ on:
     branches: [main, develop]
 
 jobs:
-  check:
-    uses: kube-zen/zen-oss-standards/.github/workflows/ci.yml@v1.0.0
-    secrets: inherit
-    with:
-      go_version: '1.24'
-      runs_race: false  # Set to true if project.yaml has runsRace: true
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: go.sum
+      
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
 
   test:
-    uses: kube-zen/zen-oss-standards/.github/workflows/ci.yml@v1.0.0
-    secrets: inherit
-    with:
-      go_version: '1.24'
-      runs_race: false
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: go.sum
+      
+      - name: Install dependencies
+        run: go mod download
+      
+      - name: Run tests
+        run: go test -v -race -timeout=15m ./...
+      
+      - name: Check coverage
+        run: go test -coverprofile=coverage.out ./...
 
   build:
-    uses: kube-zen/zen-oss-standards/.github/workflows/ci.yml@v1.0.0
-    secrets: inherit
-    with:
-      go_version: '1.24'
-
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: go.sum
+      
+      - name: Install dependencies
+        run: go mod download
+      
+      - name: Build
+        run: |
+          mkdir -p bin
+          go build -o bin/gc-controller ./cmd/gc-controller
+      
+      - name: Verify binary
+        run: |
+          if [ ! -f bin/gc-controller ]; then
+            echo "Binary not found"
+            exit 1
+          fi
+          file bin/gc-controller

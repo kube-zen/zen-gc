@@ -1,6 +1,3 @@
-# Example: Thin caller for Security reusable workflow
-# Copy this to .github/workflows/security.yml in your repo
-
 name: Security
 
 on:
@@ -12,9 +9,23 @@ on:
     - cron: '0 0 * * 0'  # Weekly on Sunday
 
 jobs:
-  security:
-    uses: kube-zen/zen-oss-standards/.github/workflows/security.yml@v1.0.0
-    secrets: inherit
-    with:
-      go_version: '1.24'
-
+  govulncheck:
+    name: Go Vulnerability Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: go.sum
+      
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      
+      - name: Run govulncheck
+        run: govulncheck ./...
