@@ -71,6 +71,7 @@ var (
 	webhookCertFile          = flag.String("webhook-cert-file", "/etc/webhook/certs/tls.crt", "Path to TLS certificate file")
 	webhookKeyFile           = flag.String("webhook-key-file", "/etc/webhook/certs/tls.key", "Path to TLS private key file")
 	leaderElectionID         = flag.String("leader-election-id", "gc-controller-leader-election", "The ID for leader election. Must be unique per controller instance in the same namespace.")
+	enableLeaderElection     = flag.Bool("enable-leader-election", true, "Enable leader election for controller HA (default: true). Set to false if you don't want HA or want zen-lead to handle HA instead.")
 	enableWebhook            = flag.Bool("enable-webhook", true, "Enable validating webhook server")
 	insecureWebhook          = flag.Bool("insecure-webhook", false, "Allow webhook to start without TLS (testing only, not recommended for production)")
 	gcInterval               = flag.Duration("gc-interval", 1*time.Minute, "Interval between GC evaluation runs")
@@ -112,10 +113,20 @@ func main() {
 		klog.Fatalf("Error adding scheme: %v", err)
 	}
 
-	// Get namespace for leader election (required, hard-fail if missing)
-	namespace, err := leader.RequirePodNamespace()
-	if err != nil {
-		klog.Fatalf("Failed to determine pod namespace for leader election: %v", err)
+	// Get namespace for leader election (required if enabled)
+	var namespace string
+	if *enableLeaderElection {
+		var err error
+		namespace, err = leader.RequirePodNamespace()
+		if err != nil {
+			klog.Fatalf("Failed to determine pod namespace for leader election: %v", err)
+		}
+	} else {
+		// Still try to get namespace for other purposes, but don't fail if missing
+		namespace, _ = leader.RequirePodNamespace()
+		if namespace == "" {
+			namespace = "default" // Fallback
+		}
 	}
 
 	// Load controller configuration
@@ -135,7 +146,7 @@ func main() {
 	// Create event recorder
 	eventRecorder := controller.NewEventRecorder(kubeClient)
 
-	// Create controller-runtime Manager with mandatory leader election
+	// Setup controller-runtime manager
 	mgrOpts := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -148,8 +159,13 @@ func main() {
 		HealthProbeBindAddress: ":8081", // Health probes on separate port (controller-runtime requirement)
 	}
 
-	// Apply mandatory leader election (always enabled for HA safety)
-	leader.ApplyRequiredLeaderElection(&mgrOpts, "gc-controller", namespace, *leaderElectionID)
+	// Apply leader election (enabled by default, but can be disabled via --enable-leader-election=false)
+	leader.ApplyLeaderElection(&mgrOpts, "gc-controller", namespace, *leaderElectionID, *enableLeaderElection)
+	if *enableLeaderElection {
+		klog.Info("Leader election enabled for controller HA")
+	} else {
+		klog.Warning("Leader election disabled - running without HA (split-brain risk if multiple replicas)")
+	}
 
 	mgr, err := ctrl.NewManager(restCfg, mgrOpts)
 	if err != nil {
