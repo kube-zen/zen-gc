@@ -1,0 +1,57 @@
+# Build artifacts
+bin/
+*.test
+*.out
+coverage*
+*.prof
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+README.md
+CHANGELOG.md
+LICENSE
+NOTICE
+
+# CI/CD
+.github/
+scripts/ci/
+
+# Test files
+test/
+*_test.go
+
+# Examples
+examples/
+
+# Helm charts (not needed in image)
+charts/
+.helm-packages/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Logs
+*.log
+
+# Coverage and profiling
+*.coverprofile
+*.coverage
+
