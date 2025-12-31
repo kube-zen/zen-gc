@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
+	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
 
 func TestNewGCController(t *testing.T) {
@@ -874,7 +875,7 @@ func TestGCController_cleanupRateLimiter(t *testing.T) {
 
 	// Add a rate limiter
 	controller.rateLimitersMu.Lock()
-	controller.rateLimiters[policyUID] = NewRateLimiter(10)
+	controller.rateLimiters[policyUID] = ratelimiter.NewRateLimiter(10)
 	controller.rateLimitersMu.Unlock()
 
 	// Verify rate limiter exists
@@ -910,8 +911,8 @@ func TestGCController_cleanupAllRateLimiters(t *testing.T) {
 
 	// Add multiple rate limiters
 	controller.rateLimitersMu.Lock()
-	controller.rateLimiters[types.UID("uid1")] = NewRateLimiter(10)
-	controller.rateLimiters[types.UID("uid2")] = NewRateLimiter(20)
+	controller.rateLimiters[types.UID("uid1")] = ratelimiter.NewRateLimiter(10)
+	controller.rateLimiters[types.UID("uid2")] = ratelimiter.NewRateLimiter(20)
 	controller.rateLimitersMu.Unlock()
 
 	// Verify rate limiters exist

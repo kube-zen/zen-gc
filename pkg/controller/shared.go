@@ -281,12 +281,12 @@ func getDeletionPropagationPolicy(policyStr string) metav1.DeletionPropagation {
 
 // ResourceDeleterWithContext provides the deleteResource method needed for backoff retry (with context).
 type ResourceDeleterWithContext interface {
-	DeleteResourceWithContext(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error
+	DeleteResourceWithContext(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error
 }
 
 // ResourceDeleterWithoutContext provides the deleteResource method needed for backoff retry (without context).
 type ResourceDeleterWithoutContext interface {
-	DeleteResourceWithoutContext(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error
+	DeleteResourceWithoutContext(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error
 }
 
 // deleteResourceWithBackoffShared deletes a resource with exponential backoff retry.

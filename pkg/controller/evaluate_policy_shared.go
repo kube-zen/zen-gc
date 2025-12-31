@@ -26,6 +26,7 @@ import (
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
+	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
 
 // PolicyEvaluator provides methods needed for policy evaluation.
@@ -33,9 +34,9 @@ type PolicyEvaluator interface {
 	getOrCreateResourceInformer(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) (cache.SharedInformer, error)
 	matchesSelectors(resource *unstructured.Unstructured, target *v1alpha1.TargetResourceSpec) bool
 	shouldDelete(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy) (bool, string)
-	getOrCreateRateLimiter(policy *v1alpha1.GarbageCollectionPolicy) *RateLimiter
+	getOrCreateRateLimiter(policy *v1alpha1.GarbageCollectionPolicy) *ratelimiter.RateLimiter
 	getBatchSize(policy *v1alpha1.GarbageCollectionPolicy) int
-	deleteBatch(ctx context.Context, batch []*unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter, reasons map[string]string) (int64, []error)
+	deleteBatch(ctx context.Context, batch []*unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter, reasons map[string]string) (int64, []error)
 	getStatusUpdater() *StatusUpdater
 	GetEventRecorder() *EventRecorder
 }

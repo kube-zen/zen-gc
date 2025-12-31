@@ -518,7 +518,7 @@ func (r *GCPolicyReconciler) deleteBatch(
 }
 
 // DeleteResourceWithBackoff deletes a resource with exponential backoff (implements BatchDeleter).
-func (r *GCPolicyReconciler) DeleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
+func (r *GCPolicyReconciler) DeleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error {
 	return r.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
 }
 
@@ -528,12 +528,12 @@ func (r *GCPolicyReconciler) GetEventRecorder() *EventRecorder {
 }
 
 // deleteResourceWithBackoff deletes a resource with exponential backoff retry logic.
-func (r *GCPolicyReconciler) deleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
+func (r *GCPolicyReconciler) deleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error {
 	return deleteResourceWithBackoffShared(ctx, resource, policy, rateLimiter, r, nil)
 }
 
 // DeleteResourceWithContext deletes a resource with context (implements ResourceDeleterWithContext).
-func (r *GCPolicyReconciler) DeleteResourceWithContext(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
+func (r *GCPolicyReconciler) DeleteResourceWithContext(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error {
 	return r.deleteResource(ctx, resource, policy, rateLimiter)
 }
 

@@ -1065,7 +1065,7 @@ func (gc *GCController) cleanupAllRateLimiters() {
 		klog.Infof("Cleaning up %d rate limiter(s) during shutdown", count)
 	}
 
-	gc.rateLimiters = make(map[types.UID]*RateLimiter)
+	gc.rateLimiters = make(map[types.UID]*ratelimiter.RateLimiter)
 }
 
 // getBatchSize returns the batch size for a policy.
@@ -1086,7 +1086,7 @@ func (gc *GCController) deleteBatch(
 	ctx context.Context,
 	batch []*unstructured.Unstructured,
 	policy *v1alpha1.GarbageCollectionPolicy,
-	rateLimiter *RateLimiter,
+	rateLimiter *ratelimiter.RateLimiter,
 	reasons map[string]string,
 ) (int64, []error) {
 	return deleteBatchShared(ctx, batch, policy, rateLimiter, reasons, gc)
@@ -1094,7 +1094,7 @@ func (gc *GCController) deleteBatch(
 
 // DeleteResourceWithBackoff deletes a resource with exponential backoff (implements BatchDeleter).
 // This wraps the existing deleteResourceWithBackoff method.
-func (gc *GCController) DeleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *RateLimiter) error {
+func (gc *GCController) DeleteResourceWithBackoff(ctx context.Context, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error {
 	return gc.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
 }
 

@@ -27,6 +27,7 @@ import (
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
+	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
 
 func TestDeleteResourceWithBackoff_Success(t *testing.T) {
@@ -72,7 +73,7 @@ func TestDeleteResourceWithBackoff_Success(t *testing.T) {
 		},
 	}
 
-	rateLimiter := NewRateLimiter(10)
+	rateLimiter := ratelimiter.NewRateLimiter(10)
 	ctx := context.Background()
 
 	// Should succeed (dry run, so no actual deletion)
@@ -122,7 +123,7 @@ func TestDeleteResourceWithBackoff_ContextCanceled(t *testing.T) {
 		},
 	}
 
-	rateLimiter := NewRateLimiter(10)
+	rateLimiter := ratelimiter.NewRateLimiter(10)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
@@ -174,7 +175,7 @@ func TestDeleteResourceWithBackoff_NotFound(t *testing.T) {
 		},
 	}
 
-	rateLimiter := NewRateLimiter(10)
+	rateLimiter := ratelimiter.NewRateLimiter(10)
 	ctx := context.Background()
 
 	// NotFound errors should be treated as success (already deleted)

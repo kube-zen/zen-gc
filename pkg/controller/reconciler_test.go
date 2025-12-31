@@ -30,6 +30,7 @@ import (
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
+	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
 
 // setupTestReconciler creates a test reconciler with fake clients.
@@ -197,7 +198,7 @@ func TestGCPolicyReconciler_Reconcile_PolicyDeletion(t *testing.T) {
 
 	// Create a rate limiter to test cleanup
 	reconciler.rateLimitersMu.Lock()
-	reconciler.rateLimiters[policy.UID] = NewRateLimiter(10)
+	reconciler.rateLimiters[policy.UID] = ratelimiter.NewRateLimiter(10)
 	reconciler.rateLimitersMu.Unlock()
 
 	// Delete policy
@@ -360,7 +361,7 @@ func TestGCPolicyReconciler_cleanupRateLimiter(t *testing.T) {
 
 	// Create a rate limiter
 	reconciler.rateLimitersMu.Lock()
-	reconciler.rateLimiters[uid] = NewRateLimiter(10)
+	reconciler.rateLimiters[uid] = ratelimiter.NewRateLimiter(10)
 	initialCount := len(reconciler.rateLimiters)
 	reconciler.rateLimitersMu.Unlock()
 

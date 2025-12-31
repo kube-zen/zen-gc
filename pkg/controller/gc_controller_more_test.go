@@ -27,6 +27,7 @@ import (
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
+	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
 
 func TestGCController_convertToPolicy(t *testing.T) {
@@ -184,7 +185,7 @@ func TestGCController_deleteBatch(t *testing.T) {
 		"uid-1": ReasonTTLExpired,
 		"uid-2": ReasonTTLExpired,
 	}
-	rateLimiter := NewRateLimiter(10)
+	rateLimiter := ratelimiter.NewRateLimiter(10)
 	ctx := context.Background()
 
 	deletedCount, errs := controller.deleteBatch(ctx, batch, policy, rateLimiter, reasons)
@@ -241,7 +242,7 @@ func TestGCController_deleteBatch_ContextCanceled(t *testing.T) {
 		},
 	}
 	reasons := map[string]string{"uid-1": ReasonTTLExpired}
-	rateLimiter := NewRateLimiter(10)
+	rateLimiter := ratelimiter.NewRateLimiter(10)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
