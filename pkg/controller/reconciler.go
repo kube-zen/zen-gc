@@ -54,7 +54,7 @@ type GCPolicyReconciler struct {
 	config *config.ControllerConfig
 
 	// shouldReconcile is a function that returns true if reconciliation should proceed
-	// DEPRECATED: No longer used. Leader election is handled by controller-runtime Manager.
+	// Deprecated: No longer used. Leader election is handled by controller-runtime Manager.
 	// Kept for backward compatibility but always returns true.
 	shouldReconcile func() bool
 
@@ -128,7 +128,7 @@ func NewGCPolicyReconciler(
 }
 
 // NewGCPolicyReconcilerWithLeaderCheck creates a new GC policy reconciler with leader check function.
-// DEPRECATED: This function is deprecated. Leader election is now handled by controller-runtime Manager
+// Deprecated: This function is deprecated. Leader election is now handled by controller-runtime Manager
 // via zen-sdk/pkg/leader.ApplyRequiredLeaderElection(). Use NewGCPolicyReconciler() instead.
 // This function is kept for backward compatibility but shouldReconcile is ignored (always returns true).
 func NewGCPolicyReconcilerWithLeaderCheck(
@@ -145,7 +145,7 @@ func NewGCPolicyReconcilerWithLeaderCheck(
 		cfg = config.NewControllerConfig()
 	}
 
-	// DEPRECATED: shouldReconcile is ignored. Leader election is handled by controller-runtime Manager.
+	// Deprecated: shouldReconcile is ignored. Leader election is handled by controller-runtime Manager.
 	// Always return true since Manager only calls Reconcile on the leader.
 	return &GCPolicyReconciler{
 		Client:                    client,
@@ -169,7 +169,7 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	logger := logging.FromContext(ctx)
 	logger = logger.WithField("policy", fmt.Sprintf("%s/%s", req.Namespace, req.Name))
 
-	// DEPRECATED: shouldReconcile check removed. Leader election is handled by controller-runtime Manager.
+	// Deprecated: shouldReconcile check removed. Leader election is handled by controller-runtime Manager.
 	// Manager only calls Reconcile on the leader pod, so this check is unnecessary.
 	// Keeping the function call for backward compatibility but it always returns true.
 	_ = r.shouldReconcile()

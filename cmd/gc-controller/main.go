@@ -175,9 +175,9 @@ func main() {
 			klog.Fatalf("--leader-election-lease-name is required when --leader-election-mode=zenlead")
 		}
 		leConfig = zenlead.LeaderElectionConfig{
-			Mode:       zenlead.ZenLeadManaged,
-			LeaseName:  *leaderElectionLeaseName,
-			Namespace:  namespace,
+			Mode:      zenlead.ZenLeadManaged,
+			LeaseName: *leaderElectionLeaseName,
+			Namespace: namespace,
 		}
 		klog.Info("Leader election mode: zenlead managed (Profile C)", "leaseName", *leaderElectionLeaseName)
 	case "disabled":
