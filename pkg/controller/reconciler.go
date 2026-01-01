@@ -38,7 +38,7 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
-	"github.com/kube-zen/zen-gc/pkg/logging"
+	"github.com/kube-zen/zen-sdk/pkg/logging"
 	"github.com/kube-zen/zen-gc/pkg/validation"
 	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
@@ -166,7 +166,7 @@ func NewGCPolicyReconcilerWithLeaderCheck(
 // Reconcile is the main reconciliation function called by controller-runtime.
 // It is triggered by changes to GarbageCollectionPolicy resources.
 func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := logging.FromContext(ctx)
+	logger := logging.NewLogger("zen-gc")
 	logger = logger.WithField("policy", fmt.Sprintf("%s/%s", req.Namespace, req.Name))
 
 	// Deprecated: shouldReconcile check removed. Leader election is handled by controller-runtime Manager.
@@ -179,11 +179,11 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := r.Get(ctx, req.NamespacedName, policy); err != nil {
 		if errors.IsNotFound(err) {
 			// Policy was deleted - clean up associated resources
-			logger.V(2).Info("Policy not found, cleaning up resources")
+			logger.WithContext(ctx).Debug("Policy not found, cleaning up resources", logging.Operation("reconcile"))
 			r.cleanupPolicyResources(req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
-		logger.WithError(err).Error("Failed to fetch GarbageCollectionPolicy")
+		logger.WithContext(ctx).Error(err, "Failed to fetch GarbageCollectionPolicy", logging.Operation("fetch_policy"), logging.ErrorCode("FETCH_POLICY_FAILED"))
 		return ctrl.Result{}, err
 	}
 
@@ -192,7 +192,7 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Check if policy spec changed and requires informer recreation
 	if r.shouldRecreateInformer(policy) {
-		logger.V(2).Info("Policy spec changed, recreating informer")
+		logger.WithContext(ctx).Debug("Policy spec changed, recreating informer", logging.Operation("update_informer"))
 		r.cleanupResourceInformer(policy.UID)
 		// Clear old spec to allow new one to be tracked
 		r.policySpecsMu.Lock()
@@ -205,7 +205,7 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Skip paused policies
 	if policy.Spec.Paused {
-		logger.V(4).Info("Policy is paused, skipping evaluation")
+		logger.WithContext(ctx).Debug("Policy is paused, skipping evaluation", logging.Operation("reconcile"))
 		return ctrl.Result{RequeueAfter: r.getRequeueInterval()}, nil
 	}
 
@@ -215,7 +215,7 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if gcErr.Type == "" {
 			gcErr.Type = ErrorTypeEvaluationFailed
 		}
-		logger.WithError(gcErr).Error("Error evaluating policy")
+		logger.WithContext(ctx).Error(gcErr, "Error evaluating policy", logging.Operation("evaluate_policy"), logging.ErrorCode("EVALUATE_POLICY_FAILED"))
 		// Requeue with backoff on error
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}

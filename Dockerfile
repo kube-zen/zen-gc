@@ -23,12 +23,29 @@ WORKDIR /build
 # Install build dependencies
 RUN apk add --no-cache git make
 
+# Copy zen-sdk first (needed for tagged version resolution during build)
+# Build context should be from parent directory (zen/)
+COPY zen-sdk /build/zen-sdk
+
 # Copy go mod files
-COPY go.mod go.sum ./
-RUN go mod download
+COPY zen-gc/go.mod zen-gc/go.sum* ./
+
+# Download dependencies first (will fail for zen-sdk but that's ok)
+RUN go mod download || true
+
+# Add temporary replace directive for local build (go.mod stays clean with tagged version)
+# Path is relative to /build (where go.mod is)
+RUN go mod edit -replace github.com/kube-zen/zen-sdk=./zen-sdk
 
 # Copy source code
-COPY . .
+COPY zen-gc/ .
+
+# Add replace directive to use local zen-sdk during build
+RUN go mod edit -replace github.com/kube-zen/zen-sdk=./zen-sdk
+
+# Download dependencies (replace directive handles zen-sdk)
+# Use || true to allow partial success
+RUN go mod download || true
 
 # Build optimized binary
 ARG VERSION=dev
@@ -38,7 +55,8 @@ ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 
 # Build for target architecture (defaults to linux/amd64 for single-arch builds)
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath \
+# Use -mod=mod to allow automatic dependency fetching (replace directive handles zen-sdk)
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -mod=mod -trimpath \
     -ldflags "-s -w \
         -X 'main.version=${VERSION}' \
         -X 'main.commit=${COMMIT}' \

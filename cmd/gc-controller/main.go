@@ -20,6 +20,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -41,6 +41,8 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/controller"
 	gcwebhook "github.com/kube-zen/zen-gc/pkg/webhook"
 	"github.com/kube-zen/zen-sdk/pkg/leader"
+	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
+	"github.com/kube-zen/zen-sdk/pkg/observability"
 	"github.com/kube-zen/zen-sdk/pkg/zenlead"
 )
 
@@ -60,12 +62,9 @@ var (
 	version   = "dev"
 	commit    = "unknown"
 	buildDate = "unknown"
+	logger    *sdklog.Logger
+	setupLog  *sdklog.Logger
 )
-
-func init() {
-	// Log version information at startup
-	klog.V(2).Infof("GC Controller version: %s, commit: %s, build date: %s", version, commit, buildDate)
-}
 
 var (
 	metricsAddr              = flag.String("metrics-addr", ":8080", "The address the metric endpoint binds to")
@@ -85,12 +84,31 @@ var (
 
 //nolint:gocyclo // main function complexity is acceptable for initialization logic
 func main() {
-	klog.InitFlags(nil)
 	flag.Parse()
+
+	// Initialize zen-sdk logger (configures controller-runtime logger automatically)
+	logger = sdklog.NewLogger("zen-gc")
+	setupLog = logger.WithComponent("setup")
+	setupLog.Debug("GC Controller starting", sdklog.String("version", version), sdklog.String("commit", commit), sdklog.String("buildDate", buildDate))
 
 	// Set up signals so we handle shutdown gracefully
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
+	// Initialize OpenTelemetry tracing using SDK
+	if shutdown, err := observability.InitWithDefaults(ctx, "zen-gc"); err != nil {
+		setupLog.Warn("OpenTelemetry tracer initialization failed, continuing without tracing",
+			sdklog.String("error", err.Error()),
+			sdklog.ErrorCode("OTEL_INIT_FAILED"),
+		)
+	} else {
+		setupLog.Info("OpenTelemetry tracing initialized")
+		defer func() {
+			if err := shutdown(ctx); err != nil {
+				setupLog.Warn("Failed to shutdown tracing", sdklog.String("error", err.Error()))
+			}
+		}()
+	}
 
 	// Get config using controller-runtime (handles kubeconfig flag automatically)
 	restCfg := ctrl.GetConfigOrDie()
@@ -101,25 +119,29 @@ func main() {
 	// Create dynamic client (still needed for resource informers)
 	dynamicClient, err := dynamic.NewForConfig(restCfg)
 	if err != nil {
-		klog.Fatalf("Error building dynamic client: %v", err)
+		setupLog.Error(err, "Error building dynamic client", sdklog.ErrorCode("CLIENT_ERROR"))
+		os.Exit(1)
 	}
 
 	// Create Kubernetes client for events
 	kubeClient, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
-		klog.Fatalf("Error building Kubernetes client: %v", err)
+		setupLog.Error(err, "Error building Kubernetes client", sdklog.ErrorCode("CLIENT_ERROR"))
+		os.Exit(1)
 	}
 
 	// Create scheme and add GarbageCollectionPolicy types
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		klog.Fatalf("Error adding scheme: %v", err)
+		setupLog.Error(err, "Error adding scheme", sdklog.ErrorCode("SCHEME_ERROR"))
+		os.Exit(1)
 	}
 
 	// Get namespace (required for leader election)
 	namespace, err := leader.RequirePodNamespace()
 	if err != nil {
-		klog.Fatalf("Failed to determine pod namespace: %v", err)
+		setupLog.Error(err, "Failed to determine pod namespace", sdklog.ErrorCode("NAMESPACE_ERROR"))
+		os.Exit(1)
 	}
 
 	// Load controller configuration
@@ -130,8 +152,11 @@ func main() {
 	controllerConfig.WithBatchSize(*batchSize)
 	controllerConfig.WithMaxConcurrentEvaluations(*maxConcurrentEvaluations)
 
-	klog.Infof("Controller configuration: GCInterval=%v, MaxDeletionsPerSecond=%d, BatchSize=%d, MaxConcurrentEvaluations=%d",
-		controllerConfig.GCInterval, controllerConfig.MaxDeletionsPerSecond, controllerConfig.BatchSize, controllerConfig.MaxConcurrentEvaluations)
+	setupLog.Info("Controller configuration",
+		sdklog.String("gcInterval", controllerConfig.GCInterval.String()),
+		sdklog.Int("maxDeletionsPerSecond", controllerConfig.MaxDeletionsPerSecond),
+		sdklog.Int("batchSize", controllerConfig.BatchSize),
+		sdklog.Int("maxConcurrentEvaluations", controllerConfig.MaxConcurrentEvaluations))
 
 	// Create status updater with configuration
 	statusUpdater := controller.NewStatusUpdaterWithConfig(dynamicClient, controllerConfig)
@@ -169,30 +194,33 @@ func main() {
 			ElectionID: electionID,
 			Namespace:  namespace,
 		}
-		klog.Info("Leader election mode: builtin (Profile B)")
+		setupLog.Info("Leader election mode: builtin (Profile B)", sdklog.Operation("leader_election_config"))
 	case "zenlead":
 		if *leaderElectionLeaseName == "" {
-			klog.Fatalf("--leader-election-lease-name is required when --leader-election-mode=zenlead")
+			setupLog.Error(fmt.Errorf("--leader-election-lease-name is required when --leader-election-mode=zenlead"), "invalid configuration", sdklog.ErrorCode("INVALID_CONFIG"))
+			os.Exit(1)
 		}
 		leConfig = zenlead.LeaderElectionConfig{
 			Mode:      zenlead.ZenLeadManaged,
 			LeaseName: *leaderElectionLeaseName,
 			Namespace: namespace,
 		}
-		klog.Info("Leader election mode: zenlead managed (Profile C)", "leaseName", *leaderElectionLeaseName)
+		setupLog.Info("Leader election mode: zenlead managed (Profile C)", sdklog.Operation("leader_election_config"), sdklog.String("leaseName", *leaderElectionLeaseName))
 	case "disabled":
 		leConfig = zenlead.LeaderElectionConfig{
 			Mode: zenlead.Disabled,
 		}
-		klog.Warning("Leader election disabled - single replica only (unsafe if replicas > 1)")
+		setupLog.Warn("Leader election disabled - single replica only (unsafe if replicas > 1)", sdklog.Operation("leader_election_config"))
 	default:
-		klog.Fatalf("Invalid --leader-election-mode: %q (must be builtin, zenlead, or disabled)", *leaderElectionMode)
+		setupLog.Error(fmt.Errorf("invalid --leader-election-mode: %q (must be builtin, zenlead, or disabled)", *leaderElectionMode), "invalid configuration", sdklog.ErrorCode("INVALID_CONFIG"))
+		os.Exit(1)
 	}
 
 	// Prepare manager options with leader election
-	mgrOpts, err := zenlead.PrepareManagerOptions(baseOpts, leConfig)
+		mgrOpts, err := zenlead.PrepareManagerOptions(&baseOpts, &leConfig)
 	if err != nil {
-		klog.Fatalf("Failed to prepare manager options: %v", err)
+		setupLog.Error(err, "Failed to prepare manager options", sdklog.ErrorCode("MANAGER_OPTIONS_ERROR"))
+		os.Exit(1)
 	}
 
 	// Get replica count from environment (set by Helm/Kubernetes)
@@ -205,12 +233,14 @@ func main() {
 
 	// Enforce safe HA configuration
 	if err := zenlead.EnforceSafeHA(replicaCount, mgrOpts.LeaderElection); err != nil {
-		klog.Fatalf("Unsafe HA configuration: %v", err)
+		setupLog.Error(err, "Unsafe HA configuration", sdklog.ErrorCode("UNSAFE_HA_CONFIG"))
+		os.Exit(1)
 	}
 
 	mgr, err := ctrl.NewManager(restCfg, mgrOpts)
 	if err != nil {
-		klog.Fatalf("Error creating controller manager: %v", err)
+		setupLog.Error(err, "Error creating controller manager", sdklog.ErrorCode("MANAGER_CREATE_ERROR"))
+		os.Exit(1)
 	}
 
 	// Create GC policy reconciler (leader election handled by controller-runtime Manager)
@@ -225,12 +255,14 @@ func main() {
 
 	// Setup reconciler with manager
 	if err := reconciler.SetupWithManager(mgr); err != nil {
-		klog.Fatalf("Error setting up reconciler: %v", err)
+		setupLog.Error(err, "Error setting up reconciler", sdklog.ErrorCode("RECONCILER_SETUP_ERROR"))
+		os.Exit(1)
 	}
 
 	// Add health checks
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		klog.Fatalf("Error adding health check: %v", err)
+		setupLog.Error(err, "Error adding health check", sdklog.ErrorCode("HEALTH_CHECK_ERROR"))
+		os.Exit(1)
 	}
 
 	// Add readiness check (only leader is ready)
@@ -239,7 +271,8 @@ func main() {
 		// This is handled automatically by the manager
 		return nil
 	}); err != nil {
-		klog.Fatalf("Error adding readiness check: %v", err)
+		setupLog.Error(err, "Error adding readiness check", sdklog.ErrorCode("READY_CHECK_ERROR"))
+		os.Exit(1)
 	}
 
 	// Start webhook server if enabled (separate from controller-runtime webhook server)
@@ -248,7 +281,8 @@ func main() {
 		var err error
 		webhookServer, err = gcwebhook.NewWebhookServer(*webhookAddr, *webhookCertFile, *webhookKeyFile)
 		if err != nil {
-			klog.Fatalf("Error creating webhook server: %v", err)
+			setupLog.Error(err, "Error creating webhook server", sdklog.ErrorCode("WEBHOOK_CREATE_ERROR"))
+			os.Exit(1)
 		}
 
 		// Check if TLS files exist
@@ -265,29 +299,33 @@ func main() {
 			// TLS files exist, start with TLS
 			go func() {
 				if err := webhookServer.StartTLS(ctx, *webhookCertFile, *webhookKeyFile); err != nil {
-					klog.Fatalf("Error starting webhook server: %v", err)
+					setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
+					os.Exit(1)
 				}
 			}()
-			klog.Infof("Webhook server starting with TLS on %s", *webhookAddr)
+			setupLog.Info("Webhook server starting with TLS", sdklog.String("address", *webhookAddr), sdklog.Component("webhook"))
 		} else {
 			// TLS files missing - check if insecure mode is allowed
 			if !*insecureWebhook {
-				klog.Fatalf("Webhook TLS certificates not found (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing.", *webhookCertFile, *webhookKeyFile)
+				setupLog.Error(fmt.Errorf("webhook TLS certificates not found (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing", *webhookCertFile, *webhookKeyFile), "TLS certificates missing", sdklog.ErrorCode("TLS_CERT_MISSING"))
+				os.Exit(1)
 			}
-			klog.Warningf("Webhook starting without TLS (insecure mode) - NOT RECOMMENDED FOR PRODUCTION")
+			setupLog.Warn("Webhook starting without TLS (insecure mode) - NOT RECOMMENDED FOR PRODUCTION", sdklog.Component("webhook"))
 			go func() {
 				if err := webhookServer.Start(ctx); err != nil {
-					klog.Fatalf("Error starting webhook server: %v", err)
+					setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
+					os.Exit(1)
 				}
 			}()
 		}
 	}
 
 	// Start the manager (this blocks until context is canceled)
-	klog.Info("Starting GC controller manager...")
+	setupLog.Info("Starting GC controller manager", sdklog.Operation("start"))
 	if err := mgr.Start(ctx); err != nil {
-		klog.Fatalf("Error starting manager: %v", err)
+		setupLog.Error(err, "Error starting manager", sdklog.ErrorCode("MANAGER_START_ERROR"))
+		os.Exit(1)
 	}
 
-	klog.Info("GC controller shutdown complete")
+	setupLog.Info("GC controller shutdown complete", sdklog.Operation("shutdown"))
 }

@@ -1,4 +1,19 @@
-# zen-gc: Generic Garbage Collection for Kubernetes
+# zen-gc
+
+Kubernetes controller for garbage collection of orphaned resources.
+
+## Overview
+
+`zen-gc` is a Kubernetes controller that performs garbage collection, cleaning up orphaned resources and maintaining cluster hygiene.
+
+## Dependencies
+
+This component uses `zen-sdk` for unified observability:
+
+- **`zen-sdk/pkg/logging`** - Structured, context-aware logging
+- **`zen-sdk/pkg/observability`** - OpenTelemetry distributed tracing
+
+See [zen-sdk README](../../zen-sdk/README.md) for more information about the SDK packages.: Generic Garbage Collection for Kubernetes
 
 **Automatically clean up any Kubernetes resource based on time-to-live policies**
 

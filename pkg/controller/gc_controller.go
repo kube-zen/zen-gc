@@ -37,7 +37,7 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
-	"github.com/kube-zen/zen-gc/pkg/logging"
+	"github.com/kube-zen/zen-sdk/pkg/logging"
 	"github.com/kube-zen/zen-gc/pkg/validation"
 	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
@@ -190,8 +190,8 @@ func NewGCControllerWithConfig(dynamicClient dynamic.Interface, statusUpdater *S
 // Start starts the GC controller.
 // Cache sync is performed asynchronously to avoid blocking startup.
 func (gc *GCController) Start() error {
-	logger := logging.NewLogger()
-	logger.Info("Starting GC controller")
+	logger := logging.NewLogger("zen-gc")
+	logger.WithContext(gc.ctx).Info("Starting GC controller", logging.Operation("start_controller"))
 
 	// Add event handlers to policy informer to handle policy deletions and updates
 	_, err := gc.policyInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -203,7 +203,7 @@ func (gc *GCController) Start() error {
 		},
 	})
 	if err != nil {
-		logger.WithError(err).Error("Failed to add event handlers to policy informer")
+		logger.WithContext(gc.ctx).Error(err, "Failed to add event handlers to policy informer", logging.Operation("setup_informer"), logging.ErrorCode("SETUP_INFORMER_FAILED"))
 		return err
 	}
 
@@ -214,7 +214,7 @@ func (gc *GCController) Start() error {
 	// The GC loop will wait for cache sync before evaluating policies
 	go gc.waitForCacheSyncAndStart()
 
-	logger.Info("GC controller started (cache sync in progress)")
+	logger.WithContext(gc.ctx).Info("GC controller started (cache sync in progress)", logging.Operation("start_controller"))
 	return nil
 }
 
@@ -225,26 +225,27 @@ func (gc *GCController) waitForCacheSyncAndStart() {
 	syncCtx, syncCancel := context.WithTimeout(gc.ctx, DefaultCacheSyncTimeout)
 	defer syncCancel()
 
-	// Add correlation ID for cache sync operation
-	correlationID := logging.GenerateCorrelationID()
-	syncCtx = logging.WithCorrelationID(syncCtx, correlationID)
-	logger := logging.FromContext(syncCtx)
+	// Create logger with context
+	logger := logging.NewLogger("zen-gc")
 
-	logger.V(2).Info("Waiting for policy informer cache to sync")
+		logger.WithContext(syncCtx).Debug("Waiting for policy informer cache to sync", logging.Operation("cache_sync"))
 	startTime := time.Now()
 
 	if !cache.WaitForCacheSync(syncCtx.Done(), gc.policyInformer.HasSynced) {
 		syncDuration := time.Since(startTime)
 		if syncCtx.Err() != nil {
-			logger.WithDuration(syncDuration).WithError(syncCtx.Err()).Error("Policy informer cache sync timed out")
+			logger.WithContext(syncCtx).Error(syncCtx.Err(), "Policy informer cache sync timed out",
+				logging.Duration("duration", syncDuration))
 			return
 		}
-		logger.WithDuration(syncDuration).Error("Policy informer cache sync failed")
+		logger.WithContext(syncCtx).Error(fmt.Errorf("cache sync failed"), "Policy informer cache sync failed", logging.Operation("cache_sync"), logging.ErrorCode("CACHE_SYNC_FAILED"),
+			logging.Duration("duration", syncDuration))
 		return
 	}
 
 	syncDuration := time.Since(startTime)
-	logger.WithDuration(syncDuration).Info("Policy informer cache synced successfully")
+		logger.WithContext(syncCtx).Info("Policy informer cache synced successfully", logging.Operation("cache_sync"),
+		logging.Duration("duration", syncDuration))
 
 	// Start GC loop once cache is synced
 	go gc.runGCLoop()
@@ -260,8 +261,8 @@ func (gc *GCController) Stop() {
 
 // stop performs the actual shutdown logic.
 func (gc *GCController) stop() {
-	logger := logging.NewLogger()
-	logger.Info("Stopping GC controller gracefully")
+	logger := logging.NewLogger("zen-gc")
+	logger.WithContext(context.Background()).Info("Stopping GC controller gracefully")
 	shutdownStart := time.Now()
 
 	// Cancel context to signal shutdown to all goroutines
