@@ -3,7 +3,7 @@ module github.com/kube-zen/zen-gc
 go 1.24
 
 require (
-	github.com/kube-zen/zen-sdk v0.2.2-alpha
+	github.com/kube-zen/zen-sdk v0.2.3-alpha
 	github.com/prometheus/client_golang v1.19.1
 	golang.org/x/text v0.17.0
 	k8s.io/api v0.31.0
