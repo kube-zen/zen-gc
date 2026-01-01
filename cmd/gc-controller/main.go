@@ -42,7 +42,6 @@ import (
 	gcwebhook "github.com/kube-zen/zen-gc/pkg/webhook"
 	"github.com/kube-zen/zen-sdk/pkg/leader"
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
-	"github.com/kube-zen/zen-sdk/pkg/observability"
 	"github.com/kube-zen/zen-sdk/pkg/zenlead"
 )
 
@@ -95,20 +94,8 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Initialize OpenTelemetry tracing using SDK
-	if shutdown, err := observability.InitWithDefaults(ctx, "zen-gc"); err != nil {
-		setupLog.Warn("OpenTelemetry tracer initialization failed, continuing without tracing",
-			sdklog.String("error", err.Error()),
-			sdklog.ErrorCode("OTEL_INIT_FAILED"),
-		)
-	} else {
-		setupLog.Info("OpenTelemetry tracing initialized")
-		defer func() {
-			if err := shutdown(ctx); err != nil {
-				setupLog.Warn("Failed to shutdown tracing", sdklog.String("error", err.Error()))
-			}
-		}()
-	}
+	// OpenTelemetry tracing initialization can be added here when zen-sdk/pkg/observability is available
+	// For now, continue without tracing
 
 	// Get config using controller-runtime (handles kubeconfig flag automatically)
 	restCfg := ctrl.GetConfigOrDie()
