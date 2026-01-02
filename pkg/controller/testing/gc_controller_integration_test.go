@@ -37,7 +37,7 @@ import (
 func TestGCControllerAdapter_GetResourceListerForPolicy(t *testing.T) {
 	// Skip this test as it requires complex fake client setup
 	// The adapter structure is tested in TestGCControllerAdapter_AllMethods
-	t.Skip("Requires complex fake client setup - adapter structure tested elsewhere")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestInformerStoreResourceLister_Integration tests the InformerStoreResourceLister with real store.

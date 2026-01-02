@@ -105,22 +105,22 @@ func TestGCController_convertToPolicy(t *testing.T) {
 	}
 }
 
+// TestGCController_evaluatePoliciesSequential is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
 func TestGCController_evaluatePoliciesSequential(t *testing.T) {
-	// Skip this test as it requires complex fake client setup with list kinds
-	// The function is tested indirectly through evaluatePolicies tests
-	t.Skip("evaluatePoliciesSequential requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
+// TestGCController_evaluatePoliciesParallel is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
 func TestGCController_evaluatePoliciesParallel(t *testing.T) {
-	// Skip this test as it requires complex fake client setup with list kinds
-	// The function is tested indirectly through evaluatePolicies tests
-	t.Skip("evaluatePoliciesParallel requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
+// TestGCController_getOrCreateResourceInformer is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
 func TestGCController_getOrCreateResourceInformer(t *testing.T) {
-	// Skip this test as it requires complex fake client setup with list kinds
-	// The function is tested indirectly through evaluatePolicy tests
-	t.Skip("getOrCreateResourceInformer requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 func TestGCController_deleteBatch(t *testing.T) {

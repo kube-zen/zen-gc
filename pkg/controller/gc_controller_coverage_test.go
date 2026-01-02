@@ -18,12 +18,16 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 
+// TestGCController_Start is skipped.
+// GCController is deprecated - use GCPolicyReconciler with controller-runtime Manager instead.
 func TestGCController_Start(t *testing.T) {
-	t.Skip("Start() requires complex fake client setup with registered list kinds - tested indirectly via integration tests")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler with controller-runtime Manager instead")
 }
 
+// TestGCController_Start_WithConfig is skipped.
+// GCController is deprecated - use GCPolicyReconciler with controller-runtime Manager instead.
 func TestGCController_Start_WithConfig(t *testing.T) {
-	t.Skip("Start() requires complex fake client setup with registered list kinds - tested indirectly via integration tests")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler with controller-runtime Manager instead")
 }
 
 func TestGCController_waitForCacheSyncAndStart(t *testing.T) {
@@ -150,14 +154,17 @@ func TestGCController_runGCLoop(t *testing.T) {
 	}
 }
 
-// TestGCController_evaluatePoliciesSequential_WithPolicies is skipped due to complex informer setup requirements.
-// The function is tested indirectly through evaluatePolicies tests.
+// TestGCController_evaluatePoliciesSequential_WithPolicies is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
+// The refactored service uses mocks and doesn't require complex fake client setup.
 func TestGCController_evaluatePoliciesSequential_WithPolicies(t *testing.T) {
-	t.Skip("evaluatePoliciesSequential requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
+// TestGCController_evaluatePoliciesSequential_WithPausedPolicy is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
 func TestGCController_evaluatePoliciesSequential_WithPausedPolicy(t *testing.T) {
-	t.Skip("evaluatePoliciesSequential requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
@@ -232,26 +239,34 @@ func TestGCController_evaluatePoliciesSequential_ContextCanceled(t *testing.T) {
 	controller.evaluatePoliciesSequential(policies)
 }
 
-// TestGCController_evaluatePoliciesParallel_WithPolicies is skipped due to complex informer setup requirements.
-// The function is tested indirectly through evaluatePolicies tests.
+// TestGCController_evaluatePoliciesParallel_WithPolicies is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
 func TestGCController_evaluatePoliciesParallel_WithPolicies(t *testing.T) {
-	t.Skip("evaluatePoliciesParallel requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
+// TestGCController_evaluatePoliciesParallel_ContextCanceled is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
 func TestGCController_evaluatePoliciesParallel_ContextCanceled(t *testing.T) {
-	t.Skip("evaluatePoliciesParallel requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
+// TestGCController_getOrCreateResourceInformer_Basic is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
 func TestGCController_getOrCreateResourceInformer_Basic(t *testing.T) {
-	t.Skip("getOrCreateResourceInformer requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
+// TestGCController_getOrCreateResourceInformer_InvalidGVR is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
 func TestGCController_getOrCreateResourceInformer_InvalidGVR(t *testing.T) {
-	t.Skip("getOrCreateResourceInformer requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
+// TestGCController_getOrCreateResourceInformer_ClusterScoped is skipped.
+// GCController is deprecated - use GCPolicyReconciler with PolicyEvaluationService instead.
 func TestGCController_getOrCreateResourceInformer_ClusterScoped(t *testing.T) {
-	t.Skip("getOrCreateResourceInformer requires complex fake client setup - tested indirectly")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 func TestGCController_evaluatePolicy(t *testing.T) {
