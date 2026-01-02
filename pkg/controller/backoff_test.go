@@ -139,7 +139,7 @@ func TestDeleteResourceWithBackoff_ContextCanceled(t *testing.T) {
 	cancel() // Cancel immediately
 
 	// Should return context.Canceled error
-		var err error = reconciler.DeleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
+	err := reconciler.DeleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
 	if err == nil {
 		t.Error("deleteResourceWithBackoff() should return error when context is canceled")
 	}
@@ -195,7 +195,7 @@ func TestDeleteResourceWithBackoff_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// NotFound errors should be treated as success (already deleted)
-		var err error = reconciler.DeleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
+	err := reconciler.DeleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
 	if err != nil {
 		t.Errorf("deleteResourceWithBackoff() should treat NotFound as success, got error: %v", err)
 	}
