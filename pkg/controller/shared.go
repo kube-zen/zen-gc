@@ -37,6 +37,14 @@ import (
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
+var (
+	// ErrNoDeleter indicates no deleter was provided.
+	ErrNoDeleter = errors.New("no deleter provided")
+
+	// ErrResourceInformerCacheSyncFailed indicates resource informer cache sync failed.
+	ErrResourceInformerCacheSyncFailed = errors.New("failed to sync resource informer cache")
+)
+
 // Constants for deletion reasons and error types.
 const (
 	// ReasonTTLExpired indicates that a resource's TTL has expired.
