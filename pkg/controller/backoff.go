@@ -10,18 +10,14 @@ import (
 	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 )
 
-// deleteResourceWithBackoff deletes a resource with exponential backoff retry.
-// Backoff logic is now handled in shared.go using zen-sdk/pkg/gc/backoff.
-func (gc *GCController) deleteResourceWithBackoff(
-	ctx context.Context,
-	resource *unstructured.Unstructured,
-	policy *v1alpha1.GarbageCollectionPolicy,
-	rateLimiter *ratelimiter.RateLimiter,
-) error {
-	return deleteResourceWithBackoffShared(ctx, resource, policy, rateLimiter, nil, gc)
+// DeleteResourceWithBackoff deletes a resource with exponential backoff retry logic.
+// This is a convenience wrapper for GCPolicyReconciler.
+func DeleteResourceWithBackoff(ctx context.Context, reconciler *GCPolicyReconciler, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error {
+	return deleteResourceWithBackoff(ctx, reconciler, resource, policy, rateLimiter)
 }
 
-// DeleteResourceWithoutContext deletes a resource without context (implements ResourceDeleterWithoutContext).
-func (gc *GCController) DeleteResourceWithoutContext(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error {
-	return gc.deleteResource(resource, policy, rateLimiter)
+// deleteResourceWithBackoff is the internal implementation.
+func deleteResourceWithBackoff(ctx context.Context, reconciler *GCPolicyReconciler, resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter) error {
+	// Use the deleter from GCPolicyReconciler
+	return reconciler.deleteResource(ctx, resource, policy, rateLimiter)
 }

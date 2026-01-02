@@ -53,9 +53,8 @@ type GCPolicyReconciler struct {
 	// Controller configuration.
 	config *config.ControllerConfig
 
-	// shouldReconcile is a function that returns true if reconciliation should proceed
-	// Deprecated: No longer used. Leader election is handled by controller-runtime Manager.
-	// Kept for backward compatibility but always returns true.
+	// shouldReconcile is a function that returns true if reconciliation should proceed.
+	// Leader election is handled by controller-runtime Manager, so this always returns true.
 	shouldReconcile func() bool
 
 	// Resource informers (one per policy).
@@ -167,9 +166,7 @@ func NewGCPolicyReconcilerWithRESTMapper(
 }
 
 // NewGCPolicyReconcilerWithLeaderCheck creates a new GC policy reconciler with leader check function.
-// Deprecated: This function is deprecated. Leader election is now handled by controller-runtime Manager
-// via zen-sdk/pkg/leader.ApplyRequiredLeaderElection(). Use NewGCPolicyReconciler() instead.
-// This function is kept for backward compatibility but shouldReconcile is ignored (always returns true).
+// Leader election is handled by controller-runtime Manager, so shouldReconcile is ignored (always returns true).
 func NewGCPolicyReconcilerWithLeaderCheck(
 	client client.Client,
 	scheme *runtime.Scheme,
@@ -206,10 +203,8 @@ func NewGCPolicyReconcilerWithLeaderCheck(
 // Reconcile is the main reconciliation function called by controller-runtime.
 // It is triggered by changes to GarbageCollectionPolicy resources.
 func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// Use struct logger to avoid allocations
-	// Deprecated: shouldReconcile check removed. Leader election is handled by controller-runtime Manager.
-	// Manager only calls Reconcile on the leader pod, so this check is unnecessary.
-	// Keeping the function call for backward compatibility but it always returns true.
+	// Leader election is handled by controller-runtime Manager.
+	// Manager only calls Reconcile on the leader pod, so shouldReconcile always returns true.
 	_ = r.shouldReconcile()
 
 	// Fetch the GarbageCollectionPolicy instance

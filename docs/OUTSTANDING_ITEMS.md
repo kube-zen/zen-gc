@@ -27,43 +27,16 @@ All critical refactoring and TODO items have been completed. The following items
 
 **See**: `docs/RESTMAPPER_INTEGRATION_COMPLETE.md` for details.
 
-### 2. Remove Deprecated GCController (Low Priority)
+### 2. Remove Deprecated GCController ✅ COMPLETE
 
-**Status**: Deprecated but kept for test compatibility
+**Status**: ✅ **COMPLETE**
 
-**Current State**:
-- `GCController` is marked deprecated
-- Still used in integration tests (`test/integration/integration_test.go`)
-- `GCPolicyReconciler` is the recommended approach for production
-- All unit tests use `GCPolicyReconciler` with mocks
-
-**What's Needed**:
-- Update integration tests to use `GCPolicyReconciler` instead
-- Remove `GCController` after integration tests are migrated
-- Or move to `internal/controller` package to hide from public API
-
-**Impact**: Low - code cleanup
-**Effort**: 2-3 hours (update integration tests + removal)
-
-**Recommendation**: Can be done when convenient. Integration tests should be migrated first.
-
-### 3. Update Remaining Skipped Tests (Very Low Priority)
-
-**Status**: Documented, not required
-
-**Current State**:
-- 12 skipped tests for deprecated `GCController`
-- All properly documented with skip messages
-- Recommend using `GCPolicyReconciler` with mocks
-
-**What's Needed**:
-- Nothing required - tests are for deprecated code
-- Could be removed if `GCController` is removed
-
-**Impact**: None - tests are for deprecated code
-**Effort**: N/A
-
-**Recommendation**: No action needed unless `GCController` is removed.
+**What's Done**:
+- ✅ Migrated integration tests to use `GCPolicyReconciler`
+- ✅ Removed `GCController` code (`gc_controller.go`)
+- ✅ Removed `GCControllerAdapter` and related adapters
+- ✅ Removed all deprecated test files
+- ✅ Cleaned up deprecated comments in code
 
 ## Summary
 

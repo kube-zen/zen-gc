@@ -2,135 +2,130 @@ package integration
 
 import (
 	"context"
-	"errors"
 	"testing"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
+	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
 	"github.com/kube-zen/zen-gc/pkg/controller"
 )
 
-func TestGCController_Integration(t *testing.T) {
+func TestGCPolicyReconciler_Integration(t *testing.T) {
 	// Create a fake dynamic client
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add scheme: %v", err)
 	}
+
+	// Create fake controller-runtime client
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 
-	// Create status updater
+	// Create status updater and event recorder
 	statusUpdater := controller.NewStatusUpdater(dynamicClient)
-
-	// Create event recorder with fake Kubernetes client
 	kubeClient := fake.NewSimpleClientset()
 	eventRecorder := controller.NewEventRecorder(kubeClient)
 
-	// Create controller with config
+	// Create reconciler with config
 	cfg := config.NewControllerConfig()
-	gcController, err := controller.NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create GC controller: %v", err)
+	reconciler := controller.NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		nil, // RESTMapper - nil is OK for tests
+		statusUpdater,
+		eventRecorder,
+		cfg,
+	)
+
+	// Verify reconciler was created
+	if reconciler == nil {
+		t.Fatal("GCPolicyReconciler is nil")
 	}
 
-	// Test that controller can be started
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	// Test that reconciler can handle reconcile requests for non-existent policy
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "test-policy",
+			Namespace: "default",
+		},
+	}
 
-	// Start controller in background
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- gcController.Start()
-	}()
+	ctx := context.Background()
+	result, err := reconciler.Reconcile(ctx, req)
+	if err != nil {
+		// Error is OK if policy doesn't exist
+		t.Logf("Reconcile returned error (expected for non-existent policy): %v", err)
+	}
 
-	// Wait a bit for initialization
-	time.Sleep(100 * time.Millisecond)
-
-	// Stop controller
-	gcController.Stop()
-
-	// Check for errors
-	select {
-	case err := <-errChan:
-		if err != nil && !errors.Is(err, context.Canceled) {
-			t.Errorf("Controller start returned error: %v", err)
-		}
-	case <-ctx.Done():
-		// Timeout is OK, controller is running
+	// Verify result is valid
+	if result.RequeueAfter < 0 {
+		t.Error("RequeueAfter should be non-negative")
 	}
 }
 
-func TestGCController_PolicyCRUD(t *testing.T) {
-	scheme := runtime.NewScheme()
-	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add scheme: %v", err)
-	}
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
-
-	// Create status updater
-	statusUpdater := controller.NewStatusUpdater(dynamicClient)
-
-	// Create event recorder with fake Kubernetes client
-	kubeClient := fake.NewSimpleClientset()
-	eventRecorder := controller.NewEventRecorder(kubeClient)
-
-	cfg := config.NewControllerConfig()
-	gcController, err := controller.NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create GC controller: %v", err)
-	}
-
-	// Verify controller was created
-	if gcController == nil {
-		t.Fatal("GCController is nil")
-	}
-}
-
-// TestGCController_PolicyDeletion tests that informers and rate limiters are cleaned up when a policy is deleted.
-func TestGCController_PolicyDeletion(t *testing.T) {
+func TestGCPolicyReconciler_PolicyCRUD(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add scheme: %v", err)
 	}
 
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+
+	statusUpdater := controller.NewStatusUpdater(dynamicClient)
+	kubeClient := fake.NewSimpleClientset()
+	eventRecorder := controller.NewEventRecorder(kubeClient)
+
+	cfg := config.NewControllerConfig()
+	reconciler := controller.NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		nil,
+		statusUpdater,
+		eventRecorder,
+		cfg,
+	)
+
+	// Verify reconciler was created
+	if reconciler == nil {
+		t.Fatal("GCPolicyReconciler is nil")
+	}
+}
+
+// TestGCPolicyReconciler_PolicyDeletion tests that informers and rate limiters are cleaned up when a policy is deleted.
+func TestGCPolicyReconciler_PolicyDeletion(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
+
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 	statusUpdater := controller.NewStatusUpdater(dynamicClient)
 	kubeClient := fake.NewSimpleClientset()
 	eventRecorder := controller.NewEventRecorder(kubeClient)
 
 	cfg := config.NewControllerConfig()
-	gcController, err := controller.NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create GC controller: %v", err)
-	}
-
-	// Start controller
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- gcController.Start()
-	}()
-
-	// Wait for initialization
-	time.Sleep(200 * time.Millisecond)
+	reconciler := controller.NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		nil,
+		statusUpdater,
+		eventRecorder,
+		cfg,
+	)
 
 	// Create a test policy
-	policyGVR := schema.GroupVersionResource{
-		Group:    "gc.kube-zen.io",
-		Version:  "v1alpha1",
-		Resource: "garbagecollectionpolicies",
-	}
-
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-policy",
@@ -149,178 +144,235 @@ func TestGCController_PolicyDeletion(t *testing.T) {
 		},
 	}
 
-	// Convert to unstructured
-	policyObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policy)
+	ctx := context.Background()
+	if err := fakeClient.Create(ctx, policy); err != nil {
+		t.Fatalf("Failed to create policy: %v", err)
+	}
+
+	// Reconcile to create informer
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "test-policy",
+			Namespace: "default",
+		},
+	}
+	_, err := reconciler.Reconcile(ctx, req)
 	if err != nil {
-		t.Fatalf("Failed to convert policy: %v", err)
+		t.Logf("Reconcile error (may be expected): %v", err)
 	}
-	unstructuredPolicy := &unstructured.Unstructured{Object: policyObj}
-	unstructuredPolicy.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "gc.kube-zen.io",
-		Version: "v1alpha1",
-		Kind:    "GarbageCollectionPolicy",
-	})
 
-	// Simulate policy creation by adding to fake client
-	_, err = dynamicClient.Resource(policyGVR).Namespace("default").Create(ctx, unstructuredPolicy, metav1.CreateOptions{})
+	// Delete policy
+	if err := fakeClient.Delete(ctx, policy); err != nil {
+		t.Fatalf("Failed to delete policy: %v", err)
+	}
+
+	// Reconcile deletion - should clean up informers and rate limiters
+	_, err = reconciler.Reconcile(ctx, req)
 	if err != nil {
-		t.Logf("Note: Policy creation in fake client may not work as expected: %v", err)
-		// Continue test anyway - we're testing cleanup logic
+		t.Logf("Reconcile error on deletion (may be expected): %v", err)
 	}
 
-	// Simulate policy deletion
-	gcController.Stop()
-
-	// Verify cleanup happened (check that controller stopped gracefully)
-	select {
-	case err := <-errChan:
-		if err != nil && !errors.Is(err, context.Canceled) {
-			t.Errorf("Unexpected error: %v", err)
-		}
-	case <-ctx.Done():
-		// Timeout is OK - controller stopped
-	}
+	// Verify cleanup happened (reconciler should handle it)
+	// Test passes if Reconcile completes without panic
 }
 
-// TestGCController_InformerCleanup tests that informers are properly cleaned up.
-func TestGCController_InformerCleanup(t *testing.T) {
+// TestGCPolicyReconciler_InformerCleanup tests that informers are properly cleaned up.
+func TestGCPolicyReconciler_InformerCleanup(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add scheme: %v", err)
 	}
 
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 	statusUpdater := controller.NewStatusUpdater(dynamicClient)
 	kubeClient := fake.NewSimpleClientset()
 	eventRecorder := controller.NewEventRecorder(kubeClient)
 
 	cfg := config.NewControllerConfig()
-	gcController, err := controller.NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create GC controller: %v", err)
+	reconciler := controller.NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		nil,
+		statusUpdater,
+		eventRecorder,
+		cfg,
+	)
+
+	// Create and delete a policy to test cleanup
+	policy := &v1alpha1.GarbageCollectionPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-policy",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.GarbageCollectionPolicySpec{
+			TargetResource: v1alpha1.TargetResourceSpec{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+		},
 	}
 
-	// Start and stop controller
-	_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx := context.Background()
+	if err := fakeClient.Create(ctx, policy); err != nil {
+		t.Fatalf("Failed to create policy: %v", err)
+	}
 
-	go func() {
-		_ = gcController.Start()
-	}()
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "test-policy",
+			Namespace: "default",
+		},
+	}
 
-	time.Sleep(100 * time.Millisecond)
+	// Reconcile to create informer
+	_, _ = reconciler.Reconcile(ctx, req)
 
-	// Stop should clean up all informers
-	gcController.Stop()
+	// Delete policy
+	_ = fakeClient.Delete(ctx, policy)
 
-	// Give cleanup time to complete
-	time.Sleep(100 * time.Millisecond)
+	// Reconcile deletion - should clean up informers
+	_, _ = reconciler.Reconcile(ctx, req)
 
-	// Test passes if Stop() completes without panic
+	// Test passes if Reconcile completes without panic
 }
 
-// TestGCController_RateLimiterBehavior tests rate limiter creation and cleanup.
-func TestGCController_RateLimiterBehavior(t *testing.T) {
+// TestGCPolicyReconciler_RateLimiterBehavior tests rate limiter creation and cleanup.
+func TestGCPolicyReconciler_RateLimiterBehavior(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add scheme: %v", err)
 	}
 
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 	statusUpdater := controller.NewStatusUpdater(dynamicClient)
 	kubeClient := fake.NewSimpleClientset()
 	eventRecorder := controller.NewEventRecorder(kubeClient)
 
 	cfg := config.NewControllerConfig()
-	gcController, err := controller.NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create GC controller: %v", err)
-	}
+	reconciler := controller.NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		nil,
+		statusUpdater,
+		eventRecorder,
+		cfg,
+	)
 
 	// Rate limiter creation is tested indirectly through policy evaluation.
 	// Policy creation is tested in other integration tests.
 	// Direct access to getOrCreateRateLimiter is not exposed, which is correct.
 	// We verify rate limiter behavior through policy evaluation tests
 
-	// Cleanup
-	gcController.Stop()
+	// Test passes if reconciler is created successfully
+	if reconciler == nil {
+		t.Fatal("Reconciler is nil")
+	}
 }
 
-// TestGCController_ErrorRecovery tests error recovery scenarios.
-func TestGCController_ErrorRecovery(t *testing.T) {
+// TestGCPolicyReconciler_ErrorRecovery tests error recovery scenarios.
+func TestGCPolicyReconciler_ErrorRecovery(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add scheme: %v", err)
 	}
 
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 	statusUpdater := controller.NewStatusUpdater(dynamicClient)
 	kubeClient := fake.NewSimpleClientset()
 	eventRecorder := controller.NewEventRecorder(kubeClient)
 
 	cfg := config.NewControllerConfig()
-	gcController, err := controller.NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create GC controller: %v", err)
+	reconciler := controller.NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		nil,
+		statusUpdater,
+		eventRecorder,
+		cfg,
+	)
+
+	// Test that reconciler can handle invalid policies gracefully
+	ctx := context.Background()
+
+	// Reconcile non-existent policy - should handle gracefully
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "non-existent",
+			Namespace: "default",
+		},
 	}
 
-	// Test that controller can handle invalid policies gracefully
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	result, err := reconciler.Reconcile(ctx, req)
+	if err != nil {
+		// Error is OK for non-existent policy
+		t.Logf("Reconcile error (expected for non-existent policy): %v", err)
+	}
 
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- gcController.Start()
-	}()
+	// Verify result is valid
+	if result.RequeueAfter < 0 {
+		t.Error("RequeueAfter should be non-negative")
+	}
+}
 
-	time.Sleep(100 * time.Millisecond)
+// TestGCPolicyReconciler_MultiplePolicies tests handling of multiple policies.
+func TestGCPolicyReconciler_MultiplePolicies(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
 
-	// Stop controller - should handle errors gracefully
-	gcController.Stop()
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	statusUpdater := controller.NewStatusUpdater(dynamicClient)
+	kubeClient := fake.NewSimpleClientset()
+	eventRecorder := controller.NewEventRecorder(kubeClient)
 
-	select {
-	case err := <-errChan:
-		// Context canceled is expected
-		if err != nil && !errors.Is(err, context.Canceled) {
-			t.Logf("Controller stopped with error (may be expected): %v", err)
+	cfg := config.NewControllerConfig()
+	reconciler := controller.NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
+		dynamicClient,
+		nil,
+		statusUpdater,
+		eventRecorder,
+		cfg,
+	)
+
+	// Create multiple policies
+	ctx := context.Background()
+	for i := 0; i < 3; i++ {
+		policy := &v1alpha1.GarbageCollectionPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-policy-" + string(rune('0'+i)),
+				Namespace: "default",
+			},
+			Spec: v1alpha1.GarbageCollectionPolicySpec{
+				TargetResource: v1alpha1.TargetResourceSpec{
+					APIVersion: "v1",
+					Kind:       "ConfigMap",
+				},
+			},
 		}
-	case <-ctx.Done():
-		// Timeout is OK
-	}
-}
+		if err := fakeClient.Create(ctx, policy); err != nil {
+			t.Fatalf("Failed to create policy %d: %v", i, err)
+		}
 
-// TestGCController_MultiplePolicies tests handling of multiple policies.
-func TestGCController_MultiplePolicies(t *testing.T) {
-	scheme := runtime.NewScheme()
-	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add scheme: %v", err)
-	}
-
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
-	statusUpdater := controller.NewStatusUpdater(dynamicClient)
-	kubeClient := fake.NewSimpleClientset()
-	eventRecorder := controller.NewEventRecorder(kubeClient)
-
-	cfg := config.NewControllerConfig()
-	gcController, err := controller.NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create GC controller: %v", err)
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-policy-" + string(rune('0'+i)),
+				Namespace: "default",
+			},
+		}
+		_, _ = reconciler.Reconcile(ctx, req)
 	}
 
-	// Start controller
-	_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	go func() {
-		_ = gcController.Start()
-	}()
-
-	time.Sleep(100 * time.Millisecond)
-
-	// Stop should handle multiple policies cleanup
-	gcController.Stop()
-
-	// Test passes if Stop() completes without panic
+	// Test passes if Reconcile completes without panic for multiple policies
 }
 
 // Helper function.

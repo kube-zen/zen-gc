@@ -45,8 +45,17 @@ const (
 	// ReasonNotExpired indicates that a resource's TTL has not expired.
 	ReasonNotExpired = "not_expired"
 
+	// ReasonNoTTL indicates that TTL could not be calculated.
+	ReasonNoTTL = "no_ttl"
+
 	// ReasonConditionNotMet indicates that a resource does not meet the deletion conditions.
 	ReasonConditionNotMet = "condition_not_met"
+
+	// DefaultGCInterval is the default interval for GC runs.
+	DefaultGCInterval = 1 * time.Minute
+
+	// DefaultCacheSyncTimeout is the default timeout for cache synchronization.
+	DefaultCacheSyncTimeout = 30 * time.Second
 
 	// ErrorTypeEvaluationFailed indicates that policy evaluation failed.
 	ErrorTypeEvaluationFailed = "evaluation_failed"
@@ -83,7 +92,7 @@ const (
 )
 
 // RateLimiterManager manages rate limiters for policies.
-// This interface allows both GCController and GCPolicyReconciler to use shared rate limiter logic.
+// This interface allows GCPolicyReconciler to use shared rate limiter logic.
 type RateLimiterManager interface {
 	getRateLimiters() map[types.UID]*ratelimiter.RateLimiter
 	getRateLimitersMu() *sync.RWMutex

@@ -256,6 +256,120 @@
         "options": {
           "orientation": "horizontal"
         }
+      },
+      {
+        "id": 12,
+        "title": "Active Informers and Rate Limiters",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 36},
+        "targets": [
+          {
+            "expr": "gc_informers_total",
+            "legendFormat": "Informers",
+            "refId": "A"
+          },
+          {
+            "expr": "gc_rate_limiters_total",
+            "legendFormat": "Rate Limiters",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Leader Election Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 36},
+        "targets": [
+          {
+            "expr": "gc_leader_election_status",
+            "legendFormat": "Leader (1=leader, 0=follower)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 0, "color": "yellow"},
+                {"value": 1, "color": "green"}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 14,
+        "title": "Leader Election Transitions",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 36},
+        "targets": [
+          {
+            "expr": "gc_leader_election_transitions_total",
+            "legendFormat": "Transitions",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 15,
+        "title": "Resources Pending Deletion",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "sum(gc_resources_pending_total) by (policy_name, resource_kind)",
+            "legendFormat": "{{policy_name}} - {{resource_kind}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "label": "Pending Resources"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 16,
+        "title": "Error Rate by Type",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+        "targets": [
+          {
+            "expr": "sum(rate(gc_errors_total[5m])) by (error_type, policy_name)",
+            "legendFormat": "{{error_type}} - {{policy_name}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Errors/sec"
+          },
+          {
+            "format": "short"
+          }
+        ]
       }
     ]
   }

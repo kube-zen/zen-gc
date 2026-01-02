@@ -9,9 +9,7 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 
-func TestGCController_matchesSelectors_LabelSelector(t *testing.T) {
-	gc := &GCController{}
-
+func TestMatchesSelectorsShared_LabelSelector(t *testing.T) {
 	tests := []struct {
 		name          string
 		resource      *unstructured.Unstructured
@@ -70,9 +68,9 @@ func TestGCController_matchesSelectors_LabelSelector(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := gc.matchesSelectors(tt.resource, tt.target)
+			result := matchesSelectorsShared(tt.resource, tt.target)
 			if result != tt.expectedMatch {
-				t.Errorf("matchesSelectors() = %v, want %v", result, tt.expectedMatch)
+				t.Errorf("matchesSelectorsShared() = %v, want %v", result, tt.expectedMatch)
 			}
 		})
 	}
@@ -145,7 +143,7 @@ func TestGCController_matchesSelectors_Namespace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := gc.matchesSelectors(tt.resource, tt.target)
+			result := matchesSelectorsShared(tt.resource, tt.target)
 			if result != tt.expectedMatch {
 				t.Errorf("matchesSelectors() = %v, want %v", result, tt.expectedMatch)
 			}
@@ -210,7 +208,7 @@ func TestGCController_matchesSelectors_FieldSelector(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := gc.matchesSelectors(tt.resource, tt.target)
+			result := matchesSelectorsShared(tt.resource, tt.target)
 			if result != tt.expectedMatch {
 				t.Errorf("matchesSelectors() = %v, want %v", result, tt.expectedMatch)
 			}

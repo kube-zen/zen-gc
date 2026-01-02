@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
+	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
@@ -32,19 +33,24 @@ import (
 
 func TestDeleteResourceWithBackoff_Success(t *testing.T) {
 	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
+
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
 	statusUpdater := NewStatusUpdater(dynamicClient)
 	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCControllerWithConfig(
+	reconciler := NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
 		dynamicClient,
+		nil,
 		statusUpdater,
 		eventRecorder,
 		config.NewControllerConfig(),
 	)
-	if err != nil {
-		t.Fatalf("NewGCControllerWithConfig() returned error: %v", err)
-	}
 
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -77,7 +83,7 @@ func TestDeleteResourceWithBackoff_Success(t *testing.T) {
 	ctx := context.Background()
 
 	// Should succeed (dry run, so no actual deletion)
-	err = controller.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
+	err = reconciler.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
 	if err != nil {
 		t.Errorf("deleteResourceWithBackoff() returned error: %v", err)
 	}
@@ -85,19 +91,24 @@ func TestDeleteResourceWithBackoff_Success(t *testing.T) {
 
 func TestDeleteResourceWithBackoff_ContextCanceled(t *testing.T) {
 	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
+
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
 	statusUpdater := NewStatusUpdater(dynamicClient)
 	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCControllerWithConfig(
+	reconciler := NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
 		dynamicClient,
+		nil,
 		statusUpdater,
 		eventRecorder,
 		config.NewControllerConfig(),
 	)
-	if err != nil {
-		t.Fatalf("NewGCControllerWithConfig() returned error: %v", err)
-	}
 
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -128,7 +139,7 @@ func TestDeleteResourceWithBackoff_ContextCanceled(t *testing.T) {
 	cancel() // Cancel immediately
 
 	// Should return context.Canceled error
-	err = controller.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
+	err = reconciler.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
 	if err == nil {
 		t.Error("deleteResourceWithBackoff() should return error when context is canceled")
 	}
@@ -136,19 +147,24 @@ func TestDeleteResourceWithBackoff_ContextCanceled(t *testing.T) {
 
 func TestDeleteResourceWithBackoff_NotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
+
+	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
 	statusUpdater := NewStatusUpdater(dynamicClient)
 	eventRecorder := NewEventRecorder(nil)
 
-	controller, err := NewGCControllerWithConfig(
+	reconciler := NewGCPolicyReconcilerWithRESTMapper(
+		fakeClient,
+		scheme,
 		dynamicClient,
+		nil,
 		statusUpdater,
 		eventRecorder,
 		config.NewControllerConfig(),
 	)
-	if err != nil {
-		t.Fatalf("NewGCControllerWithConfig() returned error: %v", err)
-	}
 
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -179,7 +195,7 @@ func TestDeleteResourceWithBackoff_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// NotFound errors should be treated as success (already deleted)
-	err = controller.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
+	err = reconciler.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
 	if err != nil {
 		t.Errorf("deleteResourceWithBackoff() should treat NotFound as success, got error: %v", err)
 	}
