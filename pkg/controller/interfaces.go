@@ -63,16 +63,14 @@ type SelectorMatcher interface {
 
 // TTLCalculator calculates TTL and expiration times for resources.
 // This interface allows us to test TTL logic independently.
-type TTLCalculator interface {
-	// CalculateExpirationTime calculates when a resource should expire based on policy TTL.
-	CalculateExpirationTime(resource *unstructured.Unstructured, ttlSpec *v1alpha1.TTLSpec) (int64, error)
-}
+// Note: Currently empty in shared.go, but we can extend it later.
+// The actual TTL calculation is done via shared functions.
 
 // ConditionMatcher checks if a resource meets the given conditions.
 // This interface allows us to test condition logic independently.
 type ConditionMatcher interface {
 	// MeetsConditions returns true if the resource meets all conditions in the policy.
-	MeetsConditions(resource *unstructured.Unstructured, conditions *v1alpha1.ConditionSpec) bool
+	MeetsConditions(resource *unstructured.Unstructured, conditions *v1alpha1.ConditionsSpec) bool
 }
 
 // RateLimiterProvider provides rate limiters for policies.
@@ -82,9 +80,10 @@ type RateLimiterProvider interface {
 	GetOrCreateRateLimiter(policy *v1alpha1.GarbageCollectionPolicy) *ratelimiter.RateLimiter
 }
 
-// BatchDeleter handles batch deletion of resources.
-// This interface allows us to test deletion logic independently.
-type BatchDeleter interface {
+// BatchDeleterCore provides the core deletion method.
+// Note: The existing BatchDeleter in shared.go has DeleteResourceWithBackoff and GetEventRecorder.
+// This interface is for the higher-level batch deletion operation.
+type BatchDeleterCore interface {
 	// DeleteBatch deletes a batch of resources and returns the number of successful deletions.
 	DeleteBatch(ctx context.Context, batch []*unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter, reasons map[string]string) (int64, []error)
 }
@@ -94,9 +93,8 @@ type BatchDeleter interface {
 type PolicyEvaluatorCore interface {
 	ResourceLister
 	SelectorMatcher
-	TTLCalculator
 	ConditionMatcher
 	RateLimiterProvider
-	BatchDeleter
+	BatchDeleterCore
 }
 
