@@ -24,14 +24,19 @@ The `PolicyEvaluationService` already solves this problem using dependency injec
 5. ✅ Added feature flag `useRefactoredService` for gradual migration
 
 **Current State**: 
-- Infrastructure is in place
-- Feature flag is `false` by default (uses legacy implementation)
-- Can be enabled by setting `useRefactoredService = true` in `evaluatePolicy()`
+- ✅ Infrastructure is in place
+- ✅ Feature flag is `true` (refactored service is enabled)
+- ✅ Mock-based tests created and passing
+- ✅ Tests demonstrate that complex fake client setup is no longer needed
 
-**Next Steps**:
-- Enable feature flag and test in production
-- Update tests to use mocks instead of complex fake clients
-- Re-enable skipped tests with mock-based implementations
+**Completed**:
+- ✅ Enabled feature flag (`useRefactoredService = true`)
+- ✅ Created mock-based tests for `GCPolicyReconciler.evaluatePolicy()`
+- ✅ Added helper methods for testing (`GetStatusUpdater()`, `GetLogger()`, `EvaluatePolicyForTesting()`)
+- ✅ Tests pass with simple mock setup (no complex fake client needed)
+
+**Remaining Work**:
+- Update remaining skipped tests in `gc_controller_coverage_test.go` and `gc_controller_more_test.go` (optional - these are for deprecated `GCController`)
 
 ### Phase 2: Remove Deprecated GCController (Optional)
 
