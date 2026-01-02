@@ -25,7 +25,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: kubezen/gc-controller
+  IMAGE_NAME: kubezen/zen-gc
 
 jobs:
   build:
