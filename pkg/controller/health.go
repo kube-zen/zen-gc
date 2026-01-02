@@ -60,7 +60,7 @@ func NewHealthChecker(reconciler *GCPolicyReconciler) *HealthChecker {
 	})
 
 	return &HealthChecker{
-		informerChecker:           informerChecker,
+		informerChecker:            informerChecker,
 		reconciler:                 reconciler,
 		maxTimeSinceLastEvaluation: 5 * time.Minute, // Default: 5 minutes
 	}

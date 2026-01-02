@@ -161,12 +161,16 @@ func TestGCController_evaluatePoliciesSequential_ErrorHandling(t *testing.T) {
 	}
 
 	// Create policies with invalid spec to trigger errors
+	// Note: This test may fail due to fake client setup requirements, but it tests
+	// that the function structure handles errors without panicking
 	policies := []interface{}{
-		createUnstructuredPolicyWithSpecForTest("policy1", false),
-		createUnstructuredPolicyWithSpecForTest("policy2", false),
+		createUnstructuredPolicyWithSpecForTest("policy1"),
+		createUnstructuredPolicyWithSpecForTest("policy2"),
 	}
 
 	// Should handle errors gracefully without panicking
+	// The actual evaluation will fail due to missing informer setup, but the
+	// function should handle it gracefully
 	controller.evaluatePoliciesSequential(policies)
 }
 
@@ -184,11 +188,11 @@ func TestGCController_evaluatePoliciesParallel_WorkerPool(t *testing.T) {
 
 	// Create multiple policies to test worker pool
 	policies := []interface{}{
-		createUnstructuredPolicyWithSpecForTest("policy1", false),
-		createUnstructuredPolicyWithSpecForTest("policy2", false),
-		createUnstructuredPolicyWithSpecForTest("policy3", false),
-		createUnstructuredPolicyWithSpecForTest("policy4", false),
-		createUnstructuredPolicyWithSpecForTest("policy5", false),
+		createUnstructuredPolicyWithSpecForTest("policy1"),
+		createUnstructuredPolicyWithSpecForTest("policy2"),
+		createUnstructuredPolicyWithSpecForTest("policy3"),
+		createUnstructuredPolicyWithSpecForTest("policy4"),
+		createUnstructuredPolicyWithSpecForTest("policy5"),
 	}
 
 	// Test with maxConcurrent = 2 (should use worker pool)
@@ -213,8 +217,8 @@ func TestGCController_evaluatePoliciesParallel_ContextCancellation(t *testing.T)
 
 	// Create policies
 	policies := []interface{}{
-		createUnstructuredPolicyWithSpecForTest("policy1", false),
-		createUnstructuredPolicyWithSpecForTest("policy2", false),
+		createUnstructuredPolicyWithSpecForTest("policy1"),
+		createUnstructuredPolicyWithSpecForTest("policy2"),
 	}
 
 	// Cancel context in a goroutine after a short delay
@@ -230,9 +234,9 @@ func TestGCController_evaluatePoliciesParallel_ContextCancellation(t *testing.T)
 	time.Sleep(100 * time.Millisecond)
 }
 
-// Helper function to create unstructured policy with spec (including paused flag).
+// Helper function to create unstructured policy with spec.
 // This is a duplicate of createUnstructuredPolicyWithSpec but kept for test isolation.
-func createUnstructuredPolicyWithSpecForTest(name string, paused bool) *unstructured.Unstructured {
+func createUnstructuredPolicyWithSpecForTest(name string) *unstructured.Unstructured {
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -240,7 +244,7 @@ func createUnstructuredPolicyWithSpecForTest(name string, paused bool) *unstruct
 			UID:       types.UID(name + "-uid"),
 		},
 		Spec: v1alpha1.GarbageCollectionPolicySpec{
-			Paused: paused,
+			Paused: false,
 			TargetResource: v1alpha1.TargetResourceSpec{
 				APIVersion: "v1",
 				Kind:       "ConfigMap",
