@@ -115,7 +115,7 @@ func TestMatchesFieldOperatorShared(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := controller.matchesFieldOperator(tt.fieldValue, tt.condition)
+			got := matchesFieldOperatorShared(tt.fieldValue, tt.condition)
 			if got != tt.want {
 				t.Errorf("matchesFieldOperator() = %v, want %v", got, tt.want)
 			}

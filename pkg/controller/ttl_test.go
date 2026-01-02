@@ -27,13 +27,16 @@ func TestGCPolicyReconciler_calculateExpirationTime_FixedTTL(t *testing.T) {
 		SecondsAfterCreation: int64Ptr(3600), // 1 hour
 	}
 
-	ttl, err := gc.calculateTTL(resource, ttlSpec)
+	expirationTime, err := reconciler.calculateExpirationTime(resource, ttlSpec)
 	if err != nil {
-		t.Fatalf("calculateTTL() returned error: %v", err)
+		t.Fatalf("calculateExpirationTime() returned error: %v", err)
 	}
 
-	if ttl != 3600 {
-		t.Errorf("calculateTTL() = %d, want 3600", ttl)
+	// Check that expiration time is approximately 1 hour from now
+	expectedExpiration := time.Now().Add(3600 * time.Second)
+	tolerance := 5 * time.Second
+	if expirationTime.Before(expectedExpiration.Add(-tolerance)) || expirationTime.After(expectedExpiration.Add(tolerance)) {
+		t.Errorf("calculateExpirationTime() = %v, want approximately %v", expirationTime, expectedExpiration)
 	}
 }
 
@@ -60,13 +63,16 @@ func TestGCPolicyReconciler_calculateExpirationTime_MappedTTL(t *testing.T) {
 		Default: int64Ptr(604800), // 1 week default
 	}
 
-	ttl, err := gc.calculateTTL(resource, ttlSpec)
+	expirationTime, err := reconciler.calculateExpirationTime(resource, ttlSpec)
 	if err != nil {
-		t.Fatalf("calculateTTL() returned error: %v", err)
+		t.Fatalf("calculateExpirationTime() returned error: %v", err)
 	}
 
-	if ttl != 1814400 {
-		t.Errorf("calculateTTL() = %d, want 1814400", ttl)
+	// Check that expiration time is approximately 3 weeks from now
+	expectedExpiration := time.Now().Add(1814400 * time.Second)
+	tolerance := 5 * time.Second
+	if expirationTime.Before(expectedExpiration.Add(-tolerance)) || expirationTime.After(expectedExpiration.Add(tolerance)) {
+		t.Errorf("calculateExpirationTime() = %v, want approximately %v", expirationTime, expectedExpiration)
 	}
 }
 
@@ -90,13 +96,16 @@ func TestGCPolicyReconciler_calculateExpirationTime_MappedTTL_Default(t *testing
 		Default: int64Ptr(604800), // 1 week default
 	}
 
-	ttl, err := gc.calculateTTL(resource, ttlSpec)
+	expirationTime, err := reconciler.calculateExpirationTime(resource, ttlSpec)
 	if err != nil {
-		t.Fatalf("calculateTTL() returned error: %v", err)
+		t.Fatalf("calculateExpirationTime() returned error: %v", err)
 	}
 
-	if ttl != 604800 {
-		t.Errorf("calculateTTL() = %d, want 604800 (default)", ttl)
+	// Check that expiration time is approximately 1 week from now (default)
+	expectedExpiration := time.Now().Add(604800 * time.Second)
+	tolerance := 5 * time.Second
+	if expirationTime.Before(expectedExpiration.Add(-tolerance)) || expirationTime.After(expectedExpiration.Add(tolerance)) {
+		t.Errorf("calculateExpirationTime() = %v, want approximately %v (default)", expirationTime, expectedExpiration)
 	}
 }
 
@@ -120,17 +129,17 @@ func TestGCPolicyReconciler_calculateExpirationTime_RelativeTTL(t *testing.T) {
 		SecondsAfter: int64Ptr(7200), // 2 hours after
 	}
 
-	ttl, err := gc.calculateTTL(resource, ttlSpec)
+	expirationTime, err := reconciler.calculateExpirationTime(resource, ttlSpec)
 	if err != nil {
-		t.Fatalf("calculateTTL() returned error: %v", err)
+		t.Fatalf("calculateExpirationTime() returned error: %v", err)
 	}
 
-	// TTL should be approximately 1 hour (2 hours after - 1 hour ago = 1 hour remaining)
-	expectedTTL := int64(3600) // 1 hour in seconds
-	tolerance := int64(60)     // 1 minute tolerance
+	// Expiration time should be approximately 1 hour from now (2 hours after - 1 hour ago = 1 hour remaining)
+	expectedExpiration := now.Add(3600 * time.Second)
+	tolerance := 60 * time.Second // 1 minute tolerance
 
-	if ttl < expectedTTL-tolerance || ttl > expectedTTL+tolerance {
-		t.Errorf("calculateTTL() = %d, want approximately %d (within %d seconds)", ttl, expectedTTL, tolerance)
+	if expirationTime.Before(expectedExpiration.Add(-tolerance)) || expirationTime.After(expectedExpiration.Add(tolerance)) {
+		t.Errorf("calculateExpirationTime() = %v, want approximately %v (within %v)", expirationTime, expectedExpiration, tolerance)
 	}
 }
 
@@ -142,9 +151,9 @@ func TestGCPolicyReconciler_calculateExpirationTime_NoTTL(t *testing.T) {
 
 	ttlSpec := &v1alpha1.TTLSpec{}
 
-	_, err := gc.calculateTTL(resource, ttlSpec)
+	_, err := reconciler.calculateExpirationTime(resource, ttlSpec)
 	if err == nil {
-		t.Error("calculateTTL() should return error when no TTL is configured")
+		t.Error("calculateExpirationTime() should return error when no TTL is configured")
 	}
 }
 
@@ -163,9 +172,9 @@ func TestGCPolicyReconciler_calculateExpirationTime_FieldPathNotFound(t *testing
 		},
 	}
 
-	_, err := gc.calculateTTL(resource, ttlSpec)
+	_, err := reconciler.calculateExpirationTime(resource, ttlSpec)
 	if err == nil {
-		t.Error("calculateTTL() should return error when field path is not found")
+		t.Error("calculateExpirationTime() should return error when field path is not found")
 	}
 }
 

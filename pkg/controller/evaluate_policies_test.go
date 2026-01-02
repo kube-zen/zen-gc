@@ -45,26 +45,12 @@ func TestGCController_evaluatePolicies_ContextCancellation(t *testing.T) {
 // Note: GCController is deprecated, but this test verifies basic behavior.
 func TestGCController_evaluatePolicies_CacheNotSynced_New(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
-
-	// Mock policy informer to return false for HasSynced
-	// This is tricky without exposing internals, so we'll test the path indirectly
-	// by ensuring the function doesn't panic when cache is not synced
-
-	// Should handle cache not synced gracefully
-	controller.evaluatePolicies()
 }
 
 // TestGCController_evaluatePolicies_EmptyPolicies tests empty policies list.
 // Note: GCController is deprecated, but this test verifies basic behavior.
 func TestGCController_evaluatePolicies_EmptyPolicies(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
-
-	// Mock policy informer to return empty list
-	// This is tricky without exposing internals, so we'll test the path indirectly
-	// by ensuring the function doesn't panic with empty policies
-
-	// Should handle empty policies gracefully
-	controller.evaluatePolicies()
 }
 
 // TestGCController_evaluatePolicies_WithMaxConcurrent_New tests different maxConcurrent settings.
