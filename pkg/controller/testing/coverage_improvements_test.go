@@ -320,8 +320,8 @@ func TestPolicyEvaluationService_StatusUpdater(t *testing.T) {
 	mockDeleter := NewMockBatchDeleterCore()
 	mockDeleter.SetDeleteResult(resource, nil)
 
-	// Note: StatusUpdater requires a real dynamic client, so we pass nil
-	// This tests that the service handles nil status updater gracefully
+	// StatusUpdater requires a real dynamic client, so we pass nil.
+	// This tests that the service handles nil status updater gracefully.
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,

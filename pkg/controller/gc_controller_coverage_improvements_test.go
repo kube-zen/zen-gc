@@ -90,7 +90,7 @@ func TestGCController_recordPolicyPhaseMetrics(t *testing.T) {
 }
 
 // TestGCController_evaluatePoliciesParallel_Coverage tests parallel policy evaluation for coverage.
-// Note: Full evaluation requires complex informer setup, so we test the basic structure.
+// Full evaluation requires complex informer setup, so we test the basic structure.
 func TestGCController_evaluatePoliciesParallel_Coverage(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)

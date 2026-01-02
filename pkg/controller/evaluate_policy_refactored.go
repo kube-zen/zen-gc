@@ -282,7 +282,7 @@ func (s *PolicyEvaluationService) updatePolicyStatus(
 }
 
 // shouldDelete determines if a resource should be deleted based on TTL.
-func (s *PolicyEvaluationService) shouldDelete(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy) (bool, string) {
+func (s *PolicyEvaluationService) shouldDelete(resource *unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy) (shouldDelete bool, reason string) {
 	// Calculate expiration time using shared function
 	expirationTime, err := calculateExpirationTimeShared(resource, &policy.Spec.TTL)
 	if err != nil {

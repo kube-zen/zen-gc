@@ -32,8 +32,6 @@ import (
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
-// Note: MockStatusUpdater is defined in mocks.go
-
 // TestParseGVR tests the parseGVR function with various inputs.
 func TestParseGVR(t *testing.T) {
 	tests := []struct {
@@ -487,10 +485,10 @@ func TestPolicyEvaluationService_BatchDeletionErrors(t *testing.T) {
 	mockDeleter := NewMockBatchDeleterCore()
 	// Set some deletions to fail
 	mockDeleter.SetDeleteResult(resources[0], nil)                    // Success
-	mockDeleter.SetDeleteResult(resources[1], fmt.Errorf("delete failed")) // Error
-	mockDeleter.SetDeleteResult(resources[2], nil)                    // Success
-	mockDeleter.SetDeleteResult(resources[3], fmt.Errorf("delete failed")) // Error
-	mockDeleter.SetDeleteResult(resources[4], nil)                    // Success
+	mockDeleter.SetDeleteResult(resources[1], errDeleteFailed)       // Error
+	mockDeleter.SetDeleteResult(resources[2], nil)                   // Success
+	mockDeleter.SetDeleteResult(resources[3], errDeleteFailed)       // Error
+	mockDeleter.SetDeleteResult(resources[4], nil)                   // Success
 
 	service := controller.NewPolicyEvaluationService(
 		mockLister,

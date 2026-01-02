@@ -63,7 +63,7 @@ type SelectorMatcher interface {
 
 // TTLCalculator calculates TTL and expiration times for resources.
 // This interface allows us to test TTL logic independently.
-// Note: Currently empty in shared.go, but we can extend it later.
+// Currently empty in shared.go, but we can extend it later.
 // The actual TTL calculation is done via shared functions.
 
 // ConditionMatcher checks if a resource meets the given conditions.
@@ -81,7 +81,7 @@ type RateLimiterProvider interface {
 }
 
 // BatchDeleterCore provides the core deletion method.
-// Note: The existing BatchDeleter in shared.go has DeleteResourceWithBackoff and GetEventRecorder.
+// The existing BatchDeleter in shared.go has DeleteResourceWithBackoff and GetEventRecorder.
 // This interface is for the higher-level batch deletion operation.
 type BatchDeleterCore interface {
 	// DeleteBatch deletes a batch of resources and returns the number of successful deletions.

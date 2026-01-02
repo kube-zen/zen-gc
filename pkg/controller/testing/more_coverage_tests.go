@@ -447,7 +447,7 @@ func TestPolicyEvaluationServiceDeletionErrors(t *testing.T) {
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
 	mockDeleter.SetDeleteResult(resource1, nil)        // Success
-	mockDeleter.SetDeleteResult(resource2, fmt.Errorf("deletion failed")) // Error
+	mockDeleter.SetDeleteResult(resource2, errDeletionFailed) // Error
 	
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
