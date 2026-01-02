@@ -28,9 +28,9 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 
-// ExampleMockUsage demonstrates how to use mocks for testing.
+// TestMockUsage demonstrates how to use mocks for testing.
 // This is a simple example showing the pattern we'll use for refactored code.
-func ExampleMockUsage(t *testing.T) {
+func TestMockUsage(t *testing.T) {
 	// Create mock informer with test resources
 	resources := []*unstructured.Unstructured{
 		{
