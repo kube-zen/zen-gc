@@ -127,6 +127,66 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 	resourcesToDeleteReasons := make(map[string]string, estimatedDeletions)
 
 	// Evaluate each resource
+	matchedCount, deletedCount, pendingCount = s.evaluateResources(ctx, resources, policy, resourcesToDelete, resourcesToDeleteReasons, resourceAPIVersion, resourceKind)
+	resourcesToDelete = resourcesToDelete[:0] // Reset for actual deletion list
+	for k := range resourcesToDeleteReasons {
+		delete(resourcesToDeleteReasons, k)
+	}
+	
+	// Rebuild deletion list from evaluation
+	for i, resource := range resources {
+		if i%100 == 0 {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+		}
+		if !s.selectorMatcher.MatchesSelectors(resource, &policy.Spec.TargetResource) {
+			continue
+		}
+		if policy.Spec.Conditions != nil && !s.conditionMatcher.MeetsConditions(resource, policy.Spec.Conditions) {
+			continue
+		}
+		shouldDelete, reason := s.shouldDelete(resource, policy)
+		if shouldDelete {
+			resourcesToDelete = append(resourcesToDelete, resource)
+			resourcesToDeleteReasons[string(resource.GetUID())] = reason
+		}
+	}
+
+	// Delete resources in batches using BatchDeleterCore interface
+	if len(resourcesToDelete) > 0 {
+		deletedCount = s.deleteResourcesInBatches(ctx, policy, resourcesToDelete, resourcesToDeleteReasons)
+	}
+
+	// Record pending resources metric
+	if pendingCount > 0 {
+		recordResourcesPending(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, pendingCount)
+	}
+
+	// Update policy status
+	if err := s.updatePolicyStatus(ctx, policy, matchedCount, deletedCount, pendingCount); err != nil {
+		return err
+	}
+
+	// Record policy evaluation event
+	if s.eventRecorder != nil {
+		s.eventRecorder.RecordPolicyEvaluated(policy, matchedCount, deletedCount, pendingCount)
+	}
+
+	return nil
+}
+
+// evaluateResources evaluates all resources and builds the deletion list.
+func (s *PolicyEvaluationService) evaluateResources(
+	ctx context.Context,
+	resources []*unstructured.Unstructured,
+	policy *v1alpha1.GarbageCollectionPolicy,
+	resourcesToDelete *[]*unstructured.Unstructured,
+	resourcesToDeleteReasons map[string]string,
+	resourceAPIVersion, resourceKind string,
+) (matchedCount, pendingCount int64) {
 	const contextCheckInterval = 100
 	for i, resource := range resources {
 		// Check context cancellation periodically
@@ -134,7 +194,7 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 			select {
 			case <-ctx.Done():
 				s.logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
-				return nil
+				return
 			default:
 			}
 		}
@@ -163,81 +223,87 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 		}
 
 		// Add to deletion list
-		resourcesToDelete = append(resourcesToDelete, resource)
+		*resourcesToDelete = append(*resourcesToDelete, resource)
 		resourcesToDeleteReasons[string(resource.GetUID())] = reason
 	}
+	return matchedCount, pendingCount
+}
 
-	// Delete resources in batches using BatchDeleterCore interface
-	if len(resourcesToDelete) > 0 {
-		rateLimiter := s.rateLimiterProvider.GetOrCreateRateLimiter(policy)
-		batchSize := s.getBatchSize(policy)
+// deleteResourcesInBatches deletes resources in batches.
+func (s *PolicyEvaluationService) deleteResourcesInBatches(
+	ctx context.Context,
+	policy *v1alpha1.GarbageCollectionPolicy,
+	resourcesToDelete []*unstructured.Unstructured,
+	resourcesToDeleteReasons map[string]string,
+) int64 {
+	rateLimiter := s.rateLimiterProvider.GetOrCreateRateLimiter(policy)
+	batchSize := s.getBatchSize(policy)
+	deletedCount := int64(0)
 
-		// Process deletions in batches
-		for i := 0; i < len(resourcesToDelete); i += batchSize {
-			// Check context cancellation between batches
-			select {
-			case <-ctx.Done():
-				s.logger.Debug("Stopping batch deletion: context canceled", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
-				return nil
-			default:
-			}
-
-			end := i + batchSize
-			if end > len(resourcesToDelete) {
-				end = len(resourcesToDelete)
-			}
-			batch := resourcesToDelete[i:end]
-
-			// Delete batch using BatchDeleterCore interface
-			batchDeleted, batchErrors := s.batchDeleter.DeleteBatch(ctx, batch, policy, rateLimiter, resourcesToDeleteReasons)
-			deletedCount += batchDeleted
-
-			// Track deletion failures
-			if len(batchErrors) > 0 {
-				recordError(policy.Namespace, policy.Name, "deletion_failed")
-			}
-
-			// Log errors
-			for _, err := range batchErrors {
-				if s.eventRecorder != nil {
-					s.eventRecorder.RecordEvaluationFailed(policy, err)
-				}
-				s.logger.Error(err, "Error deleting batch for policy", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("DELETE_BATCH_FAILED"))
-			}
+	// Process deletions in batches
+	for i := 0; i < len(resourcesToDelete); i += batchSize {
+		// Check context cancellation between batches
+		select {
+		case <-ctx.Done():
+			s.logger.Debug("Stopping batch deletion: context canceled", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+			return deletedCount
+		default:
 		}
-	}
 
-	// Record pending resources metric
-	if pendingCount > 0 {
-		recordResourcesPending(policy.Namespace, policy.Name, resourceAPIVersion, resourceKind, pendingCount)
-	}
+		end := i + batchSize
+		if end > len(resourcesToDelete) {
+			end = len(resourcesToDelete)
+		}
+		batch := resourcesToDelete[i:end]
 
-	// Update policy status
-	if s.statusUpdater != nil {
-		statusCtx, statusCancel := context.WithTimeout(ctx, 10*time.Second)
-		defer statusCancel()
+		// Delete batch using BatchDeleterCore interface
+		batchDeleted, batchErrors := s.batchDeleter.DeleteBatch(ctx, batch, policy, rateLimiter, resourcesToDeleteReasons)
+		deletedCount += batchDeleted
 
-		if err := s.statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount); err != nil {
-			if statusCtx.Err() != nil {
-				s.logger.Debug("Status update canceled or timed out", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(statusCtx.Err()))
-				return nil
-			}
-			gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
-			gcErr.PolicyNamespace = policy.Namespace
-			gcErr.PolicyName = policy.Name
-			recordError(policy.Namespace, policy.Name, "status_update_failed")
+		// Track deletion failures
+		if len(batchErrors) > 0 {
+			recordError(policy.Namespace, policy.Name, "deletion_failed")
+		}
+
+		// Log errors
+		for _, err := range batchErrors {
 			if s.eventRecorder != nil {
-				s.eventRecorder.RecordStatusUpdateFailed(policy, gcErr)
+				s.eventRecorder.RecordEvaluationFailed(policy, err)
 			}
-			s.logger.Error(gcErr, "Error updating policy status", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("UPDATE_STATUS_FAILED"))
+			s.logger.Error(err, "Error deleting batch for policy", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("DELETE_BATCH_FAILED"))
 		}
 	}
+	return deletedCount
+}
 
-	// Record policy evaluation event
-	if s.eventRecorder != nil {
-		s.eventRecorder.RecordPolicyEvaluated(policy, matchedCount, deletedCount, pendingCount)
+// updatePolicyStatus updates the policy status.
+func (s *PolicyEvaluationService) updatePolicyStatus(
+	ctx context.Context,
+	policy *v1alpha1.GarbageCollectionPolicy,
+	matchedCount, deletedCount, pendingCount int64,
+) error {
+	if s.statusUpdater == nil {
+		return nil
 	}
 
+	statusCtx, statusCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer statusCancel()
+
+	if err := s.statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount); err != nil {
+		if statusCtx.Err() != nil {
+			s.logger.Debug("Status update canceled or timed out", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(statusCtx.Err()))
+			return nil
+		}
+		gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
+		gcErr.PolicyNamespace = policy.Namespace
+		gcErr.PolicyName = policy.Name
+		recordError(policy.Namespace, policy.Name, "status_update_failed")
+		if s.eventRecorder != nil {
+			s.eventRecorder.RecordStatusUpdateFailed(policy, gcErr)
+		}
+		s.logger.Error(gcErr, "Error updating policy status", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("UPDATE_STATUS_FAILED"))
+		return gcErr
+	}
 	return nil
 }
 

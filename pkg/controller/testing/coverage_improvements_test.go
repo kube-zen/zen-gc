@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package testing provides test utilities and mocks for the controller package.
 package testing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -30,6 +32,11 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/controller"
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
+)
+
+// Static errors for testing.
+var (
+	errListResourcesFailed = errors.New("list resources failed")
 )
 
 // TestPolicyEvaluationService_NoResources tests evaluation with no resources.
@@ -163,7 +170,7 @@ func TestPolicyEvaluationService_ListResourcesError(t *testing.T) {
 
 	// Create a mock lister that returns an error
 	mockLister := NewMockResourceLister()
-	mockLister.SetError(fmt.Errorf("list resources failed"))
+	mockLister.SetError(errListResourcesFailed)
 
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	mockConditionMatcher := NewMockConditionMatcher()

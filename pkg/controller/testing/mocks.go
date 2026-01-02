@@ -263,7 +263,6 @@ func (p *MockRateLimiterProvider) GetOrCreateRateLimiter(policy *v1alpha1.Garbag
 // MockBatchDeleterCore is a mock implementation of BatchDeleterCore for testing.
 type MockBatchDeleterCore struct {
 	deleteResults map[string]error // resource key -> error (nil if success)
-	deletedCount  int64
 	mu            sync.RWMutex
 }
 

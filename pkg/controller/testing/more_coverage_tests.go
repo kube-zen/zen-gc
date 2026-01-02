@@ -18,6 +18,7 @@ package testing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -30,6 +31,11 @@ import (
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/controller"
+)
+
+// Static errors for testing.
+var (
+	errDeletionFailed = errors.New("deletion failed")
 )
 
 // TestInformerStoreResourceLister tests the InformerStoreResourceLister adapter.
@@ -93,8 +99,8 @@ func TestInformerStoreResourceLister(t *testing.T) {
 	}
 }
 
-// TestPolicyEvaluationService_WithConditions tests policy evaluation with conditions.
-func TestPolicyEvaluationService_WithConditions(t *testing.T) {
+// TestPolicyEvaluationServiceWithConditions tests policy evaluation with conditions.
+func TestPolicyEvaluationServiceWithConditions(t *testing.T) {
 	now := time.Now()
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -167,8 +173,8 @@ func TestPolicyEvaluationService_WithConditions(t *testing.T) {
 	}
 }
 
-// TestPolicyEvaluationService_ConditionsNotMet tests when conditions are not met.
-func TestPolicyEvaluationService_ConditionsNotMet(t *testing.T) {
+// TestPolicyEvaluationServiceConditionsNotMet tests when conditions are not met.
+func TestPolicyEvaluationServiceConditionsNotMet(t *testing.T) {
 	now := time.Now()
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -238,8 +244,8 @@ func TestPolicyEvaluationService_ConditionsNotMet(t *testing.T) {
 	// Resource should not be deleted because conditions are not met
 }
 
-// TestPolicyEvaluationService_SelectorNotMatched tests when selectors don't match.
-func TestPolicyEvaluationService_SelectorNotMatched(t *testing.T) {
+// TestPolicyEvaluationServiceSelectorNotMatched tests when selectors don't match.
+func TestPolicyEvaluationServiceSelectorNotMatched(t *testing.T) {
 	now := time.Now()
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -302,8 +308,8 @@ func TestPolicyEvaluationService_SelectorNotMatched(t *testing.T) {
 	// Resource should not be matched because selectors don't match
 }
 
-// TestPolicyEvaluationService_BatchDeletion tests batch deletion.
-func TestPolicyEvaluationService_BatchDeletion(t *testing.T) {
+// TestPolicyEvaluationServiceBatchDeletion tests batch deletion.
+func TestPolicyEvaluationServiceBatchDeletion(t *testing.T) {
 	now := time.Now()
 	resources := make([]*unstructured.Unstructured, 0, 5)
 	for i := 0; i < 5; i++ {
@@ -381,8 +387,8 @@ func TestPolicyEvaluationService_BatchDeletion(t *testing.T) {
 	// All 5 resources should be deleted in batches of 2
 }
 
-// TestPolicyEvaluationService_DeletionErrors tests handling of deletion errors.
-func TestPolicyEvaluationService_DeletionErrors(t *testing.T) {
+// TestPolicyEvaluationServiceDeletionErrors tests handling of deletion errors.
+func TestPolicyEvaluationServiceDeletionErrors(t *testing.T) {
 	now := time.Now()
 	resource1 := &unstructured.Unstructured{
 		Object: map[string]interface{}{
