@@ -259,8 +259,8 @@ func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha
 	informer, err := r.getOrCreateResourceInformer(ctx, policy)
 	if err != nil {
 		gcErr := gcerrors.Wrap(err, "informer_creation_failed", "failed to get resource informer")
-		gcErr.PolicyNamespace = policy.Namespace
-		gcErr.PolicyName = policy.Name
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "informer_creation_failed")
 		r.logger.Error(gcErr, "Error creating resource informer for policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("INFORMER_CREATION_FAILED"))
 		return gcErr

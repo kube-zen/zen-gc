@@ -188,8 +188,8 @@ func updatePolicyStatusShared(
 			return nil // Don't treat cancellation as error
 		}
 		gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
-		gcErr.PolicyNamespace = policy.Namespace
-		gcErr.PolicyName = policy.Name
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "status_update_failed")
 		eventRecorder := evaluator.GetEventRecorder()
 		if eventRecorder != nil {

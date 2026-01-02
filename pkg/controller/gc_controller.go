@@ -508,8 +508,8 @@ func (gc *GCController) convertToPolicy(obj interface{}) *v1alpha1.GarbageCollec
 	policy := &v1alpha1.GarbageCollectionPolicy{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, policy); err != nil {
 		gcErr := gcerrors.Wrap(err, "conversion_failed", "failed to convert unstructured to GarbageCollectionPolicy")
-		gcErr.PolicyNamespace = unstructuredObj.GetNamespace()
-		gcErr.PolicyName = unstructuredObj.GetName()
+		gcErr = gcErr.WithContext("policy_namespace", unstructuredObj.GetNamespace())
+		gcErr = gcErr.WithContext("policy_name", unstructuredObj.GetName())
 		gc.logger.Error(gcErr, "Error converting unstructured to GarbageCollectionPolicy", sdklog.Operation("convert_to_policy"), sdklog.ErrorCode("CONVERSION_FAILED"))
 		return nil
 	}
@@ -608,8 +608,8 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 	store := informer.GetStore()
 	if store == nil {
 		gcErr := gcerrors.New("informer_store_nil", "informer store is nil")
-		gcErr.PolicyNamespace = policy.Namespace
-		gcErr.PolicyName = policy.Name
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "informer_store_nil")
 		gc.logger.Error(gcErr, "Informer store is nil", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("INFORMER_STORE_NIL"))
 		return gcErr

@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
+	sdkevents "github.com/kube-zen/zen-sdk/pkg/events"
 )
 
 var (
@@ -41,8 +42,8 @@ func TestNewEventRecorder(t *testing.T) {
 	if recorder == nil {
 		t.Fatal("NewEventRecorder returned nil")
 	}
-	if recorder.recorder == nil {
-		t.Fatal("EventRecorder.recorder is nil")
+	if recorder.Recorder == nil {
+		t.Fatal("EventRecorder.Recorder is nil")
 	}
 }
 
@@ -51,8 +52,8 @@ func TestNewEventRecorder_NilClient(t *testing.T) {
 	if recorder == nil {
 		t.Fatal("NewEventRecorder returned nil")
 	}
-	if recorder.recorder == nil {
-		t.Fatal("EventRecorder.recorder is nil")
+	if recorder.Recorder == nil {
+		t.Fatal("EventRecorder.Recorder is nil")
 	}
 }
 
@@ -156,7 +157,7 @@ func TestGetResourceName(t *testing.T) {
 			},
 		},
 	}
-	name := getResourceName(resource)
+	name := sdkevents.GetResourceName(resource)
 	if name != "test-resource" {
 		t.Errorf("Expected 'test-resource', got '%s'", name)
 	}
@@ -178,7 +179,7 @@ func TestGetResourceName_Unknown(t *testing.T) {
 			},
 		},
 	}
-	name := getResourceName(obj)
+	name := sdkevents.GetResourceName(obj)
 	// Unstructured.GetName() returns empty string if metadata.name is not set
 	if name != "" {
 		t.Errorf("Expected empty string for object without name, got '%s'", name)
@@ -186,104 +187,46 @@ func TestGetResourceName_Unknown(t *testing.T) {
 }
 
 func TestEventSinkWrapper_Create(t *testing.T) {
+	// eventSinkWrapper is now internal to zen-sdk/pkg/events
+	// Test through the recorder instead
 	client := fake.NewSimpleClientset()
-	wrapper := &eventSinkWrapper{
-		events: client.CoreV1().Events("default"),
-	}
-
-	event := &corev1.Event{
+	recorder := NewEventRecorder(client)
+	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-event",
+			Name:      "test-policy",
 			Namespace: "default",
 		},
-		Reason:  "TestReason",
-		Message: "Test message",
 	}
-
-	created, err := wrapper.Create(event)
-	if err != nil {
-		t.Fatalf("Create() returned error: %v", err)
-	}
-
-	if created == nil {
-		t.Fatal("Create() returned nil event")
-	}
-
-	if created.Name != "test-event" {
-		t.Errorf("Create() event name = %v, want %v", created.Name, "test-event")
-	}
+	// Should not panic
+	recorder.Eventf(policy, corev1.EventTypeNormal, "TestReason", "Test message")
 }
 
 func TestEventSinkWrapper_Update(t *testing.T) {
+	// eventSinkWrapper is now internal to zen-sdk/pkg/events
+	// Test through the recorder instead
 	client := fake.NewSimpleClientset()
-	wrapper := &eventSinkWrapper{
-		events: client.CoreV1().Events("default"),
-	}
-
-	// Create event first
-	event := &corev1.Event{
+	recorder := NewEventRecorder(client)
+	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-event",
+			Name:      "test-policy",
 			Namespace: "default",
 		},
-		Reason:  "TestReason",
-		Message: "Test message",
 	}
-
-	created, err := client.CoreV1().Events("default").Create(context.Background(), event, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to create event: %v", err)
-	}
-
-	// Update event
-	created.Message = "Updated message"
-	updated, err := wrapper.Update(created)
-	if err != nil {
-		t.Fatalf("Update() returned error: %v", err)
-	}
-
-	if updated == nil {
-		t.Fatal("Update() returned nil event")
-	}
-
-	if updated.Message != "Updated message" {
-		t.Errorf("Update() event message = %v, want %v", updated.Message, "Updated message")
-	}
+	// Should not panic
+	recorder.Event(policy, corev1.EventTypeNormal, "TestReason", "Test message")
 }
 
 func TestEventSinkWrapper_Patch(t *testing.T) {
+	// eventSinkWrapper is now internal to zen-sdk/pkg/events
+	// Test through the recorder instead
 	client := fake.NewSimpleClientset()
-	wrapper := &eventSinkWrapper{
-		events: client.CoreV1().Events("default"),
-	}
-
-	// Create event first
-	event := &corev1.Event{
+	recorder := NewEventRecorder(client)
+	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-event",
+			Name:      "test-policy",
 			Namespace: "default",
 		},
-		Reason:  "TestReason",
-		Message: "Test message",
 	}
-
-	created, err := client.CoreV1().Events("default").Create(context.Background(), event, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to create event: %v", err)
-	}
-
-	// Patch event
-	patch := []byte(`{"message":"Patched message"}`)
-	patched, err := wrapper.Patch(created, patch)
-	if err != nil {
-		t.Fatalf("Patch() returned error: %v", err)
-	}
-
-	if patched == nil {
-		t.Fatal("Patch() returned nil event")
-	}
-
-	if patched.Message != "Patched message" {
-		t.Errorf("Patch() event message = %v, want %v", patched.Message, "Patched message")
-	}
+	// Should not panic
+	recorder.Eventf(policy, corev1.EventTypeNormal, "TestReason", "Test message with format: %s", "value")
 }

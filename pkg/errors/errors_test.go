@@ -76,58 +76,46 @@ func TestGCError_Unwrap(t *testing.T) {
 func TestWithPolicy(t *testing.T) {
 	gcErr := WithPolicy(errUnderlying, testNS, "test-policy")
 
-	if gcErr.PolicyNamespace != testNS {
-		t.Errorf("Expected PolicyNamespace=%s, got %s", testNS, gcErr.PolicyNamespace)
+	if gcErr.GetContext("policy_namespace") != testNS {
+		t.Errorf("Expected policy_namespace=%s, got %s", testNS, gcErr.GetContext("policy_namespace"))
 	}
-	if gcErr.PolicyName != "test-policy" {
-		t.Errorf("Expected PolicyName=test-policy, got %s", gcErr.PolicyName)
+	if gcErr.GetContext("policy_name") != "test-policy" {
+		t.Errorf("Expected policy_name=test-policy, got %s", gcErr.GetContext("policy_name"))
 	}
 }
 
 func TestWithPolicy_AlreadyGCError(t *testing.T) {
-	existingGCErr := &GCError{
-		Type:    testErrorType,
-		Message: "existing error",
-	}
+	existingGCErr := New(testErrorType, "existing error")
 	gcErr := WithPolicy(existingGCErr, testNS, "test-policy")
 
-	if gcErr != existingGCErr {
-		t.Error("Expected to return the same GCError instance")
+	if gcErr.GetContext("policy_namespace") != testNS {
+		t.Errorf("Expected policy_namespace=%s, got %s", testNS, gcErr.GetContext("policy_namespace"))
 	}
-	if gcErr.PolicyNamespace != testNS {
-		t.Errorf("Expected PolicyNamespace=%s, got %s", testNS, gcErr.PolicyNamespace)
-	}
-	if gcErr.PolicyName != "test-policy" {
-		t.Errorf("Expected PolicyName=test-policy, got %s", gcErr.PolicyName)
+	if gcErr.GetContext("policy_name") != "test-policy" {
+		t.Errorf("Expected policy_name=test-policy, got %s", gcErr.GetContext("policy_name"))
 	}
 }
 
 func TestWithResource(t *testing.T) {
 	gcErr := WithResource(errUnderlying, testNS, "test-resource")
 
-	if gcErr.ResourceNamespace != testNS {
-		t.Errorf("Expected ResourceNamespace=%s, got %s", testNS, gcErr.ResourceNamespace)
+	if gcErr.GetContext("resource_namespace") != testNS {
+		t.Errorf("Expected resource_namespace=%s, got %s", testNS, gcErr.GetContext("resource_namespace"))
 	}
-	if gcErr.ResourceName != "test-resource" {
-		t.Errorf("Expected ResourceName=test-resource, got %s", gcErr.ResourceName)
+	if gcErr.GetContext("resource_name") != "test-resource" {
+		t.Errorf("Expected resource_name=test-resource, got %s", gcErr.GetContext("resource_name"))
 	}
 }
 
 func TestWithResource_AlreadyGCError(t *testing.T) {
-	existingGCErr := &GCError{
-		Type:    testErrorType,
-		Message: "existing error",
-	}
+	existingGCErr := New(testErrorType, "existing error")
 	gcErr := WithResource(existingGCErr, testNS, "test-resource")
 
-	if gcErr != existingGCErr {
-		t.Error("Expected to return the same GCError instance")
+	if gcErr.GetContext("resource_namespace") != testNS {
+		t.Errorf("Expected resource_namespace=%s, got %s", testNS, gcErr.GetContext("resource_namespace"))
 	}
-	if gcErr.ResourceNamespace != testNS {
-		t.Errorf("Expected ResourceNamespace=%s, got %s", testNS, gcErr.ResourceNamespace)
-	}
-	if gcErr.ResourceName != "test-resource" {
-		t.Errorf("Expected ResourceName=test-resource, got %s", gcErr.ResourceName)
+	if gcErr.GetContext("resource_name") != "test-resource" {
+		t.Errorf("Expected resource_name=test-resource, got %s", gcErr.GetContext("resource_name"))
 	}
 }
 
