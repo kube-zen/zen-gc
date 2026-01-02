@@ -304,9 +304,8 @@ func (r *GCPolicyReconciler) getOrCreateEvaluationService(ctx context.Context, p
 // This is adapted from the original GCController.evaluatePolicy method.
 func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) error {
 	// Try to use refactored service if available
-	// For now, we'll use the legacy implementation by default
-	// This allows gradual migration and testing
-	useRefactoredService := false // Feature flag - can be enabled later
+	// The refactored service uses dependency injection and is easier to test
+	useRefactoredService := true // Feature flag - enabled for better testability
 
 	if useRefactoredService {
 		service, err := r.getOrCreateEvaluationService(ctx, policy)
@@ -603,6 +602,36 @@ func (r *GCPolicyReconciler) DeleteResourceWithBackoff(ctx context.Context, reso
 // GetEventRecorder returns the event recorder (implements BatchDeleter).
 func (r *GCPolicyReconciler) GetEventRecorder() *EventRecorder {
 	return r.eventRecorder
+}
+
+// GetStatusUpdater returns the status updater (for testing).
+func (r *GCPolicyReconciler) GetStatusUpdater() *StatusUpdater {
+	return r.statusUpdater
+}
+
+// GetLogger returns the logger (for testing).
+func (r *GCPolicyReconciler) GetLogger() *sdklog.Logger {
+	return r.logger
+}
+
+// EvaluatePolicyForTesting allows injecting a PolicyEvaluationService for testing.
+// This bypasses the normal getOrCreateEvaluationService flow.
+func (r *GCPolicyReconciler) EvaluatePolicyForTesting(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy, service *PolicyEvaluationService) error {
+	// Inject the service
+	r.evaluationServiceMu.Lock()
+	oldService := r.evaluationService
+	r.evaluationService = service
+	r.evaluationServiceMu.Unlock()
+
+	// Evaluate using the injected service
+	err := r.evaluatePolicy(ctx, policy)
+
+	// Restore old service
+	r.evaluationServiceMu.Lock()
+	r.evaluationService = oldService
+	r.evaluationServiceMu.Unlock()
+
+	return err
 }
 
 // deleteResourceWithBackoff deletes a resource with exponential backoff retry logic.

@@ -148,18 +148,21 @@ func TestGCController_evaluatePolicies_WithMaxConcurrent_New(t *testing.T) {
 }
 
 // TestGCController_evaluatePoliciesSequential_ErrorHandling tests error handling in sequential evaluation.
+// Note: This test is for the deprecated GCController. For new tests, use GCPolicyReconciler with mocks.
 func TestGCController_evaluatePoliciesSequential_ErrorHandling(t *testing.T) {
-	t.Skip("evaluatePoliciesSequential requires complex fake client setup with registered list kinds - tested indirectly through integration tests")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePoliciesParallel_WorkerPool tests worker pool behavior.
+// Note: This test is for the deprecated GCController. For new tests, use GCPolicyReconciler with mocks.
 func TestGCController_evaluatePoliciesParallel_WorkerPool(t *testing.T) {
-	t.Skip("evaluatePoliciesParallel requires complex fake client setup with registered list kinds - tested indirectly through integration tests")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePoliciesParallel_ContextCancellation tests context cancellation in parallel evaluation.
+// Note: This test is for the deprecated GCController. For new tests, use GCPolicyReconciler with mocks.
 func TestGCController_evaluatePoliciesParallel_ContextCancellation(t *testing.T) {
-	t.Skip("evaluatePoliciesParallel requires complex fake client setup with registered list kinds - tested indirectly through integration tests")
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // Helper function to create unstructured policy with spec.
