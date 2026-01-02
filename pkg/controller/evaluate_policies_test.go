@@ -57,61 +57,6 @@ func TestGCController_evaluatePolicies_EmptyPolicies(t *testing.T) {
 // Note: GCController is deprecated. This test is kept for reference but may need updates.
 func TestGCController_evaluatePolicies_WithMaxConcurrent_New(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
-	scheme := runtime.NewScheme()
-	dynamicClient := fake.NewSimpleDynamicClient(scheme)
-	statusUpdater := NewStatusUpdater(dynamicClient)
-	eventRecorder := NewEventRecorder(nil)
-
-	tests := []struct {
-		name          string
-		maxConcurrent int
-		policyCount   int
-		expectSeq     bool // Expect sequential evaluation
-	}{
-		{
-			name:          "fewer policies than maxConcurrent - sequential",
-			maxConcurrent: 5,
-			policyCount:   3,
-			expectSeq:     true,
-		},
-		{
-			name:          "equal policies to maxConcurrent - sequential",
-			maxConcurrent: 5,
-			policyCount:   5,
-			expectSeq:     true,
-		},
-		{
-			name:          "more policies than maxConcurrent - parallel",
-			maxConcurrent: 3,
-			policyCount:   10,
-			expectSeq:     false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := config.NewControllerConfig()
-			cfg.MaxConcurrentEvaluations = tt.maxConcurrent
-
-			controller, err := NewGCControllerWithConfig(dynamicClient, statusUpdater, eventRecorder, cfg)
-			if err != nil {
-				t.Fatalf("Failed to create controller: %v", err)
-			}
-
-			if controller.config == nil || controller.config.MaxConcurrentEvaluations != tt.maxConcurrent {
-				t.Error("Controller config not set correctly")
-			}
-
-			// Verify the logic would choose sequential vs parallel
-			// This is tested indirectly through the evaluatePolicies function
-			if tt.policyCount <= tt.maxConcurrent && !tt.expectSeq {
-				t.Error("Expected sequential evaluation for fewer/equal policies")
-			}
-			if tt.policyCount > tt.maxConcurrent && tt.expectSeq {
-				t.Error("Expected parallel evaluation for more policies")
-			}
-		})
-	}
 }
 
 // TestGCController_evaluatePoliciesSequential_ErrorHandling tests error handling in sequential evaluation.
