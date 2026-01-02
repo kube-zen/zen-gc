@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
-	"github.com/kube-zen/zen-gc/pkg/controller"
 )
 
 // ExampleMockUsage demonstrates how to use mocks for testing.
