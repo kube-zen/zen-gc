@@ -97,6 +97,14 @@ type GCPolicyReconciler struct {
 
 	// Logger instance (reused to avoid allocations).
 	logger *sdklog.Logger
+
+	// PolicyEvaluationService (optional, for refactored evaluation)
+	// If nil, uses legacy evaluatePolicy implementation
+	// Protected by evaluationServiceMu mutex.
+	evaluationService *PolicyEvaluationService
+
+	// Mutex to protect evaluationService.
+	evaluationServiceMu sync.RWMutex
 }
 
 // NewGCPolicyReconciler creates a new GC policy reconciler.
@@ -243,9 +251,73 @@ func (r *GCPolicyReconciler) getRequeueInterval() time.Duration {
 	return interval
 }
 
+// getOrCreateEvaluationService creates or returns the PolicyEvaluationService.
+// This uses the adapter pattern to bridge GCPolicyReconciler with the refactored service.
+// Thread-safe: uses double-checked locking pattern.
+func (r *GCPolicyReconciler) getOrCreateEvaluationService(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) (*PolicyEvaluationService, error) {
+	// Fast path: check with read lock
+	r.evaluationServiceMu.RLock()
+	if r.evaluationService != nil {
+		service := r.evaluationService
+		r.evaluationServiceMu.RUnlock()
+		return service, nil
+	}
+	r.evaluationServiceMu.RUnlock()
+
+	// Slow path: acquire write lock
+	r.evaluationServiceMu.Lock()
+	defer r.evaluationServiceMu.Unlock()
+
+	// Double-check after acquiring write lock (another goroutine might have created it)
+	if r.evaluationService != nil {
+		return r.evaluationService, nil
+	}
+
+	// Create adapter
+	adapter := NewGCPolicyReconcilerAdapter(r)
+
+	// Get resource lister for this policy
+	resourceLister, err := adapter.GetResourceListerForPolicy(ctx, policy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource lister: %w", err)
+	}
+
+	// Create service with adapters
+	// Note: TTLCalculator is nil because PolicyEvaluationService uses shared functions internally
+	r.evaluationService = NewPolicyEvaluationService(
+		resourceLister,
+		adapter.GetSelectorMatcher(),
+		adapter.GetConditionMatcher(),
+		nil, // TTLCalculator (using shared function for now)
+		adapter.GetRateLimiterProvider(),
+		adapter.GetBatchDeleter(),
+		r.statusUpdater,
+		r.eventRecorder,
+		r.logger,
+	)
+
+	return r.evaluationService, nil
+}
+
 // evaluatePolicy evaluates a single policy.
+// It can use either the refactored PolicyEvaluationService (if enabled) or the legacy implementation.
 // This is adapted from the original GCController.evaluatePolicy method.
 func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) error {
+	// Try to use refactored service if available
+	// For now, we'll use the legacy implementation by default
+	// This allows gradual migration and testing
+	useRefactoredService := false // Feature flag - can be enabled later
+
+	if useRefactoredService {
+		service, err := r.getOrCreateEvaluationService(ctx, policy)
+		if err == nil {
+			return service.EvaluatePolicy(ctx, policy)
+		}
+		// Fall back to legacy implementation on error
+		r.logger.Debug("Falling back to legacy evaluation", sdklog.Operation("evaluate_policy"), sdklog.Error(err))
+	}
+
+	// Legacy implementation (existing code)
 	// Use struct logger to avoid allocations
 	startTime := time.Now()
 	defer func() {

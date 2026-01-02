@@ -12,23 +12,26 @@ The `PolicyEvaluationService` already solves this problem using dependency injec
 
 ## Refactoring Steps
 
-### Phase 1: Enable PolicyEvaluationService in GCPolicyReconciler ✅ HIGH PRIORITY
+### Phase 1: Enable PolicyEvaluationService in GCPolicyReconciler ✅ COMPLETE
 
-**Current State**: `GCPolicyReconciler.evaluatePolicy()` directly calls `getOrCreateResourceInformer()`.
+**Status**: ✅ **COMPLETED** - Infrastructure added, ready for testing
 
-**Target State**: Use `PolicyEvaluationService` with adapters (like `GCController` already has).
+**What Was Done**:
+1. ✅ Added `PolicyEvaluationService` field to `GCPolicyReconciler` with mutex protection
+2. ✅ Created `GCPolicyReconcilerAdapter` to bridge reconciler methods to interfaces
+3. ✅ Added `getOrCreateEvaluationService()` method with double-checked locking
+4. ✅ Modified `evaluatePolicy()` to support both refactored service and legacy implementation
+5. ✅ Added feature flag `useRefactoredService` for gradual migration
 
-**Benefits**:
-- ✅ Simple mock-based tests (no fake client setup needed)
-- ✅ Better separation of concerns
-- ✅ Consistent with refactoring already done
-- ✅ All existing tests can use mocks
+**Current State**: 
+- Infrastructure is in place
+- Feature flag is `false` by default (uses legacy implementation)
+- Can be enabled by setting `useRefactoredService = true` in `evaluatePolicy()`
 
-**Implementation**:
-1. Add `PolicyEvaluationService` field to `GCPolicyReconciler`
-2. Create `getOrCreateEvaluationService()` method (similar to `GCController`)
-3. Modify `evaluatePolicy()` to use the service
-4. Use adapters to bridge existing methods to interfaces
+**Next Steps**:
+- Enable feature flag and test in production
+- Update tests to use mocks instead of complex fake clients
+- Re-enable skipped tests with mock-based implementations
 
 ### Phase 2: Remove Deprecated GCController (Optional)
 
