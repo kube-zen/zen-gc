@@ -24,9 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,6 +40,7 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/controller"
 	gcwebhook "github.com/kube-zen/zen-gc/pkg/webhook"
 	"github.com/kube-zen/zen-sdk/pkg/leader"
+	"github.com/kube-zen/zen-sdk/pkg/lifecycle"
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 	"github.com/kube-zen/zen-sdk/pkg/zenlead"
 )
@@ -299,9 +298,9 @@ func main() {
 		}
 	}
 
-	// Set up signals so we handle shutdown gracefully
+	// Set up graceful shutdown using zen-sdk lifecycle package
 	// Do this after all initialization that might call os.Exit to avoid linter warning
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := lifecycle.ShutdownContext(context.Background(), "zen-gc")
 	defer cancel()
 
 	// Start webhook server if enabled (now that context is created)
