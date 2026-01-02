@@ -76,8 +76,7 @@ func TestMatchesSelectorsShared_LabelSelector(t *testing.T) {
 	}
 }
 
-func TestGCController_matchesSelectors_Namespace(t *testing.T) {
-	gc := &GCController{}
+func TestMatchesSelectorsShared_Namespace(t *testing.T) {
 
 	tests := []struct {
 		name          string
