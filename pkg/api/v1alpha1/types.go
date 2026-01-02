@@ -44,6 +44,12 @@ type GarbageCollectionPolicySpec struct {
 	// GC behavior configuration
 	Behavior BehaviorSpec `json:"behavior,omitempty"`
 
+	// EvaluationInterval is the interval between policy evaluations.
+	// If not specified, uses the controller's default GC interval.
+	// Format: duration string (e.g., "1m", "30s", "2h")
+	// +optional
+	EvaluationInterval *metav1.Duration `json:"evaluationInterval,omitempty"`
+
 	// Paused indicates whether the policy evaluation is paused.
 	// When true, the controller will skip evaluating this policy.
 	// Defaults to false.

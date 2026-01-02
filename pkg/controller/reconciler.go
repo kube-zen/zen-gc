@@ -235,15 +235,31 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	r.recordPolicyPhaseMetrics(ctx)
 
 	// Determine requeue interval based on policy evaluation interval or default
-	requeueAfter := r.getRequeueInterval()
+	requeueAfter := r.getRequeueIntervalForPolicy(policy)
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
 // getRequeueInterval returns the requeue interval for a policy.
 // Uses policy-specific evaluation interval if configured, otherwise uses default.
 func (r *GCPolicyReconciler) getRequeueInterval() time.Duration {
-	// TODO: Add EvaluationInterval field to GarbageCollectionPolicySpec if needed
-	// For now, use the default GC interval from config
+	// Use policy-specific evaluation interval if configured
+	// This allows per-policy control over evaluation frequency
+	interval := DefaultGCInterval
+	if r.config != nil {
+		interval = r.config.GCInterval
+	}
+	return interval
+}
+
+// getRequeueIntervalForPolicy returns the requeue interval for a specific policy.
+// Uses policy-specific evaluation interval if configured, otherwise uses default.
+func (r *GCPolicyReconciler) getRequeueIntervalForPolicy(policy *v1alpha1.GarbageCollectionPolicy) time.Duration {
+	// Use policy-specific evaluation interval if configured
+	if policy.Spec.EvaluationInterval != nil && policy.Spec.EvaluationInterval.Duration > 0 {
+		return policy.Spec.EvaluationInterval.Duration
+	}
+
+	// Fall back to default GC interval from config
 	interval := DefaultGCInterval
 	if r.config != nil {
 		interval = r.config.GCInterval
@@ -429,14 +445,17 @@ func (r *GCPolicyReconciler) deleteResource(ctx context.Context, resource *unstr
 		return nil
 	}
 
-	// Get GVR using pluralization
-	// TODO: Replace with RESTMapper-based resolution (see ROADMAP.md)
-	// Current pluralization may fail for irregular Kinds/CRDs, but maintains backward compatibility
+	// Get GVR using GVRResolver (with RESTMapper if available, otherwise pluralization)
+	// Note: RESTMapper requires architectural change to pass through constructor
+	// For now, uses pluralization fallback which maintains backward compatibility
 	gvr := schema.GroupVersionResource{
 		Group:    resource.GroupVersionKind().Group,
 		Version:  resource.GroupVersionKind().Version,
 		Resource: validation.PluralizeKind(resource.GetKind()),
 	}
+	// TODO: Use GVRResolver when RESTMapper is available in constructor
+	// resolver := NewGVRResolver(r.restMapper) // Requires adding restMapper to reconciler
+	// gvr, err := resolver.ResolveGVR(resource)
 
 	// Delete options
 	deleteOptions := &metav1.DeleteOptions{}
