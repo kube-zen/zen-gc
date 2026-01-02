@@ -127,33 +127,7 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 	resourcesToDeleteReasons := make(map[string]string, estimatedDeletions)
 
 	// Evaluate each resource
-	matchedCount, deletedCount, pendingCount = s.evaluateResources(ctx, resources, policy, resourcesToDelete, resourcesToDeleteReasons, resourceAPIVersion, resourceKind)
-	resourcesToDelete = resourcesToDelete[:0] // Reset for actual deletion list
-	for k := range resourcesToDeleteReasons {
-		delete(resourcesToDeleteReasons, k)
-	}
-	
-	// Rebuild deletion list from evaluation
-	for i, resource := range resources {
-		if i%100 == 0 {
-			select {
-			case <-ctx.Done():
-				return nil
-			default:
-			}
-		}
-		if !s.selectorMatcher.MatchesSelectors(resource, &policy.Spec.TargetResource) {
-			continue
-		}
-		if policy.Spec.Conditions != nil && !s.conditionMatcher.MeetsConditions(resource, policy.Spec.Conditions) {
-			continue
-		}
-		shouldDelete, reason := s.shouldDelete(resource, policy)
-		if shouldDelete {
-			resourcesToDelete = append(resourcesToDelete, resource)
-			resourcesToDeleteReasons[string(resource.GetUID())] = reason
-		}
-	}
+	matchedCount, pendingCount = s.evaluateResources(ctx, resources, policy, &resourcesToDelete, resourcesToDeleteReasons, resourceAPIVersion, resourceKind)
 
 	// Delete resources in batches using BatchDeleterCore interface
 	if len(resourcesToDelete) > 0 {
