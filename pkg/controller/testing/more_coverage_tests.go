@@ -39,7 +39,7 @@ var (
 
 // Test constants to avoid magic numbers.
 const (
-	testTTLSeconds = 3600 // 1 hour in seconds
+	testTTLSeconds    = 3600 // 1 hour in seconds
 	testResourceCount = 5
 )
 
@@ -135,7 +135,7 @@ func TestPolicyEvaluationServiceWithConditions(t *testing.T) {
 				Kind:       "ConfigMap",
 			},
 			TTL: v1alpha1.TTLSpec{
-				SecondsAfterCreation: func() *int64 { v := int64(3600); return &v }(),
+				SecondsAfterCreation: func() *int64 { v := int64(testTTLSeconds); return &v }(),
 			},
 			Conditions: &v1alpha1.ConditionsSpec{
 				HasLabels: []v1alpha1.LabelCondition{
@@ -206,7 +206,7 @@ func TestPolicyEvaluationServiceConditionsNotMet(t *testing.T) {
 				Kind:       "ConfigMap",
 			},
 			TTL: v1alpha1.TTLSpec{
-				SecondsAfterCreation: func() *int64 { v := int64(3600); return &v }(),
+				SecondsAfterCreation: func() *int64 { v := int64(testTTLSeconds); return &v }(),
 			},
 			Conditions: &v1alpha1.ConditionsSpec{
 				HasLabels: []v1alpha1.LabelCondition{
@@ -277,7 +277,7 @@ func TestPolicyEvaluationServiceSelectorNotMatched(t *testing.T) {
 				Kind:       "ConfigMap",
 			},
 			TTL: v1alpha1.TTLSpec{
-				SecondsAfterCreation: func() *int64 { v := int64(3600); return &v }(),
+				SecondsAfterCreation: func() *int64 { v := int64(testTTLSeconds); return &v }(),
 			},
 		},
 	}
@@ -316,8 +316,8 @@ func TestPolicyEvaluationServiceSelectorNotMatched(t *testing.T) {
 // TestPolicyEvaluationServiceBatchDeletion tests batch deletion.
 func TestPolicyEvaluationServiceBatchDeletion(t *testing.T) {
 	now := time.Now()
-	resources := make([]*unstructured.Unstructured, 0, 5)
-	for i := 0; i < 5; i++ {
+	resources := make([]*unstructured.Unstructured, 0, testResourceCount)
+	for i := 0; i < testResourceCount; i++ {
 		resources = append(resources, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",
@@ -344,7 +344,7 @@ func TestPolicyEvaluationServiceBatchDeletion(t *testing.T) {
 				Kind:       "ConfigMap",
 			},
 			TTL: v1alpha1.TTLSpec{
-				SecondsAfterCreation: func() *int64 { v := int64(3600); return &v }(),
+				SecondsAfterCreation: func() *int64 { v := int64(testTTLSeconds); return &v }(),
 			},
 			Behavior: v1alpha1.BehaviorSpec{
 				BatchSize: 2, // Small batch size for testing
@@ -432,7 +432,7 @@ func TestPolicyEvaluationServiceDeletionErrors(t *testing.T) {
 				Kind:       "ConfigMap",
 			},
 			TTL: v1alpha1.TTLSpec{
-				SecondsAfterCreation: func() *int64 { v := int64(3600); return &v }(),
+				SecondsAfterCreation: func() *int64 { v := int64(testTTLSeconds); return &v }(),
 			},
 		},
 	}
