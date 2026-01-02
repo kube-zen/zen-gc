@@ -29,6 +29,7 @@ import (
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
+	"github.com/kube-zen/zen-gc/pkg/validation"
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
@@ -149,4 +150,3 @@ func buildLabelSelectorFilter(policy *v1alpha1.GarbageCollectionPolicy) func(opt
 		}
 	}
 }
-

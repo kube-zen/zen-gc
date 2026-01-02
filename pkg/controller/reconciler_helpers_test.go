@@ -17,13 +17,11 @@ limitations under the License.
 package controller
 
 import (
-	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"k8s.io/client-go/dynamic/fake"
 
