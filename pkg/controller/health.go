@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-sdk/pkg/health"
-	"k8s.io/client-go/tools/cache"
 )
 
 // HealthChecker provides health check functionality for the GC controller.

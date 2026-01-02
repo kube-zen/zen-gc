@@ -59,8 +59,8 @@ func (s *StatusUpdater) UpdateStatus(
 		Get(ctx, policy.Name, metav1.GetOptions{})
 	if err != nil {
 		gcErr := gcerrors.Wrap(err, "status_get_failed", "failed to get GarbageCollectionPolicy CRD")
-		gcErr.PolicyNamespace = policy.Namespace
-		gcErr.PolicyName = policy.Name
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 		return gcErr
 	}
 
@@ -153,8 +153,8 @@ func (s *StatusUpdater) UpdateStatus(
 		UpdateStatus(ctx, unstructuredPolicy, metav1.UpdateOptions{})
 	if err != nil {
 		gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update GarbageCollectionPolicy status")
-		gcErr.PolicyNamespace = policy.Namespace
-		gcErr.PolicyName = policy.Name
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 		logger := sdklog.NewLogger("zen-gc")
 		logger.Warn("Failed to update GarbageCollectionPolicy status", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(gcErr))
 		return gcErr

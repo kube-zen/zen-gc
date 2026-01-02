@@ -597,8 +597,8 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 	informer, err := gc.getOrCreateResourceInformer(policy)
 	if err != nil {
 		gcErr := gcerrors.Wrap(err, "informer_creation_failed", "failed to get resource informer")
-		gcErr.PolicyNamespace = policy.Namespace
-		gcErr.PolicyName = policy.Name
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "informer_creation_failed")
 		gc.logger.Error(gcErr, "Error creating resource informer for policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("INFORMER_CREATION_FAILED"))
 		return gcErr
@@ -731,9 +731,9 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 				gc.logger.Debug("Status update canceled or timed out", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(statusCtx.Err()))
 				return nil // Don't treat cancellation as error
 			}
-			gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
-			gcErr.PolicyNamespace = policy.Namespace
-			gcErr.PolicyName = policy.Name
+		gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 			recordError(policy.Namespace, policy.Name, "status_update_failed")
 			if gc.eventRecorder != nil {
 				gc.eventRecorder.RecordStatusUpdateFailed(policy, gcErr)

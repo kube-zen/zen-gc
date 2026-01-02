@@ -87,8 +87,8 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 	gvr, err := parseGVR(policy.Spec.TargetResource.APIVersion, policy.Spec.TargetResource.Kind)
 	if err != nil {
 		gcErr := gcerrors.Wrap(err, "invalid_gvr", "failed to parse GVR")
-		gcErr.PolicyNamespace = policy.Namespace
-		gcErr.PolicyName = policy.Name
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "invalid_gvr")
 		s.logger.Error(gcErr, "Invalid GVR in policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("INVALID_GVR"))
 		return gcErr
@@ -104,8 +104,8 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 	resources, err := s.resourceLister.ListResources(ctx, gvr, namespace)
 	if err != nil {
 		gcErr := gcerrors.Wrap(err, "list_resources_failed", "failed to list resources")
-		gcErr.PolicyNamespace = policy.Namespace
-		gcErr.PolicyName = policy.Name
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "list_resources_failed")
 		s.logger.Error(gcErr, "Error listing resources", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("LIST_RESOURCES_FAILED"))
 		return gcErr
@@ -287,8 +287,8 @@ func (s *PolicyEvaluationService) updatePolicyStatus(
 			return nil
 		}
 		gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
-		gcErr.PolicyNamespace = policy.Namespace
-		gcErr.PolicyName = policy.Name
+		gcErr = gcErr.WithContext("policy_namespace", policy.Namespace)
+		gcErr = gcErr.WithContext("policy_name", policy.Name)
 		recordError(policy.Namespace, policy.Name, "status_update_failed")
 		if s.eventRecorder != nil {
 			s.eventRecorder.RecordStatusUpdateFailed(policy, gcErr)
