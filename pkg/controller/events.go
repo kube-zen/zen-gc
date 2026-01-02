@@ -41,7 +41,8 @@ type EventRecorder struct {
 func NewEventRecorder(client kubernetes.Interface) *EventRecorder {
 	// Create event broadcaster
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartStructuredLogging(0)
+	// Note: StartStructuredLogging is removed as it requires klog-compatible logger
+	// Event logging is handled via StartRecordingToSink and we use sdklog for application logging
 	if client != nil {
 		eventBroadcaster.StartRecordingToSink(&eventSinkWrapper{
 			events: client.CoreV1().Events(""),
