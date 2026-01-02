@@ -8,10 +8,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
+	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
 func TestGCController_shouldDelete_TTLExpired(t *testing.T) {
-	gc := &GCController{}
+	gc := &GCController{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 
 	// Create a resource that was created 2 hours ago
 	creationTime := metav1.NewTime(time.Now().Add(-2 * time.Hour))
@@ -41,7 +44,9 @@ func TestGCController_shouldDelete_TTLExpired(t *testing.T) {
 }
 
 func TestGCController_shouldDelete_TTLNotExpired(t *testing.T) {
-	gc := &GCController{}
+	gc := &GCController{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 
 	// Create a resource that was created 30 minutes ago
 	creationTime := metav1.NewTime(time.Now().Add(-30 * time.Minute))
@@ -71,7 +76,9 @@ func TestGCController_shouldDelete_TTLNotExpired(t *testing.T) {
 }
 
 func TestGCController_shouldDelete_ConditionNotMet(t *testing.T) {
-	gc := &GCController{}
+	gc := &GCController{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 
 	// Create an expired resource
 	creationTime := metav1.NewTime(time.Now().Add(-2 * time.Hour))
@@ -107,7 +114,9 @@ func TestGCController_shouldDelete_ConditionNotMet(t *testing.T) {
 }
 
 func TestGCController_shouldDelete_NoTTL(t *testing.T) {
-	gc := &GCController{}
+	gc := &GCController{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{},
