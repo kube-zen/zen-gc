@@ -2,7 +2,7 @@
 
 ## Critical Bugs
 
-### 1. Race Condition in `getOrCreateEvaluationService` ⚠️ **CRITICAL**
+### 1. Race Condition in `getOrCreateEvaluationService` ⚠️ **CRITICAL** ✅ FIXED
 
 **Location:** `pkg/controller/gc_controller.go:518-546`
 
@@ -13,9 +13,12 @@
 - Inconsistent behavior (different policies might use different service instances)
 - Potential nil pointer dereferences
 
-**Fix:** Add mutex protection using double-checked locking pattern.
+**Fix Applied:** 
+- Added `evaluationServiceMu sync.RWMutex` to `GCController` struct
+- Implemented double-checked locking pattern
+- Prevents multiple service instances from being created concurrently
 
-### 2. Missing Nil Check for `informer.GetStore()` ⚠️ **HIGH**
+### 2. Missing Nil Check for `informer.GetStore()` ⚠️ **HIGH** ✅ FIXED
 
 **Location:** `pkg/controller/adapters.go:85`
 
@@ -23,9 +26,12 @@
 
 **Impact:** Panic when trying to list resources from an uninitialized informer.
 
-**Fix:** Add nil check before using the store.
+**Fix Applied:** 
+- Added nil check before using the store
+- Returns proper error instead of panicking
+- Added defensive nil check in `gc_controller.go` evaluatePolicy
 
-### 3. Missing Context Check at Start of `evaluateResources` ⚠️ **MEDIUM**
+### 3. Missing Context Check at Start of `evaluateResources` ⚠️ **MEDIUM** ✅ FIXED
 
 **Location:** `pkg/controller/evaluate_policy_refactored.go:150-203`
 
@@ -33,9 +39,11 @@
 
 **Impact:** Unnecessary work when context is already canceled, especially for large resource lists.
 
-**Fix:** Add context check at the beginning of the function.
+**Fix Applied:** 
+- Added context check at the beginning of the function
+- Returns early if context is already canceled
 
-### 4. Potential Nil Rate Limiter ⚠️ **MEDIUM**
+### 4. Potential Nil Rate Limiter ⚠️ **MEDIUM** ✅ FIXED
 
 **Location:** `pkg/controller/evaluate_policy_refactored.go:213`
 
@@ -43,9 +51,12 @@
 
 **Impact:** Potential nil pointer dereference in batch deletion.
 
-**Fix:** Add nil check and handle gracefully.
+**Fix Applied:** 
+- Added nil check for rate limiter
+- Returns early with error if rate limiter is nil
+- Prevents potential panic
 
-### 5. Missing Nil Check for Informer Store ⚠️ **MEDIUM**
+### 5. Missing Nil Check for Informer Store ⚠️ **MEDIUM** ✅ FIXED
 
 **Location:** `pkg/controller/gc_controller.go:590`
 
@@ -53,21 +64,23 @@
 
 **Impact:** Potential panic if informer is in an invalid state.
 
-**Fix:** Add defensive nil check.
+**Fix Applied:** 
+- Added defensive nil check
+- Returns proper error instead of potential panic
 
-## Medium Priority Issues
-
-### 6. Missing Context Check in `deleteResourcesInBatches` ⚠️ **LOW**
+### 6. Missing Context Check in `deleteResourcesInBatches` ⚠️ **MEDIUM** ✅ FIXED
 
 **Location:** `pkg/controller/evaluate_policy_refactored.go:207-251`
 
 **Issue:** Similar to `evaluateResources`, context is checked between batches but not at the start.
 
-**Impact:** Minor - less critical since batches are typically smaller.
+**Impact:** Unnecessary work when context is already canceled.
 
-**Fix:** Add context check at the beginning.
+**Fix Applied:** 
+- Added context check at the beginning of the function
+- Returns early if context is already canceled
 
-### 7. Potential Resource Leak in Rate Limiter ⚠️ **LOW**
+### 7. Potential Resource Leak in Rate Limiter ⚠️ **LOW** ✅ FIXED
 
 **Location:** `pkg/controller/shared.go:108-113`
 
@@ -75,14 +88,31 @@
 
 **Impact:** Potential panic if a nil limiter is stored in the map.
 
-**Fix:** Check for nil before returning.
+**Fix Applied:** 
+- Improved nil limiter handling
+- Falls through to create new limiter if existing one is nil
+- Prevents returning nil limiters
 
 ## Summary
 
-- **Critical:** 1 bug (race condition)
-- **High:** 1 bug (nil pointer)
-- **Medium:** 3 bugs (context checks, nil checks)
-- **Low:** 2 bugs (defensive programming)
+- **Critical:** 1 bug (race condition) ✅ FIXED
+- **High:** 1 bug (nil pointer) ✅ FIXED
+- **Medium:** 4 bugs (context checks, nil checks) ✅ FIXED
+- **Low:** 1 bug (defensive programming) ✅ FIXED
 
-Total: 7 potential bugs identified
+**Total: 7 bugs identified and fixed**
 
+## Test Status
+
+- ✅ All unit tests passing (testing package)
+- ✅ Code compiles successfully
+- ✅ No linting errors
+- ⚠️ Some integration tests fail due to fake client setup (pre-existing issue, not related to bug fixes)
+
+## Impact
+
+These fixes improve:
+- **Thread safety:** Race condition eliminated
+- **Robustness:** Nil pointer checks prevent panics
+- **Performance:** Early context cancellation prevents unnecessary work
+- **Reliability:** Defensive programming catches edge cases
