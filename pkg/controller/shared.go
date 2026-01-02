@@ -54,6 +54,12 @@ const (
 	// DefaultGCInterval is the default interval for GC runs.
 	DefaultGCInterval = 1 * time.Minute
 
+	// DefaultMaxDeletionsPerSecond is the default rate limit.
+	DefaultMaxDeletionsPerSecond = 10
+
+	// DefaultBatchSize is the default batch size for deletions.
+	DefaultBatchSize = 50
+
 	// DefaultCacheSyncTimeout is the default timeout for cache synchronization.
 	DefaultCacheSyncTimeout = 30 * time.Second
 
