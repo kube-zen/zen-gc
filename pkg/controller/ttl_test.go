@@ -44,8 +44,12 @@ func TestGCPolicyReconciler_calculateExpirationTime_MappedTTL(t *testing.T) {
 	reconciler := &GCPolicyReconciler{
 		logger: sdklog.NewLogger("zen-gc"),
 	}
+	// Add creation timestamp for proper TTL calculation
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"creationTimestamp": metav1.Now().Format(time.RFC3339),
+			},
 			"spec": map[string]interface{}{
 				"severity": "CRITICAL",
 			},
