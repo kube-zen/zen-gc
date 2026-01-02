@@ -32,7 +32,7 @@ import (
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
-// BenchmarkLoggerReuse benchmarks logger reuse vs creating new loggers
+// BenchmarkLoggerReuse benchmarks logger reuse vs creating new loggers.
 func BenchmarkLoggerReuse(b *testing.B) {
 	// Benchmark: Creating new logger each time (old way)
 	b.Run("NewLoggerEachTime", func(b *testing.B) {
@@ -53,7 +53,7 @@ func BenchmarkLoggerReuse(b *testing.B) {
 	})
 }
 
-// BenchmarkStringConcatenation benchmarks string concatenation methods
+// BenchmarkStringConcatenation benchmarks string concatenation methods.
 func BenchmarkStringConcatenation(b *testing.B) {
 	namespace := "test-namespace"
 	name := "test-policy"
@@ -75,7 +75,7 @@ func BenchmarkStringConcatenation(b *testing.B) {
 	})
 }
 
-// BenchmarkSlicePreAllocation benchmarks slice allocation strategies
+// BenchmarkSlicePreAllocation benchmarks slice allocation strategies.
 func BenchmarkSlicePreAllocation(b *testing.B) {
 	const resourceCount = 1000
 	const estimatedMatchRate = 10 // 10% match rate
@@ -86,8 +86,9 @@ func BenchmarkSlicePreAllocation(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			slice := make([]*unstructured.Unstructured, 0)
 			for j := 0; j < resourceCount/estimatedMatchRate; j++ {
-				slice = append(slice, &unstructured.Unstructured{})
+				slice = append(slice, &unstructured.Unstructured{}) //nolint:staticcheck // Benchmark test - result is intentionally unused
 			}
+			_ = slice // Prevent optimization
 		}
 	})
 
@@ -101,13 +102,14 @@ func BenchmarkSlicePreAllocation(b *testing.B) {
 			}
 			slice := make([]*unstructured.Unstructured, 0, estimatedSize)
 			for j := 0; j < resourceCount/estimatedMatchRate; j++ {
-				slice = append(slice, &unstructured.Unstructured{})
+				slice = append(slice, &unstructured.Unstructured{}) //nolint:staticcheck // Benchmark test - result is intentionally unused
 			}
+			_ = slice // Prevent optimization
 		}
 	})
 }
 
-// BenchmarkMapPreSizing benchmarks map allocation strategies
+// BenchmarkMapPreSizing benchmarks map allocation strategies.
 func BenchmarkMapPreSizing(b *testing.B) {
 	const expectedPhases = 3
 
@@ -134,7 +136,7 @@ func BenchmarkMapPreSizing(b *testing.B) {
 	})
 }
 
-// BenchmarkContextCheckFrequency benchmarks context check strategies
+// BenchmarkContextCheckFrequency benchmarks context check strategies.
 func BenchmarkContextCheckFrequency(b *testing.B) {
 	ctx := context.Background()
 	const iterations = 10000
@@ -170,7 +172,7 @@ func BenchmarkContextCheckFrequency(b *testing.B) {
 	})
 }
 
-// BenchmarkRecordPolicyPhaseMetrics benchmarks with and without duplicate cache calls
+// BenchmarkRecordPolicyPhaseMetrics benchmarks with and without duplicate cache calls.
 func BenchmarkRecordPolicyPhaseMetrics(b *testing.B) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
@@ -219,7 +221,7 @@ func BenchmarkRecordPolicyPhaseMetrics(b *testing.B) {
 	})
 }
 
-// BenchmarkEvaluatePolicyResources benchmarks resource evaluation with optimizations
+// BenchmarkEvaluatePolicyResources benchmarks resource evaluation with optimizations.
 func BenchmarkEvaluatePolicyResources(b *testing.B) {
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
@@ -281,4 +283,3 @@ func BenchmarkEvaluatePolicyResources(b *testing.B) {
 		}
 	})
 }
-
