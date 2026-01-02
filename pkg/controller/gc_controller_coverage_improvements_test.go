@@ -247,7 +247,7 @@ func createUnstructuredPolicy(name, phase string) *unstructured.Unstructured {
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: "default",
 			UID:       types.UID(name + "-uid"),
 		},
 		Status: v1alpha1.GarbageCollectionPolicyStatus{
