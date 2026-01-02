@@ -16,11 +16,9 @@ name: Build Multi-Arch Images
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
-      - '0.0.1-alpha'
+      - '*.*.*-*'  # e.g., 0.0.1-alpha
   workflow_dispatch:
 
 env:
