@@ -322,7 +322,7 @@ func main() {
 			go func() {
 				if err := webhookServer.StartTLS(ctx, *webhookCertFile, *webhookKeyFile); err != nil {
 					setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
-					os.Exit(1)
+					cancel() // Cancel context to trigger graceful shutdown instead of os.Exit
 				}
 			}()
 			setupLog.Info("Webhook server starting with TLS", sdklog.String("address", *webhookAddr), sdklog.Component("webhook"))
@@ -331,7 +331,7 @@ func main() {
 			go func() {
 				if err := webhookServer.Start(ctx); err != nil {
 					setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
-					os.Exit(1)
+					cancel() // Cancel context to trigger graceful shutdown instead of os.Exit
 				}
 			}()
 		}
