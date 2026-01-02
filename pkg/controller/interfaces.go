@@ -41,7 +41,7 @@ type ResourceInformer interface {
 type ResourceInformerFactory interface {
 	// ForResource returns an informer for the given GVR.
 	ForResource(gvr schema.GroupVersionResource) ResourceInformer
-	
+
 	// Start starts all informers created by this factory.
 	Start(stopCh <-chan struct{})
 }
@@ -97,4 +97,3 @@ type PolicyEvaluatorCore interface {
 	RateLimiterProvider
 	BatchDeleterCore
 }
-

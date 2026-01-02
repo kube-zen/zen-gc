@@ -166,8 +166,8 @@ func TestGCController_evaluatePoliciesSequential_Coverage(t *testing.T) {
 	eventRecorder := NewEventRecorder(nil)
 
 	tests := []struct {
-		name     string
-		policies []interface{}
+		name      string
+		policies  []interface{}
 		setupFunc func(*GCController)
 	}{
 		{

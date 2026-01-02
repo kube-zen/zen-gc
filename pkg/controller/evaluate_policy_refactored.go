@@ -344,4 +344,3 @@ func parseGVR(apiVersion, kind string) (schema.GroupVersionResource, error) {
 		Resource: resource,
 	}, nil
 }
-

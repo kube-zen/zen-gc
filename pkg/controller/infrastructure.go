@@ -172,4 +172,3 @@ func (p *DefaultRateLimiterProvider) GetOrCreateRateLimiter(policy *v1alpha1.Gar
 	p.rateLimiters[policy.UID] = limiter
 	return limiter
 }
-

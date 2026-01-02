@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,6 +27,11 @@ import (
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
+)
+
+// Static errors for adapters.
+var (
+	errInformerStoreNil = errors.New("informer store is nil")
 )
 
 // InformerStoreResourceLister adapts a cache.Store to ResourceLister interface.
@@ -43,21 +49,21 @@ func NewInformerStoreResourceLister(store cache.Store) ResourceLister {
 func (l *InformerStoreResourceLister) ListResources(ctx context.Context, gvr schema.GroupVersionResource, namespace string) ([]*unstructured.Unstructured, error) {
 	items := l.store.List()
 	resources := make([]*unstructured.Unstructured, 0, len(items))
-	
+
 	for _, obj := range items {
 		resource, ok := obj.(*unstructured.Unstructured)
 		if !ok {
 			continue
 		}
-		
+
 		// Filter by namespace if specified
 		if namespace != "" && namespace != "*" && resource.GetNamespace() != namespace {
 			continue
 		}
-		
+
 		resources = append(resources, resource)
 	}
-	
+
 	return resources, nil
 }
 
@@ -84,7 +90,7 @@ func (a *GCControllerAdapter) GetResourceListerForPolicy(ctx context.Context, po
 	}
 	store := informer.GetStore()
 	if store == nil {
-		return nil, fmt.Errorf("informer store is nil for policy %s/%s", policy.Namespace, policy.Name)
+		return nil, fmt.Errorf("%w for policy %s/%s", errInformerStoreNil, policy.Namespace, policy.Name)
 	}
 	return NewInformerStoreResourceLister(store), nil
 }
@@ -148,4 +154,3 @@ type GCControllerBatchDeleter struct {
 func (d *GCControllerBatchDeleter) DeleteBatch(ctx context.Context, batch []*unstructured.Unstructured, policy *v1alpha1.GarbageCollectionPolicy, rateLimiter *ratelimiter.RateLimiter, reasons map[string]string) (int64, []error) {
 	return d.gc.deleteBatch(ctx, batch, policy, rateLimiter, reasons)
 }
-

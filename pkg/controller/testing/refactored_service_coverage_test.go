@@ -411,9 +411,9 @@ func TestPolicyEvaluationService_StatusUpdateTimeout(t *testing.T) {
 	mockDeleter := NewMockBatchDeleterCore()
 	mockDeleter.SetDeleteResult(resource, nil)
 
-	// Note: StatusUpdater is a concrete type, not an interface
-	// We'll test status update errors by passing nil and testing the error path
-	// The actual status update error handling is tested in status_updater_test.go
+	// StatusUpdater is a concrete type, not an interface.
+	// We'll test status update errors by passing nil and testing the error path.
+	// The actual status update error handling is tested in status_updater_test.go.
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,

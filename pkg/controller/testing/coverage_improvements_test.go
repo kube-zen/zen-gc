@@ -93,9 +93,9 @@ func TestPolicyEvaluationService_NoConditions(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "test-cm",
-				"namespace":          "default",
-				"uid":                "test-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "test-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 			},
 		},
 	}
@@ -208,9 +208,9 @@ func TestPolicyEvaluationService_ContextCancellationDuringEvaluation(t *testing.
 				"kind":       "ConfigMap",
 				"metadata": map[string]interface{}{
 					"name":              fmt.Sprintf("test-cm-%d", i),
-					"namespace":          "default",
-					"uid":                types.UID(fmt.Sprintf("uid-%d", i)),
-					"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+					"namespace":         "default",
+					"uid":               types.UID(fmt.Sprintf("uid-%d", i)),
+					"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 				},
 			},
 		})
@@ -282,9 +282,9 @@ func TestPolicyEvaluationService_StatusUpdater(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "test-cm",
-				"namespace":          "default",
-				"uid":                "test-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "test-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 			},
 		},
 	}
@@ -350,9 +350,9 @@ func TestPolicyEvaluationService_EventRecorder(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "test-cm",
-				"namespace":          "default",
-				"uid":                "test-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "test-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 			},
 		},
 	}
@@ -407,4 +407,3 @@ func TestPolicyEvaluationService_EventRecorder(t *testing.T) {
 		t.Fatalf("EvaluatePolicy failed: %v", err)
 	}
 }
-

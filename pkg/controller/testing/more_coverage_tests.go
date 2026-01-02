@@ -40,7 +40,7 @@ var (
 // TestInformerStoreResourceLister tests the InformerStoreResourceLister adapter.
 func TestInformerStoreResourceLister(t *testing.T) {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
-	
+
 	resources := []*unstructured.Unstructured{
 		{
 			Object: map[string]interface{}{
@@ -63,13 +63,13 @@ func TestInformerStoreResourceLister(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, r := range resources {
 		_ = store.Add(r)
 	}
-	
+
 	lister := controller.NewInformerStoreResourceLister(store)
-	
+
 	// Test listing all resources
 	all, err := lister.ListResources(context.Background(), schema.GroupVersionResource{}, "")
 	if err != nil {
@@ -78,7 +78,7 @@ func TestInformerStoreResourceLister(t *testing.T) {
 	if len(all) != 2 {
 		t.Errorf("Expected 2 resources, got %d", len(all))
 	}
-	
+
 	// Test filtering by namespace
 	defaultNS, err := lister.ListResources(context.Background(), schema.GroupVersionResource{}, "default")
 	if err != nil {
@@ -87,7 +87,7 @@ func TestInformerStoreResourceLister(t *testing.T) {
 	if len(defaultNS) != 1 {
 		t.Errorf("Expected 1 resource in default namespace, got %d", len(defaultNS))
 	}
-	
+
 	// Test wildcard namespace
 	wildcard, err := lister.ListResources(context.Background(), schema.GroupVersionResource{}, "*")
 	if err != nil {
@@ -107,16 +107,16 @@ func TestPolicyEvaluationServiceWithConditions(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "test-cm",
-				"namespace":          "default",
-				"uid":                "test-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "test-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 				"labels": map[string]interface{}{
 					"app": "test",
 				},
 			},
 		},
 	}
-	
+
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-policy",
@@ -138,21 +138,21 @@ func TestPolicyEvaluationServiceWithConditions(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockLister := NewMockResourceLister()
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	mockLister.SetResources(gvr, "default", []*unstructured.Unstructured{resource})
-	
+
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	mockSelectorMatcher.SetMatch(resource, true)
-	
+
 	mockConditionMatcher := NewMockConditionMatcher()
 	mockConditionMatcher.SetMeetsConditions(resource, true) // Meets conditions
-	
+
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
 	mockDeleter.SetDeleteResult(resource, nil)
-	
+
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,
@@ -164,7 +164,7 @@ func TestPolicyEvaluationServiceWithConditions(t *testing.T) {
 		nil,
 		nil,
 	)
-	
+
 	ctx := context.Background()
 	err := service.EvaluatePolicy(ctx, policy)
 	if err != nil {
@@ -181,13 +181,13 @@ func TestPolicyEvaluationServiceConditionsNotMet(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "test-cm",
-				"namespace":          "default",
-				"uid":                "test-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "test-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 			},
 		},
 	}
-	
+
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-policy",
@@ -209,20 +209,20 @@ func TestPolicyEvaluationServiceConditionsNotMet(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockLister := NewMockResourceLister()
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	mockLister.SetResources(gvr, "default", []*unstructured.Unstructured{resource})
-	
+
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	mockSelectorMatcher.SetMatch(resource, true)
-	
+
 	mockConditionMatcher := NewMockConditionMatcher()
 	mockConditionMatcher.SetMeetsConditions(resource, false) // Does NOT meet conditions
-	
+
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
-	
+
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,
@@ -234,7 +234,7 @@ func TestPolicyEvaluationServiceConditionsNotMet(t *testing.T) {
 		nil,
 		nil,
 	)
-	
+
 	ctx := context.Background()
 	err := service.EvaluatePolicy(ctx, policy)
 	if err != nil {
@@ -252,13 +252,13 @@ func TestPolicyEvaluationServiceSelectorNotMatched(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "test-cm",
-				"namespace":          "default",
-				"uid":                "test-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "test-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 			},
 		},
 	}
-	
+
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-policy",
@@ -275,18 +275,18 @@ func TestPolicyEvaluationServiceSelectorNotMatched(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockLister := NewMockResourceLister()
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	mockLister.SetResources(gvr, "default", []*unstructured.Unstructured{resource})
-	
+
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	mockSelectorMatcher.SetMatch(resource, false) // Does NOT match selectors
-	
+
 	mockConditionMatcher := NewMockConditionMatcher()
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
-	
+
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,
@@ -298,7 +298,7 @@ func TestPolicyEvaluationServiceSelectorNotMatched(t *testing.T) {
 		nil,
 		nil,
 	)
-	
+
 	ctx := context.Background()
 	err := service.EvaluatePolicy(ctx, policy)
 	if err != nil {
@@ -318,14 +318,14 @@ func TestPolicyEvaluationServiceBatchDeletion(t *testing.T) {
 				"kind":       "ConfigMap",
 				"metadata": map[string]interface{}{
 					"name":              "test-cm-" + string(rune('0'+i)),
-					"namespace":          "default",
-					"uid":                types.UID("test-uid-" + string(rune('0'+i))),
-					"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+					"namespace":         "default",
+					"uid":               types.UID("test-uid-" + string(rune('0'+i))),
+					"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 				},
 			},
 		})
 	}
-	
+
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-policy",
@@ -345,27 +345,27 @@ func TestPolicyEvaluationServiceBatchDeletion(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockLister := NewMockResourceLister()
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	mockLister.SetResources(gvr, "default", resources)
-	
+
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	for _, r := range resources {
 		mockSelectorMatcher.SetMatch(r, true)
 	}
-	
+
 	mockConditionMatcher := NewMockConditionMatcher()
 	for _, r := range resources {
 		mockConditionMatcher.SetMeetsConditions(r, true)
 	}
-	
+
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
 	for _, r := range resources {
 		mockDeleter.SetDeleteResult(r, nil) // All succeed
 	}
-	
+
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,
@@ -377,7 +377,7 @@ func TestPolicyEvaluationServiceBatchDeletion(t *testing.T) {
 		nil,
 		nil,
 	)
-	
+
 	ctx := context.Background()
 	err := service.EvaluatePolicy(ctx, policy)
 	if err != nil {
@@ -395,9 +395,9 @@ func TestPolicyEvaluationServiceDeletionErrors(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "test-cm-1",
-				"namespace":          "default",
-				"uid":                "test-uid-1",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "test-uid-1",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 			},
 		},
 	}
@@ -407,13 +407,13 @@ func TestPolicyEvaluationServiceDeletionErrors(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "test-cm-2",
-				"namespace":          "default",
-				"uid":                "test-uid-2",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "test-uid-2",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 			},
 		},
 	}
-	
+
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-policy",
@@ -430,24 +430,24 @@ func TestPolicyEvaluationServiceDeletionErrors(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockLister := NewMockResourceLister()
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	mockLister.SetResources(gvr, "default", []*unstructured.Unstructured{resource1, resource2})
-	
+
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	mockSelectorMatcher.SetMatch(resource1, true)
 	mockSelectorMatcher.SetMatch(resource2, true)
-	
+
 	mockConditionMatcher := NewMockConditionMatcher()
 	mockConditionMatcher.SetMeetsConditions(resource1, true)
 	mockConditionMatcher.SetMeetsConditions(resource2, true)
-	
+
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
-	mockDeleter.SetDeleteResult(resource1, nil)        // Success
+	mockDeleter.SetDeleteResult(resource1, nil)               // Success
 	mockDeleter.SetDeleteResult(resource2, errDeletionFailed) // Error
-	
+
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,
@@ -459,7 +459,7 @@ func TestPolicyEvaluationServiceDeletionErrors(t *testing.T) {
 		nil,
 		nil,
 	)
-	
+
 	ctx := context.Background()
 	err := service.EvaluatePolicy(ctx, policy)
 	if err != nil {
@@ -467,4 +467,3 @@ func TestPolicyEvaluationServiceDeletionErrors(t *testing.T) {
 	}
 	// One deletion should succeed, one should fail
 }
-
