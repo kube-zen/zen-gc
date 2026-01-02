@@ -118,6 +118,7 @@ func (f *MockResourceInformerFactory) Start(stopCh <-chan struct{}) {
 // MockResourceLister is a mock implementation of ResourceLister for testing.
 type MockResourceLister struct {
 	resources map[string]map[string][]*unstructured.Unstructured // gvr -> namespace -> resources
+	err       error                                               // error to return
 	mu        sync.RWMutex
 }
 
@@ -139,10 +140,23 @@ func (l *MockResourceLister) SetResources(gvr schema.GroupVersionResource, names
 	l.resources[gvrKey][namespace] = resources
 }
 
+// SetError sets an error to return from ListResources.
+func (l *MockResourceLister) SetError(err error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.err = err
+}
+
 // ListResources lists resources for the given GVR and namespace.
 func (l *MockResourceLister) ListResources(ctx context.Context, gvr schema.GroupVersionResource, namespace string) ([]*unstructured.Unstructured, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+	
+	// Return error if set
+	if l.err != nil {
+		return nil, l.err
+	}
+	
 	gvrKey := gvr.String()
 	if nsMap, exists := l.resources[gvrKey]; exists {
 		if resources, exists := nsMap[namespace]; exists {
