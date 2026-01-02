@@ -74,7 +74,7 @@ func TestGCPolicyReconciler_meetsConditions_Phase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := gc.meetsConditions(tt.resource, tt.conditions)
+			result := reconciler.meetsConditions(tt.resource, tt.conditions)
 			if result != tt.expectedMatch {
 				t.Errorf("meetsConditions() = %v, want %v", result, tt.expectedMatch)
 			}
@@ -151,7 +151,7 @@ func TestGCPolicyReconciler_meetsConditions_Labels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := gc.meetsConditions(tt.resource, tt.conditions)
+			result := reconciler.meetsConditions(tt.resource, tt.conditions)
 			if result != tt.expectedMatch {
 				t.Errorf("meetsConditions() = %v, want %v", result, tt.expectedMatch)
 			}
@@ -210,7 +210,7 @@ func TestGCPolicyReconciler_meetsConditions_Annotations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := gc.meetsConditions(tt.resource, tt.conditions)
+			result := reconciler.meetsConditions(tt.resource, tt.conditions)
 			if result != tt.expectedMatch {
 				t.Errorf("meetsConditions() = %v, want %v", result, tt.expectedMatch)
 			}
@@ -297,7 +297,7 @@ func TestGCPolicyReconciler_meetsConditions_FieldConditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := gc.meetsConditions(tt.resource, tt.conditions)
+			result := reconciler.meetsConditions(tt.resource, tt.conditions)
 			if result != tt.expectedMatch {
 				t.Errorf("meetsConditions() = %v, want %v", result, tt.expectedMatch)
 			}
