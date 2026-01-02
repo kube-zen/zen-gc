@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"k8s.io/client-go/tools/cache"
 )
 
 // HealthChecker provides health check functionality for the GC controller.
