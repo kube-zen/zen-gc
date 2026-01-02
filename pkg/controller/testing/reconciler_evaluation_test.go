@@ -111,8 +111,8 @@ func TestGCPolicyReconciler_EvaluatePolicy_WithMocks(t *testing.T) {
 	mockDeleter.SetDeleteResult(testResources[0], nil)
 
 	// Create PolicyEvaluationService with mocks
-	// Use mock status updater to avoid fake client complexity
-	mockStatusUpdater := NewMockStatusUpdater()
+	// Note: StatusUpdater is a concrete type, so we use the real one but it will fail gracefully
+	// The important part is that we're testing the PolicyEvaluationService logic with mocks
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,
