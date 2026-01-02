@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -179,11 +178,11 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := r.Get(ctx, req.NamespacedName, policy); err != nil {
 		if errors.IsNotFound(err) {
 			// Policy was deleted - clean up associated resources
-			logger.WithContext(ctx).Debug("Policy not found, cleaning up resources", logging.Operation("reconcile"))
+			logger.DebugC(ctx, "Policy not found, cleaning up resources", logging.Operation("reconcile"))
 			r.cleanupPolicyResources(req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
-		logger.WithContext(ctx).Error(err, "Failed to fetch GarbageCollectionPolicy", logging.Operation("fetch_policy"), logging.ErrorCode("FETCH_POLICY_FAILED"))
+		logger.ErrorC(ctx, err, "Failed to fetch GarbageCollectionPolicy", logging.Operation("fetch_policy"), logging.ErrorCode("FETCH_POLICY_FAILED"))
 		return ctrl.Result{}, err
 	}
 
@@ -192,7 +191,7 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Check if policy spec changed and requires informer recreation
 	if r.shouldRecreateInformer(policy) {
-		logger.WithContext(ctx).Debug("Policy spec changed, recreating informer", logging.Operation("update_informer"))
+		logger.DebugC(ctx, "Policy spec changed, recreating informer", logging.Operation("update_informer"))
 		r.cleanupResourceInformer(policy.UID)
 		// Clear old spec to allow new one to be tracked
 		r.policySpecsMu.Lock()
@@ -205,7 +204,7 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Skip paused policies
 	if policy.Spec.Paused {
-		logger.WithContext(ctx).Debug("Policy is paused, skipping evaluation", logging.Operation("reconcile"))
+		logger.DebugC(ctx, "Policy is paused, skipping evaluation", logging.Operation("reconcile"))
 		return ctrl.Result{RequeueAfter: r.getRequeueInterval()}, nil
 	}
 
@@ -215,7 +214,7 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if gcErr.Type == "" {
 			gcErr.Type = ErrorTypeEvaluationFailed
 		}
-		logger.WithContext(ctx).Error(gcErr, "Error evaluating policy", logging.Operation("evaluate_policy"), logging.ErrorCode("EVALUATE_POLICY_FAILED"))
+		logger.ErrorC(ctx, gcErr, "Error evaluating policy", logging.Operation("evaluate_policy"), logging.ErrorCode("EVALUATE_POLICY_FAILED"))
 		// Requeue with backoff on error
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
@@ -244,13 +243,14 @@ func (r *GCPolicyReconciler) getRequeueInterval() time.Duration {
 // evaluatePolicy evaluates a single policy.
 // This is adapted from the original GCController.evaluatePolicy method.
 func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) error {
+	logger := logging.NewLogger("zen-gc")
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime).Seconds()
 		recordEvaluationDuration(policy.Namespace, policy.Name, duration)
 	}()
 
-	klog.V(4).Infof("Evaluating policy %s/%s", policy.Namespace, policy.Name)
+	logger.DebugC(ctx, "Evaluating policy", logging.Operation("evaluate_policy"), logging.String("policy", policy.Namespace+"/"+policy.Name))
 
 	// Get or create resource informer for this policy
 	informer, err := r.getOrCreateResourceInformer(ctx, policy)
@@ -259,7 +259,7 @@ func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha
 		gcErr.PolicyNamespace = policy.Namespace
 		gcErr.PolicyName = policy.Name
 		recordError(policy.Namespace, policy.Name, "informer_creation_failed")
-		klog.Errorf("Error creating resource informer for policy %s/%s: %v", policy.Namespace, policy.Name, gcErr)
+		logger.ErrorC(ctx, gcErr, "Error creating resource informer for policy", logging.Operation("evaluate_policy"), logging.String("policy", policy.Namespace+"/"+policy.Name), logging.ErrorCode("INFORMER_CREATION_FAILED"))
 		return gcErr
 	}
 
@@ -313,7 +313,8 @@ func (r *GCPolicyReconciler) shouldDelete(resource *unstructured.Unstructured, p
 	// Calculate expiration time
 	expirationTime, err := r.calculateExpirationTime(resource, &policy.Spec.TTL)
 	if err != nil {
-		klog.V(4).Infof("Could not calculate expiration time for resource %s/%s: %v", resource.GetNamespace(), resource.GetName(), err)
+		logger := logging.NewLogger("zen-gc")
+		logger.Debug("Could not calculate expiration time for resource", logging.Operation("should_delete"), logging.String("resource", resource.GetNamespace()+"/"+resource.GetName()), logging.Error(err))
 		return false, ReasonNoTTL
 	}
 
@@ -349,7 +350,8 @@ func (r *GCPolicyReconciler) deleteResource(ctx context.Context, resource *unstr
 
 	// Dry run check
 	if policy.Spec.Behavior.DryRun {
-		klog.Infof("[DRY RUN] Would delete resource %s/%s", resource.GetNamespace(), resource.GetName())
+		logger := logging.NewLogger("zen-gc")
+		logger.Info("[DRY RUN] Would delete resource", logging.Operation("delete_resource"), logging.String("resource", resource.GetNamespace()+"/"+resource.GetName()))
 		return nil
 	}
 
@@ -469,7 +471,8 @@ func (r *GCPolicyReconciler) getOrCreateResourceInformer(ctx context.Context, po
 		return nil, fmt.Errorf("%w", ErrResourceInformerCacheSyncFailed)
 	}
 
-	klog.V(4).Infof("Created resource informer for policy %s/%s (UID: %s)", policy.Namespace, policy.Name, policy.UID)
+	logger := logging.NewLogger("zen-gc")
+	logger.DebugC(ctx, "Created resource informer for policy", logging.Operation("get_or_create_informer"), logging.String("policy", policy.Namespace+"/"+policy.Name), logging.String("uid", string(policy.UID)))
 	return informer, nil
 }
 
@@ -592,7 +595,8 @@ func (r *GCPolicyReconciler) cleanupPolicyResources(nn types.NamespacedName) {
 		return
 	}
 
-	klog.V(2).Infof("Cleaning up resources for policy %s/%s (UID: %s)", nn.Namespace, nn.Name, uid)
+	logger := logging.NewLogger("zen-gc")
+	logger.Info("Cleaning up resources for policy", logging.Operation("cleanup_policy_resources"), logging.String("policy", nn.Namespace+"/"+nn.Name), logging.String("uid", string(uid)))
 
 	// Clean up resource informer
 	r.cleanupResourceInformer(uid)
@@ -630,7 +634,8 @@ func (r *GCPolicyReconciler) cleanupResourceInformer(policyUID types.UID) {
 	// Remove informer from map
 	if informerExists {
 		delete(r.resourceInformers, policyUID)
-		klog.V(4).Infof("Cleaned up resource informer for policy UID: %s", policyUID)
+		logger := logging.NewLogger("zen-gc")
+		logger.Debug("Cleaned up resource informer for policy", logging.Operation("cleanup_informer"), logging.String("uid", string(policyUID)))
 	}
 
 	// Update metrics
@@ -644,7 +649,8 @@ func (r *GCPolicyReconciler) cleanupRateLimiter(policyUID types.UID) {
 
 	if _, exists := r.rateLimiters[policyUID]; exists {
 		delete(r.rateLimiters, policyUID)
-		klog.V(4).Infof("Cleaned up rate limiter for policy UID: %s", policyUID)
+		logger := logging.NewLogger("zen-gc")
+		logger.Debug("Cleaned up rate limiter for policy", logging.Operation("cleanup_rate_limiter"), logging.String("uid", string(policyUID)))
 	}
 
 	// Update metrics
@@ -657,7 +663,8 @@ func (r *GCPolicyReconciler) recordPolicyPhaseMetrics(ctx context.Context) {
 	// List all policies using the client cache
 	policyList := &v1alpha1.GarbageCollectionPolicyList{}
 	if err := r.List(ctx, policyList); err != nil {
-		klog.V(4).Infof("Failed to list policies for metrics: %v", err)
+		logger := logging.NewLogger("zen-gc")
+		logger.DebugC(ctx, "Failed to list policies for metrics", logging.Operation("record_policy_phase_metrics"), logging.Error(err))
 		return
 	}
 

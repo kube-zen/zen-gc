@@ -32,14 +32,13 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
-	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 	"github.com/kube-zen/zen-gc/pkg/validation"
 	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
+	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
 const (
@@ -275,9 +274,9 @@ func (gc *GCController) stop() {
 	// Wait for shutdown completion or timeout
 	select {
 	case <-gc.shutdownComplete:
-		klog.Info("GC controller stopped gracefully")
+		logger.Info("GC controller stopped gracefully", sdklog.Operation("shutdown"))
 	case <-shutdownCtx.Done():
-		klog.Warningf("GC controller shutdown timed out after %v, forcing cleanup", DefaultShutdownTimeout)
+		logger.Warn("GC controller shutdown timed out, forcing cleanup", sdklog.Operation("shutdown"), sdklog.Duration("timeout", DefaultShutdownTimeout))
 	}
 
 	// Clean up all resource informers and rate limiters
@@ -285,7 +284,7 @@ func (gc *GCController) stop() {
 	gc.cleanupAllRateLimiters()
 
 	shutdownDuration := time.Since(shutdownStart)
-	klog.Infof("GC controller shutdown completed in %v", shutdownDuration)
+	logger.Info("GC controller shutdown completed", sdklog.Operation("shutdown"), sdklog.Duration("duration", shutdownDuration))
 }
 
 // runGCLoop runs the main GC evaluation loop.
@@ -299,10 +298,11 @@ func (gc *GCController) runGCLoop() {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	logger := sdklog.NewLogger("zen-gc")
 	for {
 		select {
 		case <-gc.ctx.Done():
-			klog.V(2).Info("GC loop stopping: context canceled")
+			logger.Info("GC loop stopping: context canceled", sdklog.Operation("gc_loop"))
 			// Allow current evaluation to complete if in progress
 			// The evaluatePolicies function checks context cancellation internally
 			return
@@ -315,17 +315,18 @@ func (gc *GCController) runGCLoop() {
 // evaluatePolicies evaluates all policies and performs GC.
 // Policies are evaluated in parallel using a worker pool pattern.
 func (gc *GCController) evaluatePolicies() {
+	logger := sdklog.NewLogger("zen-gc")
 	// Check if context is canceled before starting
 	select {
 	case <-gc.ctx.Done():
-		klog.V(4).Info("Skipping policy evaluation: context canceled")
+		logger.Debug("Skipping policy evaluation: context canceled", sdklog.Operation("evaluate_policies"))
 		return
 	default:
 	}
 
 	// Ensure cache is synced before evaluating policies
 	if !gc.policyInformer.HasSynced() {
-		klog.V(4).Info("Skipping policy evaluation: cache not yet synced")
+		logger.Debug("Skipping policy evaluation: cache not yet synced", sdklog.Operation("evaluate_policies"))
 		return
 	}
 
@@ -389,11 +390,12 @@ func (gc *GCController) recordPolicyPhaseMetrics() {
 
 // evaluatePoliciesSequential evaluates policies sequentially (for small numbers).
 func (gc *GCController) evaluatePoliciesSequential(policies []interface{}) {
+	logger := sdklog.NewLogger("zen-gc")
 	for _, obj := range policies {
 		// Check context cancellation between policy evaluations
 		select {
 		case <-gc.ctx.Done():
-			klog.V(4).Info("Stopping policy evaluation: context canceled")
+			logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policies_sequential"))
 			return
 		default:
 		}
@@ -413,7 +415,7 @@ func (gc *GCController) evaluatePoliciesSequential(policies []interface{}) {
 			if gcErr.Type == "" {
 				gcErr.Type = ErrorTypeEvaluationFailed
 			}
-			klog.Errorf("Error evaluating policy %s/%s: %v", policy.Namespace, policy.Name, gcErr)
+			logger.Error(gcErr, "Error evaluating policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.ErrorCode("EVALUATE_POLICY_FAILED"))
 		}
 	}
 }
@@ -441,12 +443,13 @@ func (gc *GCController) evaluatePoliciesParallel(policies []interface{}, maxConc
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, maxConcurrent)
 
+	logger := sdklog.NewLogger("zen-gc")
 	// Process policies with worker pool
 	for policy := range policyChan {
 		// Check context cancellation
 		select {
 		case <-gc.ctx.Done():
-			klog.V(4).Info("Stopping policy evaluation: context canceled")
+			logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policies_parallel"))
 			// Drain remaining policies from channel
 			for range policyChan {
 			}
@@ -469,7 +472,7 @@ func (gc *GCController) evaluatePoliciesParallel(policies []interface{}, maxConc
 				if gcErr.Type == "" {
 					gcErr.Type = ErrorTypeEvaluationFailed
 				}
-				klog.Errorf("Error evaluating policy %s/%s: %v", p.Namespace, p.Name, gcErr)
+				logger.Error(gcErr, "Error evaluating policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", p.Namespace+"/"+p.Name), sdklog.ErrorCode("EVALUATE_POLICY_FAILED"))
 			}
 		}(policy)
 	}
@@ -481,10 +484,11 @@ func (gc *GCController) evaluatePoliciesParallel(policies []interface{}, maxConc
 // convertToPolicy converts an unstructured object to a GarbageCollectionPolicy.
 // Returns nil if conversion fails or object type is unexpected.
 func (gc *GCController) convertToPolicy(obj interface{}) *v1alpha1.GarbageCollectionPolicy {
+	logger := sdklog.NewLogger("zen-gc")
 	// Convert unstructured to GarbageCollectionPolicy
 	unstructuredObj, ok := obj.(*unstructured.Unstructured)
 	if !ok {
-		klog.Warningf("Unexpected object type in policy informer: %T", obj)
+		logger.Warn("Unexpected object type in policy informer", sdklog.Operation("convert_to_policy"), sdklog.String("type", fmt.Sprintf("%T", obj)))
 		return nil
 	}
 
@@ -494,7 +498,7 @@ func (gc *GCController) convertToPolicy(obj interface{}) *v1alpha1.GarbageCollec
 		gcErr := gcerrors.Wrap(err, "conversion_failed", "failed to convert unstructured to GarbageCollectionPolicy")
 		gcErr.PolicyNamespace = unstructuredObj.GetNamespace()
 		gcErr.PolicyName = unstructuredObj.GetName()
-		klog.Errorf("Error converting unstructured to GarbageCollectionPolicy: %v", gcErr)
+		logger.Error(gcErr, "Error converting unstructured to GarbageCollectionPolicy", sdklog.Operation("convert_to_policy"), sdklog.ErrorCode("CONVERSION_FAILED"))
 		return nil
 	}
 
@@ -505,13 +509,14 @@ func (gc *GCController) convertToPolicy(obj interface{}) *v1alpha1.GarbageCollec
 //
 //nolint:gocyclo // Policy evaluation logic is inherently complex
 func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy) error {
+	logger := sdklog.NewLogger("zen-gc")
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime).Seconds()
 		recordEvaluationDuration(policy.Namespace, policy.Name, duration)
 	}()
 
-	klog.V(4).Infof("Evaluating policy %s/%s", policy.Namespace, policy.Name)
+	logger.Debug("Evaluating policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", policy.Namespace+"/"+policy.Name))
 
 	// Get or create resource informer for this policy
 	informer, err := gc.getOrCreateResourceInformer(policy)
@@ -520,7 +525,7 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 		gcErr.PolicyNamespace = policy.Namespace
 		gcErr.PolicyName = policy.Name
 		recordError(policy.Namespace, policy.Name, "informer_creation_failed")
-		klog.Errorf("Error creating resource informer for policy %s/%s: %v", policy.Namespace, policy.Name, gcErr)
+		logger.Error(gcErr, "Error creating resource informer for policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.ErrorCode("INFORMER_CREATION_FAILED"))
 		return gcErr
 	}
 
@@ -542,7 +547,7 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 		// Check context cancellation during resource iteration
 		select {
 		case <-gc.ctx.Done():
-			klog.V(4).Infof("Stopping policy evaluation for %s/%s: context canceled", policy.Namespace, policy.Name)
+			logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policy"), sdklog.String("policy", policy.Namespace+"/"+policy.Name))
 			return nil
 		default:
 		}
@@ -582,7 +587,7 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 			// Check context cancellation between batches
 			select {
 			case <-gc.ctx.Done():
-				klog.V(4).Infof("Stopping batch deletion for %s/%s: context canceled", policy.Namespace, policy.Name)
+				logger.Debug("Stopping batch deletion: context canceled", sdklog.Operation("delete_batch"), sdklog.String("policy", policy.Namespace+"/"+policy.Name))
 				return nil
 			default:
 			}
@@ -609,12 +614,11 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 				if gc.eventRecorder != nil {
 					gc.eventRecorder.RecordEvaluationFailed(policy, err)
 				}
-				klog.Errorf("Error deleting batch for policy %s/%s: %v", policy.Namespace, policy.Name, err)
+				logger.Error(err, "Error deleting batch for policy", sdklog.Operation("delete_batch"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.ErrorCode("DELETE_BATCH_FAILED"))
 			}
 
 			// Log deletion attempt metrics
-			klog.V(4).Infof("Policy %s/%s: attempted %d deletions, succeeded %d, failed %d",
-				policy.Namespace, policy.Name, deletionAttempts, batchDeleted, int64(len(batchErrors)))
+			logger.Debug("Policy deletion batch completed", sdklog.Operation("delete_batch"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.Int64("attempted", deletionAttempts), sdklog.Int64("succeeded", batchDeleted), sdklog.Int64("failed", int64(len(batchErrors))))
 		}
 	}
 
@@ -632,7 +636,7 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 		if err := gc.statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount); err != nil {
 			// Check if error is due to context cancellation/timeout
 			if statusCtx.Err() != nil {
-				klog.V(4).Infof("Status update canceled or timed out for policy %s/%s: %v", policy.Namespace, policy.Name, statusCtx.Err())
+				logger.Debug("Status update canceled or timed out", sdklog.Operation("update_status"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.Error(statusCtx.Err()))
 				return nil // Don't treat cancellation as error
 			}
 			gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
@@ -642,7 +646,7 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 			if gc.eventRecorder != nil {
 				gc.eventRecorder.RecordStatusUpdateFailed(policy, gcErr)
 			}
-			klog.Errorf("Error updating policy status for %s/%s: %v", policy.Namespace, policy.Name, gcErr)
+			logger.Error(gcErr, "Error updating policy status", sdklog.Operation("update_status"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.ErrorCode("UPDATE_STATUS_FAILED"))
 		}
 	}
 
@@ -671,7 +675,8 @@ func (gc *GCController) shouldDelete(resource *unstructured.Unstructured, policy
 	// Calculate expiration time
 	expirationTime, err := gc.calculateExpirationTime(resource, &policy.Spec.TTL)
 	if err != nil {
-		klog.V(4).Infof("Could not calculate expiration time for resource %s/%s: %v", resource.GetNamespace(), resource.GetName(), err)
+		logger := sdklog.NewLogger("zen-gc")
+		logger.Debug("Could not calculate expiration time for resource", sdklog.Operation("should_delete"), sdklog.String("resource", resource.GetNamespace()+"/"+resource.GetName()), sdklog.Error(err))
 		return false, ReasonNoTTL
 	}
 
@@ -735,7 +740,8 @@ func (gc *GCController) deleteResource(resource *unstructured.Unstructured, poli
 
 	// Dry run check
 	if policy.Spec.Behavior.DryRun {
-		klog.Infof("[DRY RUN] Would delete resource %s/%s", resource.GetNamespace(), resource.GetName())
+		logger := sdklog.NewLogger("zen-gc")
+		logger.Info("[DRY RUN] Would delete resource", sdklog.Operation("delete_resource"), sdklog.String("resource", resource.GetNamespace()+"/"+resource.GetName()))
 		return nil
 	}
 
@@ -855,12 +861,14 @@ func (gc *GCController) getOrCreateResourceInformer(policy *v1alpha1.GarbageColl
 		return nil, fmt.Errorf("%w", ErrResourceInformerCacheSyncFailed)
 	}
 
-	klog.V(4).Infof("Created resource informer for policy %s/%s (UID: %s)", policy.Namespace, policy.Name, policy.UID)
+	logger := sdklog.NewLogger("zen-gc")
+	logger.Debug("Created resource informer for policy", sdklog.Operation("get_or_create_informer"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.String("uid", string(policy.UID)))
 	return informer, nil
 }
 
 // handlePolicyDelete handles policy deletion events and cleans up associated resource informers.
 func (gc *GCController) handlePolicyDelete(obj interface{}) {
+	logger := sdklog.NewLogger("zen-gc")
 	var policy *v1alpha1.GarbageCollectionPolicy
 
 	// Handle different object types (unstructured or typed)
@@ -868,7 +876,7 @@ func (gc *GCController) handlePolicyDelete(obj interface{}) {
 	case *unstructured.Unstructured:
 		policy = &v1alpha1.GarbageCollectionPolicy{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, policy); err != nil {
-			klog.Errorf("Error converting unstructured to GarbageCollectionPolicy in delete handler: %v", err)
+			logger.Error(err, "Error converting unstructured to GarbageCollectionPolicy in delete handler", sdklog.Operation("handle_policy_delete"), sdklog.ErrorCode("CONVERSION_FAILED"))
 			return
 		}
 	case *v1alpha1.GarbageCollectionPolicy:
@@ -879,15 +887,15 @@ func (gc *GCController) handlePolicyDelete(obj interface{}) {
 			policy = &v1alpha1.GarbageCollectionPolicy{}
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, policy); err != nil {
 				gcErr := gcerrors.Wrap(err, "conversion_failed", "failed to convert unstructured to GarbageCollectionPolicy in delete handler")
-				klog.Errorf("Error converting unstructured to GarbageCollectionPolicy in delete handler: %v", gcErr)
+				logger.Error(gcErr, "Error converting unstructured to GarbageCollectionPolicy in delete handler", sdklog.Operation("handle_policy_delete"), sdklog.ErrorCode("CONVERSION_FAILED"))
 				return
 			}
 		} else {
-			klog.Warningf("Unexpected object type in delete handler: %T", o.Obj)
+			logger.Warn("Unexpected object type in delete handler", sdklog.Operation("handle_policy_delete"), sdklog.String("type", fmt.Sprintf("%T", o.Obj)))
 			return
 		}
 	default:
-		klog.Warningf("Unexpected object type in delete handler: %T", obj)
+		logger.Warn("Unexpected object type in delete handler", sdklog.Operation("handle_policy_delete"), sdklog.String("type", fmt.Sprintf("%T", obj)))
 		return
 	}
 
@@ -895,13 +903,14 @@ func (gc *GCController) handlePolicyDelete(obj interface{}) {
 		return
 	}
 
-	klog.V(2).Infof("Policy %s/%s deleted, cleaning up resource informer and rate limiter", policy.Namespace, policy.Name)
+	logger.Info("Policy deleted, cleaning up resource informer and rate limiter", sdklog.Operation("handle_policy_delete"), sdklog.String("policy", policy.Namespace+"/"+policy.Name))
 	gc.cleanupResourceInformer(policy.UID)
 	gc.cleanupRateLimiter(policy.UID)
 }
 
 // handlePolicyUpdate handles policy update events and recreates informer if needed.
 func (gc *GCController) handlePolicyUpdate(oldObj, newObj interface{}) {
+	logger := sdklog.NewLogger("zen-gc")
 	var oldPolicy, newPolicy *v1alpha1.GarbageCollectionPolicy
 
 	// Convert old object
@@ -910,7 +919,7 @@ func (gc *GCController) handlePolicyUpdate(oldObj, newObj interface{}) {
 		oldPolicy = &v1alpha1.GarbageCollectionPolicy{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, oldPolicy); err != nil {
 			gcErr := gcerrors.Wrap(err, "conversion_failed", "failed to convert old unstructured to GarbageCollectionPolicy")
-			klog.Errorf("Error converting old unstructured to GarbageCollectionPolicy: %v", gcErr)
+			logger.Error(gcErr, "Error converting old unstructured to GarbageCollectionPolicy", sdklog.Operation("handle_policy_update"), sdklog.ErrorCode("CONVERSION_FAILED"))
 			return
 		}
 	case *v1alpha1.GarbageCollectionPolicy:
@@ -925,7 +934,7 @@ func (gc *GCController) handlePolicyUpdate(oldObj, newObj interface{}) {
 		newPolicy = &v1alpha1.GarbageCollectionPolicy{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, newPolicy); err != nil {
 			gcErr := gcerrors.Wrap(err, "conversion_failed", "failed to convert new unstructured to GarbageCollectionPolicy")
-			klog.Errorf("Error converting new unstructured to GarbageCollectionPolicy: %v", gcErr)
+			logger.Error(gcErr, "Error converting new unstructured to GarbageCollectionPolicy", sdklog.Operation("handle_policy_update"), sdklog.ErrorCode("CONVERSION_FAILED"))
 			return
 		}
 	case *v1alpha1.GarbageCollectionPolicy:
@@ -947,7 +956,7 @@ func (gc *GCController) handlePolicyUpdate(oldObj, newObj interface{}) {
 		oldSpec.Kind != newSpec.Kind ||
 		oldSpec.Namespace != newSpec.Namespace ||
 		!labelSelectorsEqual(oldSpec.LabelSelector, newSpec.LabelSelector) {
-		klog.V(2).Infof("Policy %s/%s target resource spec changed, recreating informer", newPolicy.Namespace, newPolicy.Name)
+		logger.Info("Policy target resource spec changed, recreating informer", sdklog.Operation("handle_policy_update"), sdklog.String("policy", newPolicy.Namespace+"/"+newPolicy.Name))
 		// Clean up old informer
 		gc.cleanupResourceInformer(oldPolicy.UID)
 		// New informer will be created on next evaluation
@@ -1000,7 +1009,8 @@ func (gc *GCController) cleanupResourceInformer(policyUID types.UID) {
 	// Remove informer from map
 	if informerExists {
 		delete(gc.resourceInformers, policyUID)
-		klog.V(4).Infof("Cleaned up resource informer for policy UID: %s", policyUID)
+		logger := sdklog.NewLogger("zen-gc")
+		logger.Debug("Cleaned up resource informer for policy", sdklog.Operation("cleanup_informer"), sdklog.String("uid", string(policyUID)))
 	}
 
 	// Update metrics
@@ -1014,7 +1024,8 @@ func (gc *GCController) cleanupAllResourceInformers() {
 
 	count := len(gc.resourceInformers)
 	if count > 0 {
-		klog.Infof("Cleaning up %d resource informer(s) during shutdown", count)
+		logger := sdklog.NewLogger("zen-gc")
+		logger.Info("Cleaning up resource informers during shutdown", sdklog.Operation("cleanup_all_informers"), sdklog.Int("count", count))
 	}
 
 	// Clear all informers and factories
@@ -1049,7 +1060,8 @@ func (gc *GCController) cleanupRateLimiter(policyUID types.UID) {
 
 	if _, exists := gc.rateLimiters[policyUID]; exists {
 		delete(gc.rateLimiters, policyUID)
-		klog.V(4).Infof("Cleaned up rate limiter for policy UID: %s", policyUID)
+		logger := sdklog.NewLogger("zen-gc")
+		logger.Debug("Cleaned up rate limiter for policy", sdklog.Operation("cleanup_rate_limiter"), sdklog.String("uid", string(policyUID)))
 	}
 
 	// Update metrics
@@ -1063,7 +1075,8 @@ func (gc *GCController) cleanupAllRateLimiters() {
 
 	count := len(gc.rateLimiters)
 	if count > 0 {
-		klog.Infof("Cleaning up %d rate limiter(s) during shutdown", count)
+		logger := sdklog.NewLogger("zen-gc")
+		logger.Info("Cleaning up rate limiters during shutdown", sdklog.Operation("cleanup_all_rate_limiters"), sdklog.Int("count", count))
 	}
 
 	gc.rateLimiters = make(map[types.UID]*ratelimiter.RateLimiter)

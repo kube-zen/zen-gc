@@ -7,11 +7,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/klog/v2"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
+	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
 // PolicyGVR is the GroupVersionResource for GarbageCollectionPolicy CRDs.
@@ -154,12 +154,13 @@ func (s *StatusUpdater) UpdateStatus(
 		gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update GarbageCollectionPolicy status")
 		gcErr.PolicyNamespace = policy.Namespace
 		gcErr.PolicyName = policy.Name
-		klog.Warningf("Failed to update GarbageCollectionPolicy status for %s/%s: %v", policy.Namespace, policy.Name, gcErr)
+		logger := sdklog.NewLogger("zen-gc")
+		logger.Warn("Failed to update GarbageCollectionPolicy status", sdklog.Operation("update_status"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.Error(gcErr))
 		return gcErr
 	}
 
-	klog.V(4).Infof("Updated GarbageCollectionPolicy status: %s/%s (matched=%d, deleted=%d, pending=%d)",
-		policy.Namespace, policy.Name, matched, deleted, pending)
+	logger := sdklog.NewLogger("zen-gc")
+	logger.Debug("Updated GarbageCollectionPolicy status", sdklog.Operation("update_status"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.Int64("matched", matched), sdklog.Int64("deleted", deleted), sdklog.Int64("pending", pending))
 
 	return nil
 }

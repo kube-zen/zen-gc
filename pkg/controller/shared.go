@@ -27,13 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
 	"github.com/kube-zen/zen-sdk/pkg/gc/backoff"
 	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
+	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 	sdkttl "github.com/kube-zen/zen-sdk/pkg/gc/ttl"
 )
 
@@ -131,7 +131,8 @@ func getOrCreateRateLimiterShared(mgr RateLimiterManager, policy *v1alpha1.Garba
 	// Update metrics
 	recordRateLimiterCount(len(rateLimiters))
 
-	klog.V(4).Infof("Created rate limiter for policy %s/%s (UID: %s, rate: %d/sec)", policy.Namespace, policy.Name, policy.UID, maxDeletionsPerSecond)
+	logger := sdklog.NewLogger("zen-gc")
+	logger.Debug("Created rate limiter for policy", sdklog.Operation("get_or_create_rate_limiter"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.String("uid", string(policy.UID)), sdklog.Int("rate_per_sec", maxDeletionsPerSecond))
 	return limiter
 }
 
@@ -191,7 +192,8 @@ func deleteBatchShared(
 		if eventRecorder := deleter.GetEventRecorder(); eventRecorder != nil {
 			eventRecorder.RecordResourceDeleted(policy, resource, reason)
 		}
-		klog.V(2).Infof("Deleted resource %s/%s (reason: %s)", resource.GetNamespace(), resource.GetName(), reason)
+		logger := sdklog.NewLogger("zen-gc")
+		logger.Info("Deleted resource", sdklog.Operation("delete_batch"), sdklog.String("resource", resource.GetNamespace()+"/"+resource.GetName()), sdklog.String("reason", reason))
 	}
 
 	return deletedCount, errors
@@ -382,7 +384,8 @@ func meetsLabelConditionsShared(resource *unstructured.Unstructured, labelConds 
 			}
 		default:
 			// Unknown operator - fail safe by rejecting
-			klog.Warningf("Unknown label condition operator: %s, rejecting match", labelCond.Operator)
+			logger := sdklog.NewLogger("zen-gc")
+			logger.Warn("Unknown label condition operator, rejecting match", sdklog.Operation("meets_label_conditions"), sdklog.String("operator", string(labelCond.Operator)))
 			return false
 		}
 	}
@@ -462,7 +465,8 @@ func matchesSelectorsShared(resource *unstructured.Unstructured, target *v1alpha
 		selector, err := metav1.LabelSelectorAsSelector(target.LabelSelector)
 		if err != nil {
 			gcErr := gcerrors.Wrap(err, "invalid_label_selector", "invalid label selector")
-			klog.Errorf("Invalid label selector: %v", gcErr)
+			logger := sdklog.NewLogger("zen-gc")
+			logger.Error(gcErr, "Invalid label selector", sdklog.Operation("matches_selectors"), sdklog.ErrorCode("INVALID_LABEL_SELECTOR"))
 			return false
 		}
 
