@@ -133,9 +133,9 @@ func TestPolicyEvaluationService_IntegrationWithMocks(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "expired-cm",
-				"namespace":          "default",
-				"uid":                "expired-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "expired-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 				"labels": map[string]interface{}{
 					"app": "test",
 				},
@@ -149,9 +149,9 @@ func TestPolicyEvaluationService_IntegrationWithMocks(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "valid-cm",
-				"namespace":          "default",
-				"uid":                "valid-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-30 * time.Minute)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "valid-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-30 * time.Minute)).Format(time.RFC3339),
 			},
 		},
 	}
@@ -222,14 +222,13 @@ func TestGCControllerAdapter_AllMethods(t *testing.T) {
 	// We'll use a nil GCController to test that adapters can be created
 	// In real usage, the GCController would be properly initialized
 	var gc *controller.GCController // nil for this test - we're just testing adapter creation
-	
+
 	// This test verifies that the adapter methods exist and can be called
 	// In a real scenario, we'd have a properly initialized GCController
 	// For now, we test that the adapter structure is correct
 	_ = gc
-	
+
 	// The actual adapter creation requires a non-nil GCController
 	// This test documents the expected behavior
 	t.Log("Adapter methods verified - requires non-nil GCController for full functionality")
 }
-

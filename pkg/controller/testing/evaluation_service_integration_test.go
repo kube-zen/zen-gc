@@ -37,7 +37,7 @@ func TestGetOrCreateEvaluationService_FirstCall(t *testing.T) {
 	// Create a mock GCController structure
 	// We'll test the adapter and service creation logic
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
-	
+
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -49,16 +49,16 @@ func TestGetOrCreateEvaluationService_FirstCall(t *testing.T) {
 		},
 	}
 	store.Add(resource)
-	
+
 	// Create a resource lister directly
 	lister := controller.NewInformerStoreResourceLister(store)
-	
+
 	// Create mocks for other dependencies
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	mockConditionMatcher := NewMockConditionMatcher()
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
-	
+
 	// Create service directly (simulating what getOrCreateEvaluationService does)
 	service := controller.NewPolicyEvaluationService(
 		lister,
@@ -71,7 +71,7 @@ func TestGetOrCreateEvaluationService_FirstCall(t *testing.T) {
 		nil,
 		sdklog.NewLogger("zen-gc"),
 	)
-	
+
 	if service == nil {
 		t.Fatal("NewPolicyEvaluationService returned nil")
 	}
@@ -82,15 +82,15 @@ func TestGetOrCreateEvaluationService_ReuseService(t *testing.T) {
 	// This test verifies that once created, the service is reused
 	// In a real scenario, this would be tested with a GCController instance
 	// For now, we test the concept with direct service creation
-	
+
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	lister := controller.NewInformerStoreResourceLister(store)
-	
+
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	mockConditionMatcher := NewMockConditionMatcher()
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
-	
+
 	// Create service first time
 	service1 := controller.NewPolicyEvaluationService(
 		lister,
@@ -103,7 +103,7 @@ func TestGetOrCreateEvaluationService_ReuseService(t *testing.T) {
 		nil,
 		sdklog.NewLogger("zen-gc"),
 	)
-	
+
 	// Create service second time (simulating reuse)
 	service2 := controller.NewPolicyEvaluationService(
 		lister,
@@ -116,7 +116,7 @@ func TestGetOrCreateEvaluationService_ReuseService(t *testing.T) {
 		nil,
 		sdklog.NewLogger("zen-gc"),
 	)
-	
+
 	// Services should be different instances (NewPolicyEvaluationService always creates new)
 	// But in getOrCreateEvaluationService, the same instance would be reused
 	if service1 == service2 {
@@ -127,7 +127,7 @@ func TestGetOrCreateEvaluationService_ReuseService(t *testing.T) {
 // TestPolicyEvaluationService_WithAllMocks tests the service with comprehensive mocks.
 func TestPolicyEvaluationService_WithAllMocks(t *testing.T) {
 	now := time.Now()
-	
+
 	// Create multiple test resources
 	resources := []*unstructured.Unstructured{
 		{
@@ -136,9 +136,9 @@ func TestPolicyEvaluationService_WithAllMocks(t *testing.T) {
 				"kind":       "ConfigMap",
 				"metadata": map[string]interface{}{
 					"name":              "expired-cm-1",
-					"namespace":          "default",
-					"uid":                "uid-1",
-					"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+					"namespace":         "default",
+					"uid":               "uid-1",
+					"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 					"labels": map[string]interface{}{
 						"app": "test",
 					},
@@ -151,9 +151,9 @@ func TestPolicyEvaluationService_WithAllMocks(t *testing.T) {
 				"kind":       "ConfigMap",
 				"metadata": map[string]interface{}{
 					"name":              "expired-cm-2",
-					"namespace":          "default",
-					"uid":                "uid-2",
-					"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+					"namespace":         "default",
+					"uid":               "uid-2",
+					"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 					"labels": map[string]interface{}{
 						"app": "test",
 					},
@@ -166,14 +166,14 @@ func TestPolicyEvaluationService_WithAllMocks(t *testing.T) {
 				"kind":       "ConfigMap",
 				"metadata": map[string]interface{}{
 					"name":              "valid-cm",
-					"namespace":          "default",
-					"uid":                "uid-3",
-					"creationTimestamp":  metav1.NewTime(now.Add(-30 * time.Minute)).Format(time.RFC3339),
+					"namespace":         "default",
+					"uid":               "uid-3",
+					"creationTimestamp": metav1.NewTime(now.Add(-30 * time.Minute)).Format(time.RFC3339),
 				},
 			},
 		},
 	}
-	
+
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-policy",
@@ -199,27 +199,27 @@ func TestPolicyEvaluationService_WithAllMocks(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Create comprehensive mocks
 	mockLister := NewMockResourceLister()
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	mockLister.SetResources(gvr, "default", resources)
-	
+
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	for _, r := range resources {
 		mockSelectorMatcher.SetMatch(r, true) // All match selectors
 	}
-	
+
 	mockConditionMatcher := NewMockConditionMatcher()
 	mockConditionMatcher.SetMeetsConditions(resources[0], true)  // Expired, meets conditions
 	mockConditionMatcher.SetMeetsConditions(resources[1], true)  // Expired, meets conditions
 	mockConditionMatcher.SetMeetsConditions(resources[2], false) // Valid, doesn't meet conditions
-	
+
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
 	mockDeleter.SetDeleteResult(resources[0], nil) // Success
 	mockDeleter.SetDeleteResult(resources[1], nil) // Success
-	
+
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,
@@ -231,7 +231,7 @@ func TestPolicyEvaluationService_WithAllMocks(t *testing.T) {
 		nil,
 		sdklog.NewLogger("zen-gc"),
 	)
-	
+
 	ctx := context.Background()
 	err := service.EvaluatePolicy(ctx, policy)
 	if err != nil {
@@ -257,14 +257,14 @@ func TestPolicyEvaluationService_ErrorHandling(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Create mocks
 	mockLister := NewMockResourceLister()
 	mockSelectorMatcher := NewMockSelectorMatcher()
 	mockConditionMatcher := NewMockConditionMatcher()
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
-	
+
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
 		mockSelectorMatcher,
@@ -276,7 +276,7 @@ func TestPolicyEvaluationService_ErrorHandling(t *testing.T) {
 		nil,
 		sdklog.NewLogger("zen-gc"),
 	)
-	
+
 	ctx := context.Background()
 	err := service.EvaluatePolicy(ctx, policy)
 	// Should return error for invalid GVR
@@ -289,7 +289,7 @@ func TestPolicyEvaluationService_ErrorHandling(t *testing.T) {
 func TestInformerStoreResourceLister_EdgeCases(t *testing.T) {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	lister := controller.NewInformerStoreResourceLister(store)
-	
+
 	// Test with empty store
 	empty, err := lister.ListResources(context.Background(), schema.GroupVersionResource{}, "")
 	if err != nil {
@@ -298,10 +298,10 @@ func TestInformerStoreResourceLister_EdgeCases(t *testing.T) {
 	if len(empty) != 0 {
 		t.Errorf("Expected 0 resources from empty store, got %d", len(empty))
 	}
-	
+
 	// Test with non-unstructured objects (should be filtered out)
 	store.Add("not-an-unstructured-object")
-	
+
 	all, err := lister.ListResources(context.Background(), schema.GroupVersionResource{}, "")
 	if err != nil {
 		t.Fatalf("ListResources failed: %v", err)
@@ -317,9 +317,8 @@ func TestGCControllerAdapter_GetResourceListerForPolicy_ErrorHandling(t *testing
 	// This test verifies that the adapter handles errors correctly
 	// In a real scenario, this would test with a GCController that fails to create informer
 	// For now, we test the adapter structure
-	
+
 	// The adapter methods are tested in TestGCControllerAdapter_AllMethods
 	// This test documents expected error handling behavior
 	t.Log("Adapter error handling verified - requires real GCController for full test")
 }
-

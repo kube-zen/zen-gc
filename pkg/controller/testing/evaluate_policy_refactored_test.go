@@ -42,9 +42,9 @@ func TestPolicyEvaluationService_EvaluatePolicy(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "expired-cm",
-				"namespace":          "default",
-				"uid":                "expired-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "expired-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 			},
 		},
 	}
@@ -55,9 +55,9 @@ func TestPolicyEvaluationService_EvaluatePolicy(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "valid-cm",
-				"namespace":          "default",
-				"uid":                "valid-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-30 * time.Minute)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "valid-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-30 * time.Minute)).Format(time.RFC3339),
 			},
 		},
 	}
@@ -210,4 +210,3 @@ func TestPolicyEvaluationService_EvaluatePolicy_ContextCanceled(t *testing.T) {
 		t.Fatalf("EvaluatePolicy should handle canceled context gracefully: %v", err)
 	}
 }
-

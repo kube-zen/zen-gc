@@ -141,24 +141,24 @@ func TestParseGVR(t *testing.T) {
 // TestPolicyEvaluationService_GetBatchSize tests batch size logic.
 func TestPolicyEvaluationService_GetBatchSize(t *testing.T) {
 	tests := []struct {
-		name           string
+		name            string
 		policyBatchSize int
-		expectedSize   int
+		expectedSize    int
 	}{
 		{
-			name:           "policy batch size set",
+			name:            "policy batch size set",
 			policyBatchSize: 5,
-			expectedSize:   5,
+			expectedSize:    5,
 		},
 		{
-			name:           "zero batch size uses default",
+			name:            "zero batch size uses default",
 			policyBatchSize: 0,
-			expectedSize:   10, // Default
+			expectedSize:    10, // Default
 		},
 		{
-			name:           "large batch size",
+			name:            "large batch size",
 			policyBatchSize: 100,
-			expectedSize:   100,
+			expectedSize:    100,
 		},
 	}
 
@@ -173,9 +173,9 @@ func TestPolicyEvaluationService_GetBatchSize(t *testing.T) {
 						"kind":       "ConfigMap",
 						"metadata": map[string]interface{}{
 							"name":              fmt.Sprintf("test-cm-%d", i),
-							"namespace":          "default",
-							"uid":                types.UID(fmt.Sprintf("uid-%d", i)),
-							"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+							"namespace":         "default",
+							"uid":               types.UID(fmt.Sprintf("uid-%d", i)),
+							"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 						},
 					},
 				})
@@ -294,9 +294,9 @@ func TestPolicyEvaluationService_ShouldDelete(t *testing.T) {
 					"kind":       "ConfigMap",
 					"metadata": map[string]interface{}{
 						"name":              "test-cm",
-						"namespace":          "default",
-						"uid":                "test-uid",
-						"creationTimestamp":  metav1.NewTime(tt.creationTime).Format(time.RFC3339),
+						"namespace":         "default",
+						"uid":               "test-uid",
+						"creationTimestamp": metav1.NewTime(tt.creationTime).Format(time.RFC3339),
 					},
 				},
 			}
@@ -373,9 +373,9 @@ func TestPolicyEvaluationService_StatusUpdateTimeout(t *testing.T) {
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":              "test-cm",
-				"namespace":          "default",
-				"uid":                "test-uid",
-				"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+				"namespace":         "default",
+				"uid":               "test-uid",
+				"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 			},
 		},
 	}
@@ -445,9 +445,9 @@ func TestPolicyEvaluationService_BatchDeletionErrors(t *testing.T) {
 				"kind":       "ConfigMap",
 				"metadata": map[string]interface{}{
 					"name":              fmt.Sprintf("test-cm-%d", i),
-					"namespace":          "default",
-					"uid":                types.UID(fmt.Sprintf("uid-%d", i)),
-					"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+					"namespace":         "default",
+					"uid":               types.UID(fmt.Sprintf("uid-%d", i)),
+					"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 				},
 			},
 		})
@@ -490,11 +490,11 @@ func TestPolicyEvaluationService_BatchDeletionErrors(t *testing.T) {
 	mockRateLimiter := NewMockRateLimiterProvider()
 	mockDeleter := NewMockBatchDeleterCore()
 	// Set some deletions to fail
-	mockDeleter.SetDeleteResult(resources[0], nil)                    // Success
-	mockDeleter.SetDeleteResult(resources[1], errDeleteFailed)       // Error
-	mockDeleter.SetDeleteResult(resources[2], nil)                   // Success
-	mockDeleter.SetDeleteResult(resources[3], errDeleteFailed)       // Error
-	mockDeleter.SetDeleteResult(resources[4], nil)                   // Success
+	mockDeleter.SetDeleteResult(resources[0], nil)             // Success
+	mockDeleter.SetDeleteResult(resources[1], errDeleteFailed) // Error
+	mockDeleter.SetDeleteResult(resources[2], nil)             // Success
+	mockDeleter.SetDeleteResult(resources[3], errDeleteFailed) // Error
+	mockDeleter.SetDeleteResult(resources[4], nil)             // Success
 
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
@@ -526,9 +526,9 @@ func TestPolicyEvaluationService_WildcardNamespace(t *testing.T) {
 				"kind":       "ConfigMap",
 				"metadata": map[string]interface{}{
 					"name":              "test-cm-1",
-					"namespace":          "default",
-					"uid":                "uid-1",
-					"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+					"namespace":         "default",
+					"uid":               "uid-1",
+					"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 				},
 			},
 		},
@@ -538,9 +538,9 @@ func TestPolicyEvaluationService_WildcardNamespace(t *testing.T) {
 				"kind":       "ConfigMap",
 				"metadata": map[string]interface{}{
 					"name":              "test-cm-2",
-					"namespace":          "kube-system",
-					"uid":                "uid-2",
-					"creationTimestamp":  metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
+					"namespace":         "kube-system",
+					"uid":               "uid-2",
+					"creationTimestamp": metav1.NewTime(now.Add(-2 * time.Hour)).Format(time.RFC3339),
 				},
 			},
 		},
@@ -603,4 +603,3 @@ func TestPolicyEvaluationService_WildcardNamespace(t *testing.T) {
 		t.Fatalf("EvaluatePolicy failed: %v", err)
 	}
 }
-

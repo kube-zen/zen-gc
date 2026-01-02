@@ -184,4 +184,3 @@ func TestMockResourceLister(t *testing.T) {
 		t.Errorf("Expected 1 resource, got %d", len(resources))
 	}
 }
-

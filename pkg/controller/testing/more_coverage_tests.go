@@ -37,6 +37,12 @@ var (
 	errDeletionFailed = errors.New("deletion failed")
 )
 
+// Test constants to avoid magic numbers.
+const (
+	testTTLSeconds = 3600 // 1 hour in seconds
+	testResourceCount = 5
+)
+
 // TestInformerStoreResourceLister tests the InformerStoreResourceLister adapter.
 func TestInformerStoreResourceLister(t *testing.T) {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
