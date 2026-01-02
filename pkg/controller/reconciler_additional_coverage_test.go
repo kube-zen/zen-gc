@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"k8s.io/client-go/dynamic/fake"
+	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
@@ -125,7 +125,6 @@ func TestGCPolicyReconciler_matchesSelectors(t *testing.T) {
 	}
 }
 
-
 // TestGCPolicyReconciler_cleanupPolicyResources_Additional tests cleanup of policy resources.
 func TestGCPolicyReconciler_cleanupPolicyResources_Additional(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -178,7 +177,6 @@ func TestGCPolicyReconciler_cleanupPolicyResources_Additional(t *testing.T) {
 	nn2 := types.NamespacedName{Name: policy2.Name, Namespace: policy2.Namespace}
 	reconciler.cleanupPolicyResources(nn2)
 }
-
 
 // TestGCPolicyReconciler_getOrCreateResourceInformer_ErrorHandling tests error handling.
 // Note: This test may panic with invalid GVR due to informer creation complexity.
@@ -276,4 +274,3 @@ func TestGCPolicyReconciler_deleteResource_ContextCancellation(t *testing.T) {
 		t.Log("deleteResource() handled context cancellation - may return error or handle gracefully")
 	}
 }
-

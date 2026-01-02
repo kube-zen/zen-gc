@@ -211,50 +211,31 @@ func (r *GCPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	policy := &v1alpha1.GarbageCollectionPolicy{}
 	if err := r.Get(ctx, req.NamespacedName, policy); err != nil {
 		if errors.IsNotFound(err) {
-			// Policy was deleted - clean up associated resources
-			r.logger.Debug("Policy not found, cleaning up resources", sdklog.Operation("reconcile"))
-			r.cleanupPolicyResources(req.NamespacedName)
-			return ctrl.Result{}, nil
+			return r.handlePolicyDeletion(ctx, req)
 		}
-		r.logger.Error(err, "Failed to fetch GarbageCollectionPolicy", sdklog.Operation("fetch_policy"), sdklog.ErrorCode("FETCH_POLICY_FAILED"))
-		return ctrl.Result{}, err
+		return r.handlePolicyFetchError(err)
 	}
 
 	// Track policy UID for cleanup on deletion
 	r.trackPolicyUID(req.NamespacedName, policy.UID)
 
-	// Check if policy spec changed and requires informer recreation
-	if r.shouldRecreateInformer(policy) {
-		r.logger.Debug("Policy spec changed, recreating informer", sdklog.Operation("update_informer"))
-		r.cleanupResourceInformer(policy.UID)
-		// Clear old spec to allow new one to be tracked
-		r.policySpecsMu.Lock()
-		delete(r.policySpecs, policy.UID)
-		r.policySpecsMu.Unlock()
-	}
+	// Handle informer recreation if policy spec changed
+	r.handleInformerRecreation(policy)
 
 	// Store current spec for future comparison
 	r.trackPolicySpec(policy.UID, &policy.Spec)
 
 	// Skip paused policies
 	if policy.Spec.Paused {
-		r.logger.Debug("Policy is paused, skipping evaluation", sdklog.Operation("reconcile"))
-		return ctrl.Result{RequeueAfter: r.getRequeueInterval()}, nil
+		return r.handlePausedPolicy()
 	}
 
 	// Evaluate the policy
 	if err := r.evaluatePolicy(ctx, policy); err != nil {
-		gcErr := gcerrors.WithPolicy(err, policy.Namespace, policy.Name)
-		if gcErr.Type == "" {
-			gcErr.Type = ErrorTypeEvaluationFailed
-		}
-		r.logger.Error(gcErr, "Error evaluating policy", sdklog.Operation("evaluate_policy"), sdklog.ErrorCode("EVALUATE_POLICY_FAILED"))
-		// Requeue with backoff on error
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return r.handleEvaluationError(err, policy)
 	}
 
 	// Record policy phase metrics periodically
-	// Use a simple counter to avoid calling too frequently
 	r.recordPolicyPhaseMetrics(ctx)
 
 	// Determine requeue interval based on policy evaluation interval or default
@@ -463,59 +444,18 @@ func (r *GCPolicyReconciler) deleteResource(ctx context.Context, resource *unstr
 
 	// Dry run check
 	if policy.Spec.Behavior.DryRun {
-		// Use struct logger to avoid allocations
 		r.logger.Info("[DRY RUN] Would delete resource", sdklog.Operation("delete_resource"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())))
 		return nil
 	}
 
-	// Get GVR using GVRResolver (with RESTMapper if available, otherwise pluralization)
-	// This provides reliable resolution for irregular CRDs while maintaining backward compatibility
-	var gvr schema.GroupVersionResource
-	if r.gvrResolver != nil {
-		resolvedGVR, gvrErr := r.gvrResolver.ResolveGVR(resource)
-		if gvrErr != nil {
-			// Fall back to pluralization if GVRResolver fails
-			r.logger.Debug("GVRResolver failed, falling back to pluralization", sdklog.Operation("delete_resource"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), sdklog.Error(gvrErr))
-			gvr = schema.GroupVersionResource{
-				Group:    resource.GroupVersionKind().Group,
-				Version:  resource.GroupVersionKind().Version,
-				Resource: validation.PluralizeKind(resource.GetKind()),
-			}
-		} else {
-			gvr = resolvedGVR
-		}
-	} else {
-		// No GVRResolver, use pluralization (should not happen, but safe fallback)
-		gvr = schema.GroupVersionResource{
-			Group:    resource.GroupVersionKind().Group,
-			Version:  resource.GroupVersionKind().Version,
-			Resource: validation.PluralizeKind(resource.GetKind()),
-		}
-	}
+	// Resolve GVR for deletion
+	gvr := r.resolveGVRForDeletion(resource)
 
-	// Delete options
-	deleteOptions := &metav1.DeleteOptions{}
-	if policy.Spec.Behavior.GracePeriodSeconds != nil {
-		deleteOptions.GracePeriodSeconds = policy.Spec.Behavior.GracePeriodSeconds
-	}
+	// Build delete options
+	deleteOptions := buildDeleteOptions(policy)
 
-	propagationPolicy := getDeletionPropagationPolicy(policy.Spec.Behavior.PropagationPolicy)
-	deleteOptions.PropagationPolicy = &propagationPolicy
-
-	// Delete the resource
-	namespace := resource.GetNamespace()
-	var err error
-	if namespace == "" {
-		err = r.dynamicClient.Resource(gvr).Delete(ctx, resource.GetName(), *deleteOptions)
-	} else {
-		err = r.dynamicClient.Resource(gvr).Namespace(namespace).Delete(ctx, resource.GetName(), *deleteOptions)
-	}
-
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-
-	return nil
+	// Perform deletion
+	return r.performResourceDeletion(ctx, resource, gvr, deleteOptions)
 }
 
 // getOrCreateResourceInformer gets or creates a resource informer for a policy.
@@ -543,34 +483,21 @@ func (r *GCPolicyReconciler) getOrCreateResourceInformer(ctx context.Context, po
 		return nil, fmt.Errorf("invalid target resource: %w", err)
 	}
 
-	// Determine namespace
-	// Normalize: empty defaults to "*" (cluster-wide) to match webhook behavior
-	namespace := policy.Spec.TargetResource.Namespace
-	if namespace == "" {
-		namespace = "*"
-	}
-	// Translate "*" to NamespaceAll (empty string) for cluster-wide watching
-	if namespace == "*" {
-		namespace = metav1.NamespaceAll
-	}
+	// Normalize namespace for informer creation
+	namespace := normalizeNamespace(policy.Spec.TargetResource.Namespace)
 
-	// Create informer factory using configured interval
+	// Get configured interval
 	interval := DefaultGCInterval
 	if r.config != nil {
 		interval = r.config.GCInterval
 	}
+
+	// Create informer factory with label selector filter
 	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
 		r.dynamicClient,
 		interval,
 		namespace,
-		func(options *metav1.ListOptions) {
-			if policy.Spec.TargetResource.LabelSelector != nil {
-				selector, err := metav1.LabelSelectorAsSelector(policy.Spec.TargetResource.LabelSelector)
-				if err == nil {
-					options.LabelSelector = selector.String()
-				}
-			}
-		},
+		buildLabelSelectorFilter(policy),
 	)
 
 	// Create informer
