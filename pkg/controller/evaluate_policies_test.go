@@ -162,8 +162,8 @@ func TestGCController_evaluatePoliciesSequential_ErrorHandling(t *testing.T) {
 
 	// Create policies with invalid spec to trigger errors
 	policies := []interface{}{
-		createUnstructuredPolicyWithSpec("policy1", false),
-		createUnstructuredPolicyWithSpec("policy2", false),
+		createUnstructuredPolicyWithSpecForTest("policy1", false),
+		createUnstructuredPolicyWithSpecForTest("policy2", false),
 	}
 
 	// Should handle errors gracefully without panicking
@@ -184,11 +184,11 @@ func TestGCController_evaluatePoliciesParallel_WorkerPool(t *testing.T) {
 
 	// Create multiple policies to test worker pool
 	policies := []interface{}{
-		createUnstructuredPolicyWithSpec("policy1", false),
-		createUnstructuredPolicyWithSpec("policy2", false),
-		createUnstructuredPolicyWithSpec("policy3", false),
-		createUnstructuredPolicyWithSpec("policy4", false),
-		createUnstructuredPolicyWithSpec("policy5", false),
+		createUnstructuredPolicyWithSpecForTest("policy1", false),
+		createUnstructuredPolicyWithSpecForTest("policy2", false),
+		createUnstructuredPolicyWithSpecForTest("policy3", false),
+		createUnstructuredPolicyWithSpecForTest("policy4", false),
+		createUnstructuredPolicyWithSpecForTest("policy5", false),
 	}
 
 	// Test with maxConcurrent = 2 (should use worker pool)
@@ -213,8 +213,8 @@ func TestGCController_evaluatePoliciesParallel_ContextCancellation(t *testing.T)
 
 	// Create policies
 	policies := []interface{}{
-		createUnstructuredPolicyWithSpec("policy1", false),
-		createUnstructuredPolicyWithSpec("policy2", false),
+		createUnstructuredPolicyWithSpecForTest("policy1", false),
+		createUnstructuredPolicyWithSpecForTest("policy2", false),
 	}
 
 	// Cancel context in a goroutine after a short delay
