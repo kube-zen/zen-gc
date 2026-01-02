@@ -114,14 +114,41 @@ This document describes performance benchmarks and test results for zen-gc.
 
 ## Future Improvements
 
+- [x] Logger reuse optimization (implemented in v0.2.4)
+- [x] Slice pre-allocation (implemented in v0.2.4)
+- [x] Duplicate cache call elimination (implemented in v0.2.4)
+- [x] String concatenation optimization (implemented in v0.2.4)
+- [x] Context check optimization (implemented in v0.2.4)
+- [x] Map pre-sizing (implemented in v0.2.4)
 - [ ] Parallel policy evaluation
 - [ ] Batch deletion optimization
 - [ ] Informer cache size tuning
 - [ ] Worker pool for deletions
+- [ ] Shared informer architecture (planned for v0.3.0)
 
 ## Running Benchmarks
 
-To run benchmarks locally:
+### Unit Benchmarks (Micro-optimizations)
+
+To run unit benchmarks that measure optimization impact:
+
+```bash
+cd zen-gc
+go test -bench=. -benchmem ./pkg/controller
+```
+
+Available benchmarks:
+- `BenchmarkLoggerReuse` - Measures logger allocation overhead
+- `BenchmarkStringConcatenation` - Compares string concatenation methods
+- `BenchmarkSlicePreAllocation` - Measures slice allocation strategies
+- `BenchmarkMapPreSizing` - Compares map allocation strategies
+- `BenchmarkContextCheckFrequency` - Measures context check overhead
+- `BenchmarkRecordPolicyPhaseMetrics` - Tests duplicate cache call impact
+- `BenchmarkEvaluatePolicyResources` - End-to-end resource evaluation benchmark
+
+### Load Benchmarks (Integration)
+
+To run load benchmarks on a real cluster:
 
 ```bash
 # Create test cluster
