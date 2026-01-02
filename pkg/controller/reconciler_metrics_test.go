@@ -150,4 +150,3 @@ func TestGCPolicyReconciler_recordPolicyPhaseMetrics(t *testing.T) {
 
 	// Test passes if no panic occurs
 }
-

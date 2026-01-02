@@ -25,16 +25,7 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 
-func TestGCController_matchesFieldOperator(t *testing.T) {
-	scheme := runtime.NewScheme()
-	dynamicClient := fake.NewSimpleDynamicClient(scheme)
-	statusUpdater := NewStatusUpdater(dynamicClient)
-	eventRecorder := NewEventRecorder(nil)
-
-	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
-	if err != nil {
-		t.Fatalf("NewGCController() returned error: %v", err)
-	}
+func TestMatchesFieldOperatorShared(t *testing.T) {
 
 	tests := []struct {
 		name       string

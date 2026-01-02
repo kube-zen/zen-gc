@@ -11,8 +11,8 @@ import (
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
-func TestGCController_shouldDelete_TTLExpired(t *testing.T) {
-	gc := &GCController{
+func TestGCPolicyReconciler_shouldDelete_TTLExpired(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
 		logger: sdklog.NewLogger("zen-gc"),
 	}
 
@@ -34,7 +34,7 @@ func TestGCController_shouldDelete_TTLExpired(t *testing.T) {
 		},
 	}
 
-	shouldDelete, reason := gc.shouldDelete(resource, policy)
+	shouldDelete, reason := reconciler.shouldDelete(resource, policy)
 	if !shouldDelete {
 		t.Errorf("shouldDelete() = false, want true (resource is expired)")
 	}
@@ -43,8 +43,8 @@ func TestGCController_shouldDelete_TTLExpired(t *testing.T) {
 	}
 }
 
-func TestGCController_shouldDelete_TTLNotExpired(t *testing.T) {
-	gc := &GCController{
+func TestGCPolicyReconciler_shouldDelete_TTLNotExpired(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
 		logger: sdklog.NewLogger("zen-gc"),
 	}
 
@@ -66,7 +66,7 @@ func TestGCController_shouldDelete_TTLNotExpired(t *testing.T) {
 		},
 	}
 
-	shouldDelete, reason := gc.shouldDelete(resource, policy)
+	shouldDelete, reason := reconciler.shouldDelete(resource, policy)
 	if shouldDelete {
 		t.Errorf("shouldDelete() = true, want false (resource is not expired)")
 	}
@@ -75,8 +75,8 @@ func TestGCController_shouldDelete_TTLNotExpired(t *testing.T) {
 	}
 }
 
-func TestGCController_shouldDelete_ConditionNotMet(t *testing.T) {
-	gc := &GCController{
+func TestGCPolicyReconciler_shouldDelete_ConditionNotMet(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
 		logger: sdklog.NewLogger("zen-gc"),
 	}
 
@@ -104,7 +104,7 @@ func TestGCController_shouldDelete_ConditionNotMet(t *testing.T) {
 		},
 	}
 
-	shouldDelete, reason := gc.shouldDelete(resource, policy)
+	shouldDelete, reason := reconciler.shouldDelete(resource, policy)
 	if shouldDelete {
 		t.Errorf("shouldDelete() = true, want false (condition not met)")
 	}
@@ -113,8 +113,8 @@ func TestGCController_shouldDelete_ConditionNotMet(t *testing.T) {
 	}
 }
 
-func TestGCController_shouldDelete_NoTTL(t *testing.T) {
-	gc := &GCController{
+func TestGCPolicyReconciler_shouldDelete_NoTTL(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
 		logger: sdklog.NewLogger("zen-gc"),
 	}
 
@@ -128,7 +128,7 @@ func TestGCController_shouldDelete_NoTTL(t *testing.T) {
 		},
 	}
 
-	shouldDelete, reason := gc.shouldDelete(resource, policy)
+	shouldDelete, reason := reconciler.shouldDelete(resource, policy)
 	if shouldDelete {
 		t.Errorf("shouldDelete() = true, want false (no TTL)")
 	}

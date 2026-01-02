@@ -10,8 +10,10 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 
-func TestGCController_calculateTTL_FixedTTL(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_calculateExpirationTime_FixedTTL(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"metadata": map[string]interface{}{
@@ -34,8 +36,10 @@ func TestGCController_calculateTTL_FixedTTL(t *testing.T) {
 	}
 }
 
-func TestGCController_calculateTTL_MappedTTL(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_calculateExpirationTime_MappedTTL(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"spec": map[string]interface{}{
@@ -65,8 +69,10 @@ func TestGCController_calculateTTL_MappedTTL(t *testing.T) {
 	}
 }
 
-func TestGCController_calculateTTL_MappedTTL_Default(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_calculateExpirationTime_MappedTTL_Default(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"spec": map[string]interface{}{
@@ -93,8 +99,10 @@ func TestGCController_calculateTTL_MappedTTL_Default(t *testing.T) {
 	}
 }
 
-func TestGCController_calculateTTL_RelativeTTL(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_calculateExpirationTime_RelativeTTL(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 	now := time.Now()
 	oneHourAgo := now.Add(-1 * time.Hour)
 
@@ -125,8 +133,10 @@ func TestGCController_calculateTTL_RelativeTTL(t *testing.T) {
 	}
 }
 
-func TestGCController_calculateTTL_NoTTL(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_calculateExpirationTime_NoTTL(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 	resource := &unstructured.Unstructured{}
 
 	ttlSpec := &v1alpha1.TTLSpec{}
@@ -137,8 +147,10 @@ func TestGCController_calculateTTL_NoTTL(t *testing.T) {
 	}
 }
 
-func TestGCController_calculateTTL_FieldPathNotFound(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_calculateExpirationTime_FieldPathNotFound(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{},
 	}

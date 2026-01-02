@@ -354,5 +354,3 @@ func TestGCPolicyReconciler_cleanupPolicyResources(t *testing.T) {
 		t.Error("cleanupPolicyResources() did not remove rate limiter")
 	}
 }
-
-

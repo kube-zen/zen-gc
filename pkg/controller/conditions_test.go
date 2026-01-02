@@ -8,8 +8,10 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 
-func TestGCController_meetsConditions_Phase(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_meetsConditions_Phase(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 
 	tests := []struct {
 		name          string
@@ -79,8 +81,10 @@ func TestGCController_meetsConditions_Phase(t *testing.T) {
 	}
 }
 
-func TestGCController_meetsConditions_Labels(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_meetsConditions_Labels(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 
 	tests := []struct {
 		name          string
@@ -154,8 +158,10 @@ func TestGCController_meetsConditions_Labels(t *testing.T) {
 	}
 }
 
-func TestGCController_meetsConditions_Annotations(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_meetsConditions_Annotations(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 
 	tests := []struct {
 		name          string
@@ -211,8 +217,10 @@ func TestGCController_meetsConditions_Annotations(t *testing.T) {
 	}
 }
 
-func TestGCController_meetsConditions_FieldConditions(t *testing.T) {
-	gc := &GCController{}
+func TestGCPolicyReconciler_meetsConditions_FieldConditions(t *testing.T) {
+	reconciler := &GCPolicyReconciler{
+		logger: sdklog.NewLogger("zen-gc"),
+	}
 
 	tests := []struct {
 		name          string

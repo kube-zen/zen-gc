@@ -34,7 +34,7 @@ import (
 
 // TestGetOrCreateEvaluationService_FirstCall tests creating the service for the first time.
 func TestGetOrCreateEvaluationService_FirstCall(t *testing.T) {
-	// Create a mock GCController structure
+	// Create a mock GCPolicyReconciler structure
 	// We'll test the adapter and service creation logic
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 
@@ -80,7 +80,7 @@ func TestGetOrCreateEvaluationService_FirstCall(t *testing.T) {
 // TestGetOrCreateEvaluationService_ReuseService tests that the service is reused on subsequent calls.
 func TestGetOrCreateEvaluationService_ReuseService(t *testing.T) {
 	// This test verifies that once created, the service is reused
-	// In a real scenario, this would be tested with a GCController instance
+	// In a real scenario, this would be tested with a GCPolicyReconciler instance
 	// For now, we test the concept with direct service creation
 
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
