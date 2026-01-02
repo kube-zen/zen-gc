@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Go 1.25 Upgrade**: Upgraded to Go 1.25.0 for improved performance and new features
+
+### Added
 - Leader election support for HA deployments
 - Proper CRD status updates (replaces TODO)
 - Kubernetes events for policy lifecycle and resource deletions
