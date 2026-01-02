@@ -247,25 +247,32 @@ func main() {
 		controllerConfig,
 	)
 
+	// Create health checker with reconciler reference
+	healthChecker := controller.NewHealthChecker(reconciler)
+
 	// Setup reconciler with manager
 	if err := reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Error setting up reconciler", sdklog.ErrorCode("RECONCILER_SETUP_ERROR"))
 		os.Exit(1)
 	}
 
-	// Add health checks
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+	// Create health checker for enhanced health checks (already created above)
+
+	// Add enhanced liveness check (verifies active processing)
+	if err := mgr.AddHealthzCheck("healthz", healthChecker.LivenessCheck); err != nil {
 		setupLog.Error(err, "Error adding health check", sdklog.ErrorCode("HEALTH_CHECK_ERROR"))
 		os.Exit(1)
 	}
 
-	// Add readiness check (only leader is ready)
-	if err := mgr.AddReadyzCheck("readyz", func(req *http.Request) error {
-		// In controller-runtime, only the leader is ready
-		// This is handled automatically by the manager
-		return nil
-	}); err != nil {
+	// Add enhanced readiness check (verifies informer sync status)
+	if err := mgr.AddReadyzCheck("readyz", healthChecker.ReadinessCheck); err != nil {
 		setupLog.Error(err, "Error adding readiness check", sdklog.ErrorCode("READY_CHECK_ERROR"))
+		os.Exit(1)
+	}
+
+	// Add startup check (simple initialization check)
+	if err := mgr.AddHealthzCheck("startup", healthChecker.StartupCheck); err != nil {
+		setupLog.Error(err, "Error adding startup check", sdklog.ErrorCode("STARTUP_CHECK_ERROR"))
 		os.Exit(1)
 	}
 
