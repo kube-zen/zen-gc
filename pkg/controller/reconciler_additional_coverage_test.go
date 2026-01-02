@@ -19,17 +19,17 @@ package controller
 import (
 	"context"
 	"testing"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"k8s.io/client-go/dynamic/fake"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
+	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
@@ -239,8 +239,8 @@ func TestGCPolicyReconciler_getBatchSize(t *testing.T) {
 	}
 }
 
-// TestGCPolicyReconciler_cleanupPolicyResources tests cleanup of policy resources.
-func TestGCPolicyReconciler_cleanupPolicyResources(t *testing.T) {
+// TestGCPolicyReconciler_cleanupPolicyResources_Additional tests cleanup of policy resources.
+func TestGCPolicyReconciler_cleanupPolicyResources_Additional(t *testing.T) {
 	scheme := runtime.NewScheme()
 	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
@@ -272,7 +272,8 @@ func TestGCPolicyReconciler_cleanupPolicyResources(t *testing.T) {
 	reconciler.getOrCreateRateLimiter(policy2)
 
 	// Cleanup policy1
-	reconciler.cleanupPolicyResources(policy1)
+	nn1 := types.NamespacedName{Name: policy1.Name, Namespace: policy1.Namespace}
+	reconciler.cleanupPolicyResources(nn1)
 
 	// Verify policy1 resources are cleaned up
 	limiter := reconciler.getOrCreateRateLimiter(policy1)
@@ -285,6 +286,10 @@ func TestGCPolicyReconciler_cleanupPolicyResources(t *testing.T) {
 	if limiter2 == nil {
 		t.Error("cleanupPolicyResources() should not affect other policies")
 	}
+
+	// Cleanup policy2
+	nn2 := types.NamespacedName{Name: policy2.Name, Namespace: policy2.Namespace}
+	reconciler.cleanupPolicyResources(nn2)
 }
 
 // TestGCPolicyReconciler_trackPolicyUID_Coverage tests tracking of policy UIDs.
