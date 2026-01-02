@@ -15,104 +15,44 @@ limitations under the License.
 */
 
 // Package errors provides structured error types for the GC controller with policy and resource context.
+// This package now uses zen-sdk/pkg/errors as the base implementation.
 package errors
 
 import (
-	"errors"
-	"fmt"
+	sdkerrors "github.com/kube-zen/zen-sdk/pkg/errors"
 )
 
-// GCError represents a garbage collection error with context.
-type GCError struct {
-	// Type categorizes the error (e.g., "informer_creation_failed", "deletion_failed")
-	Type string
-
-	// PolicyNamespace is the namespace of the policy (if applicable)
-	PolicyNamespace string
-
-	// PolicyName is the name of the policy (if applicable)
-	PolicyName string
-
-	// ResourceNamespace is the namespace of the resource (if applicable)
-	ResourceNamespace string
-
-	// ResourceName is the name of the resource (if applicable)
-	ResourceName string
-
-	// Message is the error message
-	Message string
-
-	// Err is the underlying error
-	Err error
-}
-
-// Error implements the error interface.
-func (e *GCError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("%s: %v", e.Message, e.Err)
-	}
-	return e.Message
-}
-
-// Unwrap returns the underlying error.
-func (e *GCError) Unwrap() error {
-	return e.Err
-}
+// GCError is an alias for zen-sdk's ContextError.
+// This maintains backward compatibility while using the shared implementation.
+type GCError = sdkerrors.ContextError
 
 // WithPolicy adds policy context to an error.
 func WithPolicy(err error, namespace, name string) *GCError {
-	var gcErr *GCError
-	if errors.As(err, &gcErr) && gcErr != nil {
-		gcErr.PolicyNamespace = namespace
-		gcErr.PolicyName = name
-		return gcErr
-	}
-	return &GCError{
-		Message:         err.Error(),
-		Err:             err,
-		PolicyNamespace: namespace,
-		PolicyName:      name,
-	}
+	return sdkerrors.WithMultipleContext(err, map[string]string{
+		"policy_namespace": namespace,
+		"policy_name":      name,
+	})
 }
 
 // WithResource adds resource context to an error.
 func WithResource(err error, namespace, name string) *GCError {
-	var gcErr *GCError
-	if errors.As(err, &gcErr) && gcErr != nil {
-		gcErr.ResourceNamespace = namespace
-		gcErr.ResourceName = name
-		return gcErr
-	}
-	return &GCError{
-		Message:           err.Error(),
-		Err:               err,
-		ResourceNamespace: namespace,
-		ResourceName:      name,
-	}
+	return sdkerrors.WithMultipleContext(err, map[string]string{
+		"resource_namespace": namespace,
+		"resource_name":      name,
+	})
 }
 
 // New creates a new GCError.
 func New(errType, message string) *GCError {
-	return &GCError{
-		Type:    errType,
-		Message: message,
-	}
+	return sdkerrors.New(errType, message)
 }
 
 // Wrap wraps an error with a message and type.
 func Wrap(err error, errType, message string) *GCError {
-	return &GCError{
-		Type:    errType,
-		Message: message,
-		Err:     err,
-	}
+	return sdkerrors.Wrap(err, errType, message)
 }
 
 // Wrapf wraps an error with a formatted message and type.
 func Wrapf(err error, errType, format string, args ...interface{}) *GCError {
-	return &GCError{
-		Type:    errType,
-		Message: fmt.Sprintf(format, args...),
-		Err:     err,
-	}
+	return sdkerrors.Wrapf(err, errType, format, args...)
 }

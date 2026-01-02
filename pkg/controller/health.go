@@ -17,23 +17,19 @@ limitations under the License.
 package controller
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
-)
 
-// Static errors for health checks.
-var (
-	errReconcilerNotInitialized = errors.New("reconciler not initialized")
-	errInformersNotSynced       = errors.New("resource informers not synced")
+	"github.com/kube-zen/zen-sdk/pkg/health"
+	"k8s.io/client-go/tools/cache"
 )
 
 // HealthChecker provides health check functionality for the GC controller.
+// This now uses zen-sdk/pkg/health as the base implementation.
 type HealthChecker struct {
-	// Reconciler reference for checking informer sync status.
-	reconciler *GCPolicyReconciler
+	// Informer sync checker from zen-sdk
+	informerChecker *health.InformerSyncChecker
 
 	// Track last evaluation time to verify active processing.
 	lastEvaluationTime   time.Time
@@ -41,11 +37,31 @@ type HealthChecker struct {
 
 	// Maximum time since last evaluation before considering controller unhealthy.
 	maxTimeSinceLastEvaluation time.Duration
+
+	// Reconciler reference for checking informer sync status.
+	reconciler *GCPolicyReconciler
 }
 
 // NewHealthChecker creates a new health checker.
 func NewHealthChecker(reconciler *GCPolicyReconciler) *HealthChecker {
+	// Create informer sync checker using zen-sdk
+	informerChecker := health.NewInformerSyncChecker(func() map[string]func() bool {
+		reconciler.resourceInformersMu.RLock()
+		defer reconciler.resourceInformersMu.RUnlock()
+
+		informers := make(map[string]func() bool)
+		for uid, informer := range reconciler.resourceInformers {
+			if informer != nil {
+				// Capture informer in closure
+				inf := informer
+				informers[string(uid)] = func() bool { return inf.HasSynced() }
+			}
+		}
+		return informers
+	})
+
 	return &HealthChecker{
+		informerChecker:           informerChecker,
 		reconciler:                 reconciler,
 		maxTimeSinceLastEvaluation: 5 * time.Minute, // Default: 5 minutes
 	}
@@ -68,29 +84,7 @@ func (h *HealthChecker) UpdateLastEvaluationTime() {
 // 1. All resource informers are synced
 // 2. Controller has been running long enough (at least 10 seconds).
 func (h *HealthChecker) ReadinessCheck(req *http.Request) error {
-	if h.reconciler == nil {
-		return fmt.Errorf("%w", errReconcilerNotInitialized)
-	}
-
-	// Check if all resource informers are synced
-	h.reconciler.resourceInformersMu.RLock()
-	defer h.reconciler.resourceInformersMu.RUnlock()
-
-	unsyncedCount := 0
-	for _, informer := range h.reconciler.resourceInformers {
-		if informer == nil {
-			continue
-		}
-		if !informer.HasSynced() {
-			unsyncedCount++
-		}
-	}
-
-	if unsyncedCount > 0 {
-		return fmt.Errorf("%w: %d informers still syncing", errInformersNotSynced, unsyncedCount)
-	}
-
-	return nil
+	return h.informerChecker.ReadinessCheck(req)
 }
 
 // LivenessCheck verifies that the controller is actively processing policies.
@@ -99,11 +93,12 @@ func (h *HealthChecker) ReadinessCheck(req *http.Request) error {
 // 2. If no policies exist, controller is still considered alive (no work to do)
 // 3. If policies exist but haven't been evaluated, check if reconciler is processing.
 func (h *HealthChecker) LivenessCheck(req *http.Request) error {
-	if h.reconciler == nil {
-		return fmt.Errorf("%w", errReconcilerNotInitialized)
+	// Use informer checker for basic liveness
+	if err := h.informerChecker.LivenessCheck(req); err != nil {
+		return err
 	}
 
-	// Check if we have policies
+	// Additional check: verify we have policies or have been active recently
 	h.reconciler.resourceInformersMu.RLock()
 	hasPolicies := len(h.reconciler.resourceInformers) > 0
 	h.reconciler.resourceInformersMu.RUnlock()
@@ -113,37 +108,25 @@ func (h *HealthChecker) LivenessCheck(req *http.Request) error {
 		return nil
 	}
 
-	// We have policies - check if we've evaluated recently
-	// Since we can't easily track evaluation time from the reconciler,
-	// we'll use a simpler approach: if we have synced informers, we're healthy
-	// The readiness check will verify informers are synced
-	h.reconciler.resourceInformersMu.RLock()
-	allSynced := true
-	for _, informer := range h.reconciler.resourceInformers {
-		if informer != nil && !informer.HasSynced() {
-			allSynced = false
-			break
+	// If we have policies, check last evaluation time
+	h.lastEvaluationTimeMu.RLock()
+	lastActivity := h.lastEvaluationTime
+	h.lastEvaluationTimeMu.RUnlock()
+
+	if !lastActivity.IsZero() {
+		timeSinceActivity := time.Since(lastActivity)
+		if timeSinceActivity > h.maxTimeSinceLastEvaluation {
+			// No activity for too long - but this is a warning, not a failure
+			// The informer sync check is more important for liveness
+			return nil
 		}
 	}
-	h.reconciler.resourceInformersMu.RUnlock()
 
-	if !allSynced {
-		// Informers not synced yet - this is normal during startup
-		// The readiness check will catch this
-		return nil
-	}
-
-	// Informers are synced and we have policies
-	// For liveness, we just verify the controller is running
-	// The readiness check ensures informers are synced
 	return nil
 }
 
 // StartupCheck is a simple check for startup probe.
 // Returns nil if controller is initialized, error otherwise.
 func (h *HealthChecker) StartupCheck(req *http.Request) error {
-	if h.reconciler == nil {
-		return fmt.Errorf("%w", errReconcilerNotInitialized)
-	}
-	return nil
+	return h.informerChecker.StartupCheck(req)
 }
