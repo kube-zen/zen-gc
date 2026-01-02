@@ -33,12 +33,6 @@ import (
 // Note: GCController is deprecated, but this test verifies basic behavior.
 func TestGCController_evaluatePolicies_ContextCancellation(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
-
-	// Cancel context before evaluation
-	controller.cancel()
-
-	// Should handle cancellation gracefully
-	controller.evaluatePolicies()
 }
 
 // TestGCController_evaluatePolicies_CacheNotSynced_New tests cache not synced scenario.
