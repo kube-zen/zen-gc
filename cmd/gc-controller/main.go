@@ -102,10 +102,6 @@ func main() {
 	setupLog = logger.WithComponent("setup")
 	setupLog.Debug("GC Controller starting", sdklog.String("version", version), sdklog.String("commit", commit), sdklog.String("buildDate", buildDate))
 
-	// Set up signals so we handle shutdown gracefully
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-
 	// OpenTelemetry tracing initialization can be added here when zen-sdk/pkg/observability is available
 	// For now, continue without tracing
 
@@ -273,6 +269,11 @@ func main() {
 		setupLog.Error(err, "Error adding readiness check", sdklog.ErrorCode("READY_CHECK_ERROR"))
 		os.Exit(1)
 	}
+
+	// Set up signals so we handle shutdown gracefully
+	// Do this after all initialization that might call os.Exit to avoid linter warning
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
 	// Start webhook server if enabled (separate from controller-runtime webhook server)
 	var webhookServer *gcwebhook.WebhookServer
