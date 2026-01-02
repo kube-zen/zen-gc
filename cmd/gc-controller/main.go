@@ -305,7 +305,6 @@ func main() {
 
 	// Start webhook server if enabled (now that context is created)
 	if *enableWebhook {
-
 		// Check if TLS files exist (already checked above, but need to check again for the actual start)
 		certExists := false
 		keyExists := false
@@ -337,7 +336,7 @@ func main() {
 	}
 
 	// Start the manager (this blocks until context is canceled)
-	// Note: mgr.Start() errors are typically non-fatal (e.g., context canceled on shutdown)
+	// mgr.Start() errors are typically non-fatal (e.g., context canceled on shutdown)
 	// We don't call os.Exit here to allow graceful shutdown via defer cancel()
 	setupLog.Info("Starting GC controller manager", sdklog.Operation("start"))
 	if err := mgr.Start(ctx); err != nil {
