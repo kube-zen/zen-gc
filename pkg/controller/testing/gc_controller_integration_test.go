@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
