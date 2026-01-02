@@ -33,8 +33,8 @@ import (
 	gcerrors "github.com/kube-zen/zen-gc/pkg/errors"
 	"github.com/kube-zen/zen-sdk/pkg/gc/backoff"
 	"github.com/kube-zen/zen-sdk/pkg/gc/ratelimiter"
-	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 	sdkttl "github.com/kube-zen/zen-sdk/pkg/gc/ttl"
+	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
 // Constants for deletion reasons and error types.
@@ -210,7 +210,7 @@ func calculateExpirationTimeShared(resource *unstructured.Unstructured, ttlSpec 
 	return sdkttl.CalculateExpirationTime(resource, sdkSpec)
 }
 
-// convertToSDKTTLSpec converts zen-gc's TTLSpec to zen-sdk's ttl.Spec
+// convertToSDKTTLSpec converts zen-gc's TTLSpec to zen-sdk's ttl.Spec.
 func convertToSDKTTLSpec(gcSpec *v1alpha1.TTLSpec) *sdkttl.Spec {
 	return &sdkttl.Spec{
 		SecondsAfterCreation: gcSpec.SecondsAfterCreation,
@@ -385,7 +385,7 @@ func meetsLabelConditionsShared(resource *unstructured.Unstructured, labelConds 
 		default:
 			// Unknown operator - fail safe by rejecting
 			logger := sdklog.NewLogger("zen-gc")
-			logger.Warn("Unknown label condition operator, rejecting match", sdklog.Operation("meets_label_conditions"), sdklog.String("operator", string(labelCond.Operator)))
+			logger.Warn("Unknown label condition operator, rejecting match", sdklog.Operation("meets_label_conditions"), sdklog.String("operator", labelCond.Operator))
 			return false
 		}
 	}

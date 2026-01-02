@@ -91,6 +91,9 @@ var (
 
 	// ErrNoDeleter indicates no deleter was provided.
 	ErrNoDeleter = errors.New("no deleter provided")
+
+	// ErrCacheSyncFailed indicates that the cache sync failed.
+	ErrCacheSyncFailed = errors.New("cache sync failed")
 )
 
 // GCController manages garbage collection policies.
@@ -237,7 +240,7 @@ func (gc *GCController) waitForCacheSyncAndStart() {
 				sdklog.Duration("duration", syncDuration))
 			return
 		}
-		logger.Error(fmt.Errorf("cache sync failed"), "Policy informer cache sync failed", sdklog.Operation("cache_sync"), sdklog.ErrorCode("CACHE_SYNC_FAILED"),
+		logger.Error(ErrCacheSyncFailed, "Policy informer cache sync failed", sdklog.Operation("cache_sync"), sdklog.ErrorCode("CACHE_SYNC_FAILED"),
 			sdklog.Duration("duration", syncDuration))
 		return
 	}

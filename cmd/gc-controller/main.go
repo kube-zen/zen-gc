@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -43,6 +44,17 @@ import (
 	"github.com/kube-zen/zen-sdk/pkg/leader"
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 	"github.com/kube-zen/zen-sdk/pkg/zenlead"
+)
+
+var (
+	// ErrLeaderElectionLeaseNameRequired indicates that leader election lease name is required.
+	ErrLeaderElectionLeaseNameRequired = errors.New("--leader-election-lease-name is required when --leader-election-mode=zenlead")
+
+	// ErrInvalidLeaderElectionMode indicates an invalid leader election mode.
+	ErrInvalidLeaderElectionMode = errors.New("invalid --leader-election-mode")
+
+	// ErrWebhookTLSCertificatesMissing indicates that webhook TLS certificates are missing.
+	ErrWebhookTLSCertificatesMissing = errors.New("webhook TLS certificates not found")
 )
 
 const (
@@ -107,6 +119,7 @@ func main() {
 	dynamicClient, err := dynamic.NewForConfig(restCfg)
 	if err != nil {
 		setupLog.Error(err, "Error building dynamic client", sdklog.ErrorCode("CLIENT_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
@@ -114,6 +127,7 @@ func main() {
 	kubeClient, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
 		setupLog.Error(err, "Error building Kubernetes client", sdklog.ErrorCode("CLIENT_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
@@ -121,6 +135,7 @@ func main() {
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		setupLog.Error(err, "Error adding scheme", sdklog.ErrorCode("SCHEME_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
@@ -128,6 +143,7 @@ func main() {
 	namespace, err := leader.RequirePodNamespace()
 	if err != nil {
 		setupLog.Error(err, "Failed to determine pod namespace", sdklog.ErrorCode("NAMESPACE_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
@@ -184,7 +200,8 @@ func main() {
 		setupLog.Info("Leader election mode: builtin (Profile B)", sdklog.Operation("leader_election_config"))
 	case "zenlead":
 		if *leaderElectionLeaseName == "" {
-			setupLog.Error(fmt.Errorf("--leader-election-lease-name is required when --leader-election-mode=zenlead"), "invalid configuration", sdklog.ErrorCode("INVALID_CONFIG"))
+			setupLog.Error(fmt.Errorf("%w", ErrLeaderElectionLeaseNameRequired), "invalid configuration", sdklog.ErrorCode("INVALID_CONFIG"))
+			cancel()
 			os.Exit(1)
 		}
 		leConfig = zenlead.LeaderElectionConfig{
@@ -199,14 +216,16 @@ func main() {
 		}
 		setupLog.Warn("Leader election disabled - single replica only (unsafe if replicas > 1)", sdklog.Operation("leader_election_config"))
 	default:
-		setupLog.Error(fmt.Errorf("invalid --leader-election-mode: %q (must be builtin, zenlead, or disabled)", *leaderElectionMode), "invalid configuration", sdklog.ErrorCode("INVALID_CONFIG"))
+		setupLog.Error(fmt.Errorf("%w: %q (must be builtin, zenlead, or disabled)", ErrInvalidLeaderElectionMode, *leaderElectionMode), "invalid configuration", sdklog.ErrorCode("INVALID_CONFIG"))
+		cancel()
 		os.Exit(1)
 	}
 
 	// Prepare manager options with leader election
-		mgrOpts, err := zenlead.PrepareManagerOptions(&baseOpts, &leConfig)
+	mgrOpts, err := zenlead.PrepareManagerOptions(&baseOpts, &leConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to prepare manager options", sdklog.ErrorCode("MANAGER_OPTIONS_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
@@ -221,12 +240,14 @@ func main() {
 	// Enforce safe HA configuration
 	if err := zenlead.EnforceSafeHA(replicaCount, mgrOpts.LeaderElection); err != nil {
 		setupLog.Error(err, "Unsafe HA configuration", sdklog.ErrorCode("UNSAFE_HA_CONFIG"))
+		cancel()
 		os.Exit(1)
 	}
 
 	mgr, err := ctrl.NewManager(restCfg, mgrOpts)
 	if err != nil {
 		setupLog.Error(err, "Error creating controller manager", sdklog.ErrorCode("MANAGER_CREATE_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
@@ -243,12 +264,14 @@ func main() {
 	// Setup reconciler with manager
 	if err := reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Error setting up reconciler", sdklog.ErrorCode("RECONCILER_SETUP_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
 	// Add health checks
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "Error adding health check", sdklog.ErrorCode("HEALTH_CHECK_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
@@ -259,6 +282,7 @@ func main() {
 		return nil
 	}); err != nil {
 		setupLog.Error(err, "Error adding readiness check", sdklog.ErrorCode("READY_CHECK_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
@@ -269,6 +293,7 @@ func main() {
 		webhookServer, err = gcwebhook.NewWebhookServer(*webhookAddr, *webhookCertFile, *webhookKeyFile)
 		if err != nil {
 			setupLog.Error(err, "Error creating webhook server", sdklog.ErrorCode("WEBHOOK_CREATE_ERROR"))
+			cancel()
 			os.Exit(1)
 		}
 
@@ -287,6 +312,7 @@ func main() {
 			go func() {
 				if err := webhookServer.StartTLS(ctx, *webhookCertFile, *webhookKeyFile); err != nil {
 					setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
+					cancel()
 					os.Exit(1)
 				}
 			}()
@@ -294,13 +320,15 @@ func main() {
 		} else {
 			// TLS files missing - check if insecure mode is allowed
 			if !*insecureWebhook {
-				setupLog.Error(fmt.Errorf("webhook TLS certificates not found (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing", *webhookCertFile, *webhookKeyFile), "TLS certificates missing", sdklog.ErrorCode("TLS_CERT_MISSING"))
+				setupLog.Error(fmt.Errorf("%w (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing", ErrWebhookTLSCertificatesMissing, *webhookCertFile, *webhookKeyFile), "TLS certificates missing", sdklog.ErrorCode("TLS_CERT_MISSING"))
+				cancel()
 				os.Exit(1)
 			}
 			setupLog.Warn("Webhook starting without TLS (insecure mode) - NOT RECOMMENDED FOR PRODUCTION", sdklog.Component("webhook"))
 			go func() {
 				if err := webhookServer.Start(ctx); err != nil {
 					setupLog.Error(err, "Error starting webhook server", sdklog.ErrorCode("WEBHOOK_START_ERROR"))
+					cancel()
 					os.Exit(1)
 				}
 			}()
@@ -311,6 +339,7 @@ func main() {
 	setupLog.Info("Starting GC controller manager", sdklog.Operation("start"))
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "Error starting manager", sdklog.ErrorCode("MANAGER_START_ERROR"))
+		cancel()
 		os.Exit(1)
 	}
 
