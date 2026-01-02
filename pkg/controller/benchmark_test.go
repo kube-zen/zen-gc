@@ -84,11 +84,11 @@ func BenchmarkSlicePreAllocation(b *testing.B) {
 	b.Run("NoPreAllocation", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			slice := make([]*unstructured.Unstructured, 0)
+			var slice []*unstructured.Unstructured
 			for j := 0; j < resourceCount/estimatedMatchRate; j++ {
-				slice = append(slice, &unstructured.Unstructured{}) //nolint:staticcheck // Benchmark test - result is intentionally unused
+				slice = append(slice, &unstructured.Unstructured{})
 			}
-			_ = slice // Prevent optimization
+			_ = len(slice) // Prevent optimization
 		}
 	})
 
@@ -102,9 +102,9 @@ func BenchmarkSlicePreAllocation(b *testing.B) {
 			}
 			slice := make([]*unstructured.Unstructured, 0, estimatedSize)
 			for j := 0; j < resourceCount/estimatedMatchRate; j++ {
-				slice = append(slice, &unstructured.Unstructured{}) //nolint:staticcheck // Benchmark test - result is intentionally unused
+				slice = append(slice, &unstructured.Unstructured{})
 			}
-			_ = slice // Prevent optimization
+			_ = len(slice) // Prevent optimization
 		}
 	})
 }
@@ -280,6 +280,7 @@ func BenchmarkEvaluatePolicyResources(b *testing.B) {
 					resourcesToDeleteReasons[string(resource.GetUID())] = "ttl_expired"
 				}
 			}
+			_ = len(resourcesToDelete) // Prevent optimization
 		}
 	})
 }
