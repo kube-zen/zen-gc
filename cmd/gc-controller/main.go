@@ -270,11 +270,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set up signals so we handle shutdown gracefully
-	// Do this after all initialization that might call os.Exit to avoid linter warning
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-
 	// Start webhook server if enabled (separate from controller-runtime webhook server)
 	var webhookServer *gcwebhook.WebhookServer
 	if *enableWebhook {
@@ -295,6 +290,33 @@ func main() {
 			keyExists = true
 		}
 
+		// TLS files missing - check if insecure mode is allowed (before creating context)
+		if !certExists || !keyExists {
+			if !*insecureWebhook {
+				setupLog.Error(fmt.Errorf("%w (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing", ErrWebhookTLSCertificatesMissing, *webhookCertFile, *webhookKeyFile), "TLS certificates missing", sdklog.ErrorCode("TLS_CERT_MISSING"))
+				os.Exit(1)
+			}
+		}
+	}
+
+	// Set up signals so we handle shutdown gracefully
+	// Do this after all initialization that might call os.Exit to avoid linter warning
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	// Start webhook server if enabled (now that context is created)
+	if *enableWebhook {
+
+		// Check if TLS files exist (already checked above, but need to check again for the actual start)
+		certExists := false
+		keyExists := false
+		if _, err := os.Stat(*webhookCertFile); err == nil {
+			certExists = true
+		}
+		if _, err := os.Stat(*webhookKeyFile); err == nil {
+			keyExists = true
+		}
+
 		if certExists && keyExists {
 			// TLS files exist, start with TLS
 			go func() {
@@ -305,11 +327,6 @@ func main() {
 			}()
 			setupLog.Info("Webhook server starting with TLS", sdklog.String("address", *webhookAddr), sdklog.Component("webhook"))
 		} else {
-			// TLS files missing - check if insecure mode is allowed
-			if !*insecureWebhook {
-				setupLog.Error(fmt.Errorf("%w (cert: %s, key: %s). TLS is required for production. Use --insecure-webhook flag only for testing", ErrWebhookTLSCertificatesMissing, *webhookCertFile, *webhookKeyFile), "TLS certificates missing", sdklog.ErrorCode("TLS_CERT_MISSING"))
-				os.Exit(1)
-			}
 			setupLog.Warn("Webhook starting without TLS (insecure mode) - NOT RECOMMENDED FOR PRODUCTION", sdklog.Component("webhook"))
 			go func() {
 				if err := webhookServer.Start(ctx); err != nil {
@@ -321,10 +338,13 @@ func main() {
 	}
 
 	// Start the manager (this blocks until context is canceled)
+	// Note: mgr.Start() errors are typically non-fatal (e.g., context canceled on shutdown)
+	// We don't call os.Exit here to allow graceful shutdown via defer cancel()
 	setupLog.Info("Starting GC controller manager", sdklog.Operation("start"))
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "Error starting manager", sdklog.ErrorCode("MANAGER_START_ERROR"))
-		os.Exit(1)
+		// Don't call os.Exit here - let the defer cancel() run for cleanup
+		return
 	}
 
 	setupLog.Info("GC controller shutdown complete", sdklog.Operation("shutdown"))
