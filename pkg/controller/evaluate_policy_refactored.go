@@ -111,9 +111,7 @@ func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1
 		return gcErr
 	}
 
-	matchedCount := int64(0)
-	deletedCount := int64(0)
-	pendingCount := int64(0)
+	var matchedCount, deletedCount, pendingCount int64
 
 	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
 	resourceKind := policy.Spec.TargetResource.Kind
@@ -165,7 +163,7 @@ func (s *PolicyEvaluationService) evaluateResources(
 	select {
 	case <-ctx.Done():
 		s.logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
-		return
+		return int64(0), int64(0)
 	default:
 	}
 
@@ -176,7 +174,7 @@ func (s *PolicyEvaluationService) evaluateResources(
 			select {
 			case <-ctx.Done():
 				s.logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
-				return
+				return matchedCount, pendingCount
 			default:
 			}
 		}
