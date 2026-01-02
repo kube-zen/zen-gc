@@ -29,10 +29,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog/v2"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/validation"
+	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
 var (
@@ -89,15 +89,16 @@ func NewWebhookServer(addr, certFile, keyFile string) (*WebhookServer, error) {
 
 // Start starts the webhook server without TLS (for testing).
 func (ws *WebhookServer) Start(ctx context.Context) error {
-	klog.Info("Starting webhook server without TLS (testing mode)...")
+	logger := sdklog.NewLogger("zen-gc-webhook")
+	logger.Info("Starting webhook server without TLS (testing mode)...")
 
 	go func() {
 		<-ctx.Done()
-		klog.Info("Shutting down webhook server...")
+		logger.Info("Shutting down webhook server...")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := ws.server.Shutdown(shutdownCtx); err != nil {
-			klog.Errorf("Error shutting down webhook server: %v", err)
+			logger.Error(err, "Error shutting down webhook server")
 		}
 	}()
 
@@ -110,15 +111,16 @@ func (ws *WebhookServer) Start(ctx context.Context) error {
 
 // StartTLS starts the webhook server with TLS.
 func (ws *WebhookServer) StartTLS(ctx context.Context, certFile, keyFile string) error {
-	klog.Infof("Starting webhook server with TLS on %s", ws.server.Addr)
+	logger := sdklog.NewLogger("zen-gc-webhook")
+	logger.Info("Starting webhook server with TLS", sdklog.String("address", ws.server.Addr))
 
 	go func() {
 		<-ctx.Done()
-		klog.Info("Shutting down webhook server...")
+		logger.Info("Shutting down webhook server...")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := ws.server.Shutdown(shutdownCtx); err != nil {
-			klog.Errorf("Error shutting down webhook server: %v", err)
+			logger.Error(err, "Error shutting down webhook server")
 		}
 	}()
 
@@ -137,9 +139,10 @@ func (ws *WebhookServer) handleValidate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Read admission review request
+	logger := sdklog.NewLogger("zen-gc-webhook")
 	var review admissionv1.AdmissionReview
 	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
-		klog.Errorf("Failed to decode admission review: %v", err)
+		logger.Error(err, "Failed to decode admission review")
 		http.Error(w, fmt.Sprintf("Failed to decode request: %v", err), http.StatusBadRequest)
 		return
 	}
@@ -157,7 +160,7 @@ func (ws *WebhookServer) handleValidate(w http.ResponseWriter, r *http.Request) 
 
 	// Validate the policy
 	if err := ws.validatePolicy(review.Request); err != nil {
-		klog.V(2).Infof("Policy validation failed: %v", err)
+		logger.Debug("Policy validation failed", sdklog.String("error", err.Error()))
 		response.Response.Allowed = false
 		response.Response.Result = &metav1.Status{
 			Code:    http.StatusUnprocessableEntity,
@@ -165,13 +168,13 @@ func (ws *WebhookServer) handleValidate(w http.ResponseWriter, r *http.Request) 
 		}
 	} else {
 		response.Response.Allowed = true
-		klog.V(4).Infof("Policy validation succeeded")
+		logger.Debug("Policy validation succeeded")
 	}
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		klog.Errorf("Failed to encode admission review response: %v", err)
+		logger.Error(err, "Failed to encode admission review response")
 		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -217,9 +220,10 @@ func (ws *WebhookServer) handleMutate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Read admission review request
+	logger := sdklog.NewLogger("zen-gc-webhook")
 	var review admissionv1.AdmissionReview
 	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
-		klog.Errorf("Failed to decode admission review: %v", err)
+		logger.Error(err, "Failed to decode admission review")
 		http.Error(w, fmt.Sprintf("Failed to decode request: %v", err), http.StatusBadRequest)
 		return
 	}
@@ -238,7 +242,7 @@ func (ws *WebhookServer) handleMutate(w http.ResponseWriter, r *http.Request) {
 	// Mutate the policy (set defaults)
 	patches, err := ws.mutatePolicy(review.Request)
 	if err != nil {
-		klog.Errorf("Policy mutation failed: %v", err)
+		logger.Error(err, "Policy mutation failed")
 		response.Response.Allowed = false
 		response.Response.Result = &metav1.Status{
 			Code:    http.StatusInternalServerError,
@@ -249,7 +253,7 @@ func (ws *WebhookServer) handleMutate(w http.ResponseWriter, r *http.Request) {
 		if len(patches) > 0 {
 			patchBytes, err := json.Marshal(patches)
 			if err != nil {
-				klog.Errorf("Failed to marshal patches: %v", err)
+				logger.Error(err, "Failed to marshal patches")
 				response.Response.Allowed = false
 				response.Response.Result = &metav1.Status{
 					Code:    http.StatusInternalServerError,
@@ -261,17 +265,17 @@ func (ws *WebhookServer) handleMutate(w http.ResponseWriter, r *http.Request) {
 					pt := admissionv1.PatchTypeJSONPatch
 					return &pt
 				}()
-				klog.V(4).Infof("Policy mutation succeeded with %d patches", len(patches))
+				logger.Debug("Policy mutation succeeded", sdklog.Int("patches", len(patches)))
 			}
 		} else {
-			klog.V(4).Infof("Policy mutation succeeded (no patches needed)")
+			logger.Debug("Policy mutation succeeded (no patches needed)")
 		}
 	}
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		klog.Errorf("Failed to encode admission review response: %v", err)
+		logger.Error(err, "Failed to encode admission review response")
 		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
 		return
 	}
