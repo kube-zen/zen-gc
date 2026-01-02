@@ -310,7 +310,8 @@ func TestGCPolicyReconciler_trackPolicyUID_Coverage(t *testing.T) {
 	}
 
 	// Track policy UID
-	reconciler.trackPolicyUID(policy)
+	nn := types.NamespacedName{Name: policy.Name, Namespace: policy.Namespace}
+	reconciler.trackPolicyUID(nn, policy.UID)
 
 	// Verify it's tracked (indirectly by checking that resources can be created)
 	limiter := reconciler.getOrCreateRateLimiter(policy)
@@ -347,7 +348,7 @@ func TestGCPolicyReconciler_trackPolicySpec(t *testing.T) {
 	}
 
 	// Track policy spec
-	reconciler.trackPolicySpec(policy)
+	reconciler.trackPolicySpec(policy.UID, &policy.Spec)
 
 	// Verify it's tracked (indirectly by checking that batch size uses policy spec)
 	batchSize := reconciler.getBatchSize(policy)
@@ -426,7 +427,8 @@ func TestGCPolicyReconciler_deleteResource_DryRun(t *testing.T) {
 	}
 
 	// Dry run should not actually delete
-	err := reconciler.deleteResource(ctx, resource, policy)
+	rateLimiter := ratelimiter.NewRateLimiter(10)
+	err := reconciler.deleteResource(ctx, resource, policy, rateLimiter)
 	if err != nil {
 		t.Errorf("deleteResource() with dry run should not return error, got: %v", err)
 	}
@@ -471,7 +473,8 @@ func TestGCPolicyReconciler_deleteResource_ContextCancellation(t *testing.T) {
 	}
 
 	// Should handle context cancellation gracefully
-	err := reconciler.deleteResource(ctx, resource, policy)
+	rateLimiter := ratelimiter.NewRateLimiter(10)
+	err := reconciler.deleteResource(ctx, resource, policy, rateLimiter)
 	if err == nil {
 		t.Log("deleteResource() handled context cancellation - may return error or handle gracefully")
 	}
