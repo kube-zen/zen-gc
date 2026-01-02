@@ -66,7 +66,9 @@ func TestControllerConfig_LoadFromEnv(t *testing.T) {
 	// Test GC_INTERVAL
 	os.Setenv("GC_INTERVAL", "2m")
 	cfg := NewControllerConfig()
-	cfg.LoadFromEnv()
+	if err := cfg.LoadFromEnv(); err != nil {
+		t.Fatalf("LoadFromEnv() returned error: %v", err)
+	}
 	if cfg.GCInterval != 2*time.Minute {
 		t.Errorf("Expected GCInterval=2m, got %v", cfg.GCInterval)
 	}
@@ -74,7 +76,9 @@ func TestControllerConfig_LoadFromEnv(t *testing.T) {
 	// Test GC_MAX_DELETIONS_PER_SECOND
 	os.Setenv("GC_MAX_DELETIONS_PER_SECOND", "20")
 	cfg = NewControllerConfig()
-	cfg.LoadFromEnv()
+	if err := cfg.LoadFromEnv(); err != nil {
+		t.Fatalf("LoadFromEnv() returned error: %v", err)
+	}
 	if cfg.MaxDeletionsPerSecond != 20 {
 		t.Errorf("Expected MaxDeletionsPerSecond=20, got %d", cfg.MaxDeletionsPerSecond)
 	}
@@ -82,22 +86,31 @@ func TestControllerConfig_LoadFromEnv(t *testing.T) {
 	// Test GC_BATCH_SIZE
 	os.Setenv("GC_BATCH_SIZE", "100")
 	cfg = NewControllerConfig()
-	cfg.LoadFromEnv()
+	if err := cfg.LoadFromEnv(); err != nil {
+		t.Fatalf("LoadFromEnv() returned error: %v", err)
+	}
 	if cfg.BatchSize != 100 {
 		t.Errorf("Expected BatchSize=100, got %d", cfg.BatchSize)
 	}
 
-	// Test invalid values (should keep defaults)
+	// Test invalid values (should keep defaults and return validation error)
 	os.Setenv("GC_MAX_DELETIONS_PER_SECOND", "invalid")
 	cfg = NewControllerConfig()
-	cfg.LoadFromEnv()
+	err := cfg.LoadFromEnv()
+	if err == nil {
+		t.Error("Expected LoadFromEnv() to return error for invalid GC_MAX_DELETIONS_PER_SECOND")
+	}
 	if cfg.MaxDeletionsPerSecond != DefaultMaxDeletionsPerSecond {
 		t.Errorf("Expected MaxDeletionsPerSecond=%d (default), got %d", DefaultMaxDeletionsPerSecond, cfg.MaxDeletionsPerSecond)
 	}
 
+	os.Unsetenv("GC_MAX_DELETIONS_PER_SECOND")
 	os.Setenv("GC_BATCH_SIZE", "-5")
 	cfg = NewControllerConfig()
-	cfg.LoadFromEnv()
+	err = cfg.LoadFromEnv()
+	if err == nil {
+		t.Error("Expected LoadFromEnv() to return error for invalid GC_BATCH_SIZE")
+	}
 	if cfg.BatchSize != DefaultBatchSize {
 		t.Errorf("Expected BatchSize=%d (default), got %d", DefaultBatchSize, cfg.BatchSize)
 	}

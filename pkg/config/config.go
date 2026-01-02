@@ -15,12 +15,13 @@ limitations under the License.
 */
 
 // Package config provides centralized configuration management for the GC controller.
+// This package now uses zen-sdk/pkg/config for validation.
 package config
 
 import (
-	"os"
-	"strconv"
 	"time"
+
+	sdkconfig "github.com/kube-zen/zen-sdk/pkg/config"
 )
 
 // Default values for controller configuration.
@@ -68,36 +69,35 @@ func NewControllerConfig() *ControllerConfig {
 
 // LoadFromEnv loads configuration from environment variables.
 // Environment variables override defaults if set.
-// This implementation uses direct os.Getenv for simplicity, but could be enhanced
-// to use zen-sdk/pkg/config/validator for validation if needed.
-func (c *ControllerConfig) LoadFromEnv() {
+// This implementation uses zen-sdk/pkg/config for validation.
+func (c *ControllerConfig) LoadFromEnv() error {
+	validator := sdkconfig.NewValidator()
+
 	// GC_INTERVAL - duration string (e.g., "1m", "30s", "2h")
-	if val := os.Getenv("GC_INTERVAL"); val != "" {
+	if val := validator.OptionalDuration("GC_INTERVAL", ""); val != "" {
 		if d, err := time.ParseDuration(val); err == nil {
 			c.GCInterval = d
 		}
+		// If parsing fails, validator already validated format, so keep default
 	}
 
 	// GC_MAX_DELETIONS_PER_SECOND - integer
-	if val := os.Getenv("GC_MAX_DELETIONS_PER_SECOND"); val != "" {
-		if i, err := strconv.Atoi(val); err == nil && i > 0 {
-			c.MaxDeletionsPerSecond = i
-		}
+	if val := validator.OptionalInt("GC_MAX_DELETIONS_PER_SECOND", 0); val > 0 {
+		c.MaxDeletionsPerSecond = val
 	}
 
 	// GC_BATCH_SIZE - integer
-	if val := os.Getenv("GC_BATCH_SIZE"); val != "" {
-		if i, err := strconv.Atoi(val); err == nil && i > 0 {
-			c.BatchSize = i
-		}
+	if val := validator.OptionalInt("GC_BATCH_SIZE", 0); val > 0 {
+		c.BatchSize = val
 	}
 
 	// GC_MAX_CONCURRENT_EVALUATIONS - integer
-	if val := os.Getenv("GC_MAX_CONCURRENT_EVALUATIONS"); val != "" {
-		if i, err := strconv.Atoi(val); err == nil && i > 0 {
-			c.MaxConcurrentEvaluations = i
-		}
+	if val := validator.OptionalInt("GC_MAX_CONCURRENT_EVALUATIONS", 0); val > 0 {
+		c.MaxConcurrentEvaluations = val
 	}
+
+	// Return validation errors if any
+	return validator.Validate()
 }
 
 // WithGCInterval sets the GC interval.

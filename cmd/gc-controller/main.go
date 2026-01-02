@@ -138,7 +138,10 @@ func main() {
 
 	// Load controller configuration
 	controllerConfig := config.NewControllerConfig()
-	controllerConfig.LoadFromEnv() // Load from environment variables
+	if err := controllerConfig.LoadFromEnv(); err != nil {
+		setupLog.Error(err, "Error loading configuration from environment", sdklog.ErrorCode("CONFIG_LOAD_ERROR"))
+		os.Exit(1)
+	}
 	controllerConfig.WithGCInterval(*gcInterval)
 	controllerConfig.WithMaxDeletionsPerSecond(*maxDeletionsPerSecond)
 	controllerConfig.WithBatchSize(*batchSize)
