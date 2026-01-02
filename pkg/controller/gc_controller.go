@@ -146,7 +146,11 @@ type GCController struct {
 
 	// PolicyEvaluationService (optional, for refactored evaluation)
 	// If nil, uses legacy evaluatePolicy implementation
+	// Protected by evaluationServiceMu mutex.
 	evaluationService *PolicyEvaluationService
+
+	// Mutex to protect evaluationService.
+	evaluationServiceMu sync.RWMutex
 }
 
 // NewGCController creates a new GC controller with default configuration.
@@ -515,8 +519,22 @@ func (gc *GCController) convertToPolicy(obj interface{}) *v1alpha1.GarbageCollec
 
 // getOrCreateEvaluationService creates or returns the PolicyEvaluationService.
 // This uses the adapter pattern to bridge GCController with the refactored service.
+// Thread-safe: uses double-checked locking pattern.
 func (gc *GCController) getOrCreateEvaluationService(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) (*PolicyEvaluationService, error) {
-	// If service already exists, return it
+	// Fast path: check with read lock
+	gc.evaluationServiceMu.RLock()
+	if gc.evaluationService != nil {
+		service := gc.evaluationService
+		gc.evaluationServiceMu.RUnlock()
+		return service, nil
+	}
+	gc.evaluationServiceMu.RUnlock()
+
+	// Slow path: acquire write lock
+	gc.evaluationServiceMu.Lock()
+	defer gc.evaluationServiceMu.Unlock()
+
+	// Double-check after acquiring write lock (another goroutine might have created it)
 	if gc.evaluationService != nil {
 		return gc.evaluationService, nil
 	}
@@ -587,7 +605,16 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 	}
 
 	// Get all resources from cache
-	resources := informer.GetStore().List()
+	store := informer.GetStore()
+	if store == nil {
+		gcErr := gcerrors.New("informer_store_nil", "informer store is nil")
+		gcErr.PolicyNamespace = policy.Namespace
+		gcErr.PolicyName = policy.Name
+		recordError(policy.Namespace, policy.Name, "informer_store_nil")
+		gc.logger.Error(gcErr, "Informer store is nil", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("INFORMER_STORE_NIL"))
+		return gcErr
+	}
+	resources := store.List()
 
 	matchedCount := int64(0)
 	deletedCount := int64(0)

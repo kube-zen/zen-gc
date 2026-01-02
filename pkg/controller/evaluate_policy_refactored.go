@@ -161,6 +161,14 @@ func (s *PolicyEvaluationService) evaluateResources(
 	resourcesToDeleteReasons map[string]string,
 	resourceAPIVersion, resourceKind string,
 ) (matchedCount, pendingCount int64) {
+	// Check context cancellation at start to avoid unnecessary work
+	select {
+	case <-ctx.Done():
+		s.logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+		return
+	default:
+	}
+
 	const contextCheckInterval = 100
 	for i, resource := range resources {
 		// Check context cancellation periodically
@@ -210,7 +218,19 @@ func (s *PolicyEvaluationService) deleteResourcesInBatches(
 	resourcesToDelete []*unstructured.Unstructured,
 	resourcesToDeleteReasons map[string]string,
 ) int64 {
+	// Check context cancellation at start
+	select {
+	case <-ctx.Done():
+		s.logger.Debug("Stopping batch deletion: context canceled", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+		return 0
+	default:
+	}
+
 	rateLimiter := s.rateLimiterProvider.GetOrCreateRateLimiter(policy)
+	if rateLimiter == nil {
+		s.logger.Error(nil, "Rate limiter is nil, cannot proceed with deletions", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("RATE_LIMITER_NIL"))
+		return 0
+	}
 	batchSize := s.getBatchSize(policy)
 	deletedCount := int64(0)
 

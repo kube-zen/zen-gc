@@ -82,7 +82,11 @@ func (a *GCControllerAdapter) GetResourceListerForPolicy(ctx context.Context, po
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource informer: %w", err)
 	}
-	return NewInformerStoreResourceLister(informer.GetStore()), nil
+	store := informer.GetStore()
+	if store == nil {
+		return nil, fmt.Errorf("informer store is nil for policy %s/%s", policy.Namespace, policy.Name)
+	}
+	return NewInformerStoreResourceLister(store), nil
 }
 
 // GetSelectorMatcher returns a SelectorMatcher using GCController's implementation.

@@ -104,15 +104,17 @@ func getOrCreateRateLimiterShared(mgr RateLimiterManager, policy *v1alpha1.Garba
 	// Check if rate limiter already exists (with read lock)
 	rateLimitersMu.RLock()
 	if limiter, ok := rateLimiters[policy.UID]; ok {
-		// Update rate if it changed
+		rateLimitersMu.RUnlock()
+		// Update rate if it changed and limiter is not nil
 		if limiter != nil {
 			// Update rate to match policy configuration
 			limiter.SetRate(maxDeletionsPerSecond)
+			return limiter
 		}
+		// If limiter is nil, fall through to create a new one
+	} else {
 		rateLimitersMu.RUnlock()
-		return limiter
 	}
-	rateLimitersMu.RUnlock()
 
 	// Acquire write lock for creating new rate limiter
 	rateLimitersMu.Lock()
