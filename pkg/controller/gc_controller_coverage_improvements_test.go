@@ -52,31 +52,31 @@ func TestGCController_recordPolicyPhaseMetrics(t *testing.T) {
 		{
 			name: "policies with different phases",
 			policies: []interface{}{
-				createUnstructuredPolicy("policy1", "default", PolicyPhaseActive),
-				createUnstructuredPolicy("policy2", "default", PolicyPhasePaused),
-				createUnstructuredPolicy("policy3", "default", PolicyPhaseError),
+				createUnstructuredPolicy("policy1", PolicyPhaseActive),
+				createUnstructuredPolicy("policy2", PolicyPhasePaused),
+				createUnstructuredPolicy("policy3", PolicyPhaseError),
 			},
 		},
 		{
 			name: "policies with empty phase (defaults to Active)",
 			policies: []interface{}{
-				createUnstructuredPolicy("policy1", "default", ""),
-				createUnstructuredPolicy("policy2", "default", PolicyPhaseActive),
+				createUnstructuredPolicy("policy1", ""),
+				createUnstructuredPolicy("policy2", PolicyPhaseActive),
 			},
 		},
 		{
 			name: "policies with nil conversion (should be skipped)",
 			policies: []interface{}{
-				createUnstructuredPolicy("policy1", "default", PolicyPhaseActive),
+				createUnstructuredPolicy("policy1", PolicyPhaseActive),
 				"invalid-policy-object", // Will be skipped in convertToPolicy
 			},
 		},
 		{
 			name: "multiple policies with same phase",
 			policies: []interface{}{
-				createUnstructuredPolicy("policy1", "default", PolicyPhaseActive),
-				createUnstructuredPolicy("policy2", "default", PolicyPhaseActive),
-				createUnstructuredPolicy("policy3", "default", PolicyPhaseActive),
+				createUnstructuredPolicy("policy1", PolicyPhaseActive),
+				createUnstructuredPolicy("policy2", PolicyPhaseActive),
+				createUnstructuredPolicy("policy3", PolicyPhaseActive),
 			},
 		},
 	}
@@ -111,16 +111,16 @@ func TestGCController_evaluatePoliciesParallel_Coverage(t *testing.T) {
 		{
 			name: "policies with paused policy (should be skipped)",
 			policies: []interface{}{
-				createUnstructuredPolicyWithSpec("policy1", "default", false),
-				createUnstructuredPolicyWithSpec("policy2", "default", true), // Paused
-				createUnstructuredPolicyWithSpec("policy3", "default", false),
+				createUnstructuredPolicyWithSpec("policy1", false),
+				createUnstructuredPolicyWithSpec("policy2", true), // Paused
+				createUnstructuredPolicyWithSpec("policy3", false),
 			},
 			maxConcurrent: 2,
 		},
 		{
 			name: "policies with invalid objects (should be skipped)",
 			policies: []interface{}{
-				createUnstructuredPolicyWithSpec("policy1", "default", false),
+				createUnstructuredPolicyWithSpec("policy1", false),
 				"invalid-object", // Should be skipped
 			},
 			maxConcurrent: 1,
@@ -128,8 +128,8 @@ func TestGCController_evaluatePoliciesParallel_Coverage(t *testing.T) {
 		{
 			name: "context cancellation during evaluation",
 			policies: []interface{}{
-				createUnstructuredPolicyWithSpec("policy1", "default", false),
-				createUnstructuredPolicyWithSpec("policy2", "default", false),
+				createUnstructuredPolicyWithSpec("policy1", false),
+				createUnstructuredPolicyWithSpec("policy2", false),
 			},
 			maxConcurrent: 1,
 			setupFunc: func(gc *GCController) {
@@ -177,21 +177,21 @@ func TestGCController_evaluatePoliciesSequential_Coverage(t *testing.T) {
 		{
 			name: "policies with paused policy (should be skipped)",
 			policies: []interface{}{
-				createUnstructuredPolicyWithSpec("policy1", "default", true), // Paused
-				createUnstructuredPolicyWithSpec("policy2", "default", false),
+				createUnstructuredPolicyWithSpec("policy1", true), // Paused
+				createUnstructuredPolicyWithSpec("policy2", false),
 			},
 		},
 		{
 			name: "policies with invalid objects (should be skipped)",
 			policies: []interface{}{
 				"invalid-object", // Should be skipped
-				createUnstructuredPolicyWithSpec("policy1", "default", false),
+				createUnstructuredPolicyWithSpec("policy1", false),
 			},
 		},
 		{
 			name: "context cancellation during evaluation",
 			policies: []interface{}{
-				createUnstructuredPolicyWithSpec("policy1", "default", false),
+				createUnstructuredPolicyWithSpec("policy1", false),
 			},
 			setupFunc: func(gc *GCController) {
 				// Cancel context to test cancellation path
@@ -243,7 +243,7 @@ func TestGCController_evaluatePolicies_WithMaxConcurrent(t *testing.T) {
 }
 
 // Helper function to create unstructured policy with phase.
-func createUnstructuredPolicy(name, namespace, phase string) *unstructured.Unstructured {
+func createUnstructuredPolicy(name, phase string) *unstructured.Unstructured {
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -260,11 +260,11 @@ func createUnstructuredPolicy(name, namespace, phase string) *unstructured.Unstr
 }
 
 // Helper function to create unstructured policy with spec (including paused flag).
-func createUnstructuredPolicyWithSpec(name, namespace string, paused bool) *unstructured.Unstructured {
+func createUnstructuredPolicyWithSpec(name string, paused bool) *unstructured.Unstructured {
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: "default",
 			UID:       types.UID(name + "-uid"),
 		},
 		Spec: v1alpha1.GarbageCollectionPolicySpec{

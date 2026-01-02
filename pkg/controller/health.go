@@ -17,10 +17,17 @@ limitations under the License.
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
+)
+
+// Static errors for health checks.
+var (
+	errReconcilerNotInitialized = errors.New("reconciler not initialized")
+	errInformersNotSynced       = errors.New("resource informers not synced")
 )
 
 // HealthChecker provides health check functionality for the GC controller.
@@ -39,7 +46,7 @@ type HealthChecker struct {
 // NewHealthChecker creates a new health checker.
 func NewHealthChecker(reconciler *GCPolicyReconciler) *HealthChecker {
 	return &HealthChecker{
-		reconciler:                reconciler,
+		reconciler:                 reconciler,
 		maxTimeSinceLastEvaluation: 5 * time.Minute, // Default: 5 minutes
 	}
 }
@@ -59,28 +66,28 @@ func (h *HealthChecker) UpdateLastEvaluationTime() {
 // ReadinessCheck verifies that the controller is ready to serve requests.
 // It checks:
 // 1. All resource informers are synced
-// 2. Controller has been running long enough (at least 10 seconds)
+// 2. Controller has been running long enough (at least 10 seconds).
 func (h *HealthChecker) ReadinessCheck(req *http.Request) error {
 	if h.reconciler == nil {
-		return fmt.Errorf("reconciler not initialized")
+		return fmt.Errorf("%w", errReconcilerNotInitialized)
 	}
 
 	// Check if all resource informers are synced
 	h.reconciler.resourceInformersMu.RLock()
 	defer h.reconciler.resourceInformersMu.RUnlock()
 
-	unsyncedInformers := []string{}
-	for uid, informer := range h.reconciler.resourceInformers {
+	unsyncedCount := 0
+	for _, informer := range h.reconciler.resourceInformers {
 		if informer == nil {
 			continue
 		}
 		if !informer.HasSynced() {
-			unsyncedInformers = append(unsyncedInformers, string(uid))
+			unsyncedCount++
 		}
 	}
 
-	if len(unsyncedInformers) > 0 {
-		return fmt.Errorf("resource informers not synced: %d informers still syncing", len(unsyncedInformers))
+	if unsyncedCount > 0 {
+		return fmt.Errorf("%w: %d informers still syncing", errInformersNotSynced, unsyncedCount)
 	}
 
 	return nil
@@ -90,10 +97,10 @@ func (h *HealthChecker) ReadinessCheck(req *http.Request) error {
 // It checks:
 // 1. Controller has evaluated policies recently (within maxTimeSinceLastEvaluation)
 // 2. If no policies exist, controller is still considered alive (no work to do)
-// 3. If policies exist but haven't been evaluated, check if reconciler is processing
+// 3. If policies exist but haven't been evaluated, check if reconciler is processing.
 func (h *HealthChecker) LivenessCheck(req *http.Request) error {
 	if h.reconciler == nil {
-		return fmt.Errorf("reconciler not initialized")
+		return fmt.Errorf("%w", errReconcilerNotInitialized)
 	}
 
 	// Check if we have policies
@@ -136,8 +143,7 @@ func (h *HealthChecker) LivenessCheck(req *http.Request) error {
 // Returns nil if controller is initialized, error otherwise.
 func (h *HealthChecker) StartupCheck(req *http.Request) error {
 	if h.reconciler == nil {
-		return fmt.Errorf("reconciler not initialized")
+		return fmt.Errorf("%w", errReconcilerNotInitialized)
 	}
 	return nil
 }
-

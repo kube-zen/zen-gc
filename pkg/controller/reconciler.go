@@ -97,9 +97,6 @@ type GCPolicyReconciler struct {
 
 	// Logger instance (reused to avoid allocations).
 	logger *sdklog.Logger
-
-	// Health checker reference (optional, for tracking evaluation time).
-	healthChecker *HealthChecker
 }
 
 // NewGCPolicyReconciler creates a new GC policy reconciler.

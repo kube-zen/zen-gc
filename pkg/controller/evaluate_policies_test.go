@@ -162,8 +162,8 @@ func TestGCController_evaluatePoliciesSequential_ErrorHandling(t *testing.T) {
 
 	// Create policies with invalid spec to trigger errors
 	policies := []interface{}{
-		createUnstructuredPolicyWithSpec("policy1", "default", false),
-		createUnstructuredPolicyWithSpec("policy2", "default", false),
+		createUnstructuredPolicyWithSpec("policy1", false),
+		createUnstructuredPolicyWithSpec("policy2", false),
 	}
 
 	// Should handle errors gracefully without panicking
@@ -184,11 +184,11 @@ func TestGCController_evaluatePoliciesParallel_WorkerPool(t *testing.T) {
 
 	// Create multiple policies to test worker pool
 	policies := []interface{}{
-		createUnstructuredPolicyWithSpec("policy1", "default", false),
-		createUnstructuredPolicyWithSpec("policy2", "default", false),
-		createUnstructuredPolicyWithSpec("policy3", "default", false),
-		createUnstructuredPolicyWithSpec("policy4", "default", false),
-		createUnstructuredPolicyWithSpec("policy5", "default", false),
+		createUnstructuredPolicyWithSpec("policy1", false),
+		createUnstructuredPolicyWithSpec("policy2", false),
+		createUnstructuredPolicyWithSpec("policy3", false),
+		createUnstructuredPolicyWithSpec("policy4", false),
+		createUnstructuredPolicyWithSpec("policy5", false),
 	}
 
 	// Test with maxConcurrent = 2 (should use worker pool)
@@ -213,8 +213,8 @@ func TestGCController_evaluatePoliciesParallel_ContextCancellation(t *testing.T)
 
 	// Create policies
 	policies := []interface{}{
-		createUnstructuredPolicyWithSpec("policy1", "default", false),
-		createUnstructuredPolicyWithSpec("policy2", "default", false),
+		createUnstructuredPolicyWithSpec("policy1", false),
+		createUnstructuredPolicyWithSpec("policy2", false),
 	}
 
 	// Cancel context in a goroutine after a short delay
@@ -231,11 +231,12 @@ func TestGCController_evaluatePoliciesParallel_ContextCancellation(t *testing.T)
 }
 
 // Helper function to create unstructured policy with spec (including paused flag).
-func createUnstructuredPolicyWithSpecForTest(name, namespace string, paused bool) *unstructured.Unstructured {
+// This is a duplicate of createUnstructuredPolicyWithSpec but kept for test isolation.
+func createUnstructuredPolicyWithSpecForTest(name string, paused bool) *unstructured.Unstructured {
 	policy := &v1alpha1.GarbageCollectionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: "default",
 			UID:       types.UID(name + "-uid"),
 		},
 		Spec: v1alpha1.GarbageCollectionPolicySpec{
@@ -253,4 +254,3 @@ func createUnstructuredPolicyWithSpecForTest(name, namespace string, paused bool
 	unstructuredPolicy, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(policy)
 	return &unstructured.Unstructured{Object: unstructuredPolicy}
 }
-
