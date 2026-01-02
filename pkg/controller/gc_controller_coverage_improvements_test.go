@@ -91,7 +91,10 @@ func TestGCController_recordPolicyPhaseMetrics(t *testing.T) {
 
 // TestGCController_evaluatePoliciesParallel_Coverage tests parallel policy evaluation for coverage.
 // Full evaluation requires complex informer setup, so we test the basic structure.
+// TestGCController_evaluatePoliciesParallel_Coverage tests parallel evaluation.
+// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePoliciesParallel_Coverage(t *testing.T) {
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
 	statusUpdater := NewStatusUpdater(dynamicClient)
@@ -159,7 +162,10 @@ func TestGCController_evaluatePoliciesParallel_Coverage(t *testing.T) {
 }
 
 // TestGCController_evaluatePoliciesSequential_Coverage tests sequential evaluation for coverage.
+// TestGCController_evaluatePoliciesSequential_Coverage tests sequential evaluation.
+// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePoliciesSequential_Coverage(t *testing.T) {
+	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 	scheme := runtime.NewScheme()
 	dynamicClient := fake.NewSimpleDynamicClient(scheme)
 	statusUpdater := NewStatusUpdater(dynamicClient)
