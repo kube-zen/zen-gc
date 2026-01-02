@@ -151,7 +151,7 @@ func TestMatchesSelectorsShared_Namespace(t *testing.T) {
 }
 
 func TestGCController_matchesSelectors_FieldSelector(t *testing.T) {
-	gc := &GCController{}
+		// Test matchesSelectorsShared directly
 
 	tests := []struct {
 		name          string

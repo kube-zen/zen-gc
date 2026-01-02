@@ -21,12 +21,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/dynamic/fake"
-
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
-	"github.com/kube-zen/zen-gc/pkg/config"
 )
 
 // TestGCController_evaluatePolicies_ContextCancellation tests context cancellation handling.
