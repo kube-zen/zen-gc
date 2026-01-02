@@ -222,50 +222,8 @@ install-tools:
 	fi
 	@echo "✅ Development tools installed"
 
-# Helm chart targets
-helm-lint:
-	@echo "Linting Helm chart..."
-	@if ! command -v helm >/dev/null 2>&1; then \
-		echo "❌ Helm not installed. Install from https://helm.sh/docs/intro/install/"; \
-		exit 1; \
-	fi
-	helm lint charts/gc-controller
-	@echo "✅ Helm chart lint passed"
-
-helm-package:
-	@echo "Packaging Helm chart..."
-	@if ! command -v helm >/dev/null 2>&1; then \
-		echo "❌ Helm not installed. Install from https://helm.sh/docs/intro/install/"; \
-		exit 1; \
-	fi
-	@mkdir -p .helm-packages
-	helm package charts/gc-controller -d .helm-packages/
-	@echo "✅ Helm chart packaged"
-
-helm-test:
-	@echo "Testing Helm chart rendering..."
-	@if ! command -v helm >/dev/null 2>&1; then \
-		echo "❌ Helm not installed. Install from https://helm.sh/docs/intro/install/"; \
-		exit 1; \
-	fi
-	helm template test-release charts/gc-controller --debug > /dev/null
-	@echo "✅ Helm chart renders successfully"
-
-helm-repo-index:
-	@echo "Generating Helm repository index..."
-	@if ! command -v helm >/dev/null 2>&1; then \
-		echo "❌ Helm not installed. Install from https://helm.sh/docs/intro/install/"; \
-		exit 1; \
-	fi
-	@if [ ! -d ".helm-packages" ] || [ -z "$$(ls -A .helm-packages/*.tgz 2>/dev/null)" ]; then \
-		echo "❌ No packaged charts found. Run 'make helm-package' first"; \
-		exit 1; \
-	fi
-	helm repo index .helm-packages --url https://kube-zen.github.io/zen-gc
-	@echo "✅ Helm repository index generated"
-
-helm-all: helm-lint helm-test helm-package helm-repo-index
-	@echo "✅ All Helm tasks complete"
+# Helm charts are now in the helm-charts repository
+# See: https://github.com/kube-zen/helm-charts
 
 check:
 	@scripts/ci/check.sh
