@@ -304,3 +304,28 @@ func (d *MockBatchDeleterCore) DeleteBatch(ctx context.Context, batch []*unstruc
 	return deleted, errors
 }
 
+// MockStatusUpdater is a mock implementation of StatusUpdater for testing.
+type MockStatusUpdater struct {
+	err error
+	mu  sync.RWMutex
+}
+
+// NewMockStatusUpdater creates a new MockStatusUpdater.
+func NewMockStatusUpdater() *MockStatusUpdater {
+	return &MockStatusUpdater{}
+}
+
+// SetError sets an error to return from UpdateStatus.
+func (m *MockStatusUpdater) SetError(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.err = err
+}
+
+// UpdateStatus updates the policy status (mock implementation).
+func (m *MockStatusUpdater) UpdateStatus(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy, matchedCount, deletedCount, pendingCount int64) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.err
+}
+
