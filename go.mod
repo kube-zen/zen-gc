@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.3
 
 require (
-	github.com/kube-zen/zen-sdk v0.2.7-alpha
+	github.com/kube-zen/zen-sdk v0.2.7-alpha.0.20260102110408-8cc6e19dc0fb
 	github.com/prometheus/client_golang v1.19.1
 	golang.org/x/text v0.31.0
 	k8s.io/api v0.31.0

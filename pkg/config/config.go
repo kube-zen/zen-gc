@@ -68,6 +68,8 @@ func NewControllerConfig() *ControllerConfig {
 
 // LoadFromEnv loads configuration from environment variables.
 // Environment variables override defaults if set.
+// This implementation uses direct os.Getenv for simplicity, but could be enhanced
+// to use zen-sdk/pkg/config/validator for validation if needed.
 func (c *ControllerConfig) LoadFromEnv() {
 	// GC_INTERVAL - duration string (e.g., "1m", "30s", "2h")
 	if val := os.Getenv("GC_INTERVAL"); val != "" {
