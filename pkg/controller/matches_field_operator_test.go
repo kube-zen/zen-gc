@@ -19,9 +19,6 @@ package controller
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic/fake"
-
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 )
 

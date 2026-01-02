@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
+	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
 func TestGCPolicyReconciler_calculateExpirationTime_FixedTTL(t *testing.T) {
