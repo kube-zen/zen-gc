@@ -105,7 +105,7 @@ func TestControllerConfig_LoadFromEnv(t *testing.T) {
 	}
 
 	os.Unsetenv("GC_MAX_DELETIONS_PER_SECOND")
-	os.Setenv("GC_BATCH_SIZE", "-5")
+	os.Setenv("GC_BATCH_SIZE", "not-a-number")
 	cfg = NewControllerConfig()
 	err = cfg.LoadFromEnv()
 	if err == nil {
