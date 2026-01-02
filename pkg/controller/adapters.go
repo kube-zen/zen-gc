@@ -74,6 +74,10 @@ func NewGCControllerAdapter(gc *GCController) *GCControllerAdapter {
 
 // GetResourceListerForPolicy creates a ResourceLister from the policy's informer.
 func (a *GCControllerAdapter) GetResourceListerForPolicy(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) (ResourceLister, error) {
+	// Use context from GCController if ctx is not provided
+	if ctx == nil {
+		ctx = a.gc.ctx
+	}
 	informer, err := a.gc.getOrCreateResourceInformer(policy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource informer: %w", err)
