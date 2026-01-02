@@ -520,7 +520,7 @@ func (gc *GCController) evaluatePolicy(policy *v1alpha1.GarbageCollectionPolicy)
 		recordEvaluationDuration(policy.Namespace, policy.Name, duration)
 	}()
 
-			gc.logger.Debug("Evaluating policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+	gc.logger.Debug("Evaluating policy", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
 
 	// Get or create resource informer for this policy
 	informer, err := gc.getOrCreateResourceInformer(policy)
@@ -874,7 +874,7 @@ func (gc *GCController) getOrCreateResourceInformer(policy *v1alpha1.GarbageColl
 	}
 
 	// Use struct logger to avoid allocations
-			gc.logger.Debug("Created resource informer for policy", sdklog.Operation("get_or_create_informer"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.String("uid", string(policy.UID)))
+	gc.logger.Debug("Created resource informer for policy", sdklog.Operation("get_or_create_informer"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.String("uid", string(policy.UID)))
 	return informer, nil
 }
 
@@ -915,7 +915,7 @@ func (gc *GCController) handlePolicyDelete(obj interface{}) {
 		return
 	}
 
-			gc.logger.Info("Policy deleted, cleaning up resource informer and rate limiter", sdklog.Operation("handle_policy_delete"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+	gc.logger.Info("Policy deleted, cleaning up resource informer and rate limiter", sdklog.Operation("handle_policy_delete"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
 	gc.cleanupResourceInformer(policy.UID)
 	gc.cleanupRateLimiter(policy.UID)
 }

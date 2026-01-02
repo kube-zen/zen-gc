@@ -56,8 +56,8 @@ func evaluatePolicyResourcesShared(
 		MatchedCount:             int64(0),
 		DeletedCount:             int64(0),
 		PendingCount:             int64(0),
-	ResourcesToDelete:        make([]*unstructured.Unstructured, 0, len(resources)/10),
-	ResourcesToDeleteReasons: make(map[string]string, len(resources)/10),
+		ResourcesToDelete:        make([]*unstructured.Unstructured, 0, len(resources)/10),
+		ResourcesToDeleteReasons: make(map[string]string, len(resources)/10),
 	}
 
 	resourceAPIVersion := policy.Spec.TargetResource.APIVersion

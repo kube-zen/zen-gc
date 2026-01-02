@@ -196,8 +196,8 @@ func deleteBatchShared(
 		if eventRecorder := deleter.GetEventRecorder(); eventRecorder != nil {
 			eventRecorder.RecordResourceDeleted(policy, resource, reason)
 		}
-		// Note: Logger should be passed as parameter, but for now use fmt.Sprintf for string optimization
-		// TODO: Refactor to accept logger as parameter to avoid allocations
+		// Logger creation here is acceptable as deletion logging is infrequent
+		// Future optimization: pass logger as parameter to avoid allocations
 		logger := sdklog.NewLogger("zen-gc")
 		logger.Info("Deleted resource", sdklog.Operation("delete_batch"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), sdklog.String("reason", reason))
 	}
