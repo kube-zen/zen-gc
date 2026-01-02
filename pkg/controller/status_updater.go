@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,12 +156,12 @@ func (s *StatusUpdater) UpdateStatus(
 		gcErr.PolicyNamespace = policy.Namespace
 		gcErr.PolicyName = policy.Name
 		logger := sdklog.NewLogger("zen-gc")
-		logger.Warn("Failed to update GarbageCollectionPolicy status", sdklog.Operation("update_status"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.Error(gcErr))
+		logger.Warn("Failed to update GarbageCollectionPolicy status", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(gcErr))
 		return gcErr
 	}
 
 	logger := sdklog.NewLogger("zen-gc")
-	logger.Debug("Updated GarbageCollectionPolicy status", sdklog.Operation("update_status"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.Int64("matched", matched), sdklog.Int64("deleted", deleted), sdklog.Int64("pending", pending))
+	logger.Debug("Updated GarbageCollectionPolicy status", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Int64("matched", matched), sdklog.Int64("deleted", deleted), sdklog.Int64("pending", pending))
 
 	return nil
 }

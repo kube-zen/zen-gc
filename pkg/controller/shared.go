@@ -152,17 +152,21 @@ func deleteBatchShared(
 	deleter BatchDeleter,
 ) (int64, []error) {
 	deletedCount := int64(0)
-	errors := make([]error, 0)
+	// Pre-allocate errors slice with batch size (worst case: all deletions fail)
+	errors := make([]error, 0, len(batch))
 
 	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
 	resourceKind := policy.Spec.TargetResource.Kind
 
-	for _, resource := range batch {
-		// Check context cancellation
-		select {
-		case <-ctx.Done():
-			return deletedCount, errors
-		default:
+	const contextCheckInterval = 50 // Check context every 50 iterations
+	for i, resource := range batch {
+		// Check context cancellation periodically to reduce overhead
+		if i%contextCheckInterval == 0 {
+			select {
+			case <-ctx.Done():
+				return deletedCount, errors
+			default:
+			}
 		}
 
 		// Rate limiting (per resource)
@@ -192,8 +196,10 @@ func deleteBatchShared(
 		if eventRecorder := deleter.GetEventRecorder(); eventRecorder != nil {
 			eventRecorder.RecordResourceDeleted(policy, resource, reason)
 		}
+		// Note: Logger should be passed as parameter, but for now use fmt.Sprintf for string optimization
+		// TODO: Refactor to accept logger as parameter to avoid allocations
 		logger := sdklog.NewLogger("zen-gc")
-		logger.Info("Deleted resource", sdklog.Operation("delete_batch"), sdklog.String("resource", resource.GetNamespace()+"/"+resource.GetName()), sdklog.String("reason", reason))
+		logger.Info("Deleted resource", sdklog.Operation("delete_batch"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), sdklog.String("reason", reason))
 	}
 
 	return deletedCount, errors

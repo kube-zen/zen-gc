@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -55,21 +56,24 @@ func evaluatePolicyResourcesShared(
 		MatchedCount:             int64(0),
 		DeletedCount:             int64(0),
 		PendingCount:             int64(0),
-		ResourcesToDelete:        make([]*unstructured.Unstructured, 0),
-		ResourcesToDeleteReasons: make(map[string]string),
+	ResourcesToDelete:        make([]*unstructured.Unstructured, 0, len(resources)/10),
+	ResourcesToDeleteReasons: make(map[string]string, len(resources)/10),
 	}
 
 	resourceAPIVersion := policy.Spec.TargetResource.APIVersion
 	resourceKind := policy.Spec.TargetResource.Kind
 
 	logger := sdklog.NewLogger("zen-gc")
-	for _, obj := range resources {
-		// Check context cancellation during resource iteration
-		select {
-		case <-ctx.Done():
-			logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policy"), sdklog.String("policy", policy.Namespace+"/"+policy.Name))
-			return result
-		default:
+	const contextCheckInterval = 100 // Check context every 100 iterations
+	for i, obj := range resources {
+		// Check context cancellation periodically to reduce overhead
+		if i%contextCheckInterval == 0 {
+			select {
+			case <-ctx.Done():
+				logger.Debug("Stopping policy evaluation: context canceled", sdklog.Operation("evaluate_policy"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
+				return result
+			default:
+			}
 		}
 
 		resource, ok := obj.(*unstructured.Unstructured)
@@ -122,7 +126,7 @@ func deleteResourcesInBatchesShared(
 		// Check context cancellation between batches
 		select {
 		case <-ctx.Done():
-			logger.Debug("Stopping batch deletion: context canceled", sdklog.Operation("delete_batch"), sdklog.String("policy", policy.Namespace+"/"+policy.Name))
+			logger.Debug("Stopping batch deletion: context canceled", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)))
 			return deletedCount
 		default:
 		}
@@ -150,11 +154,11 @@ func deleteResourcesInBatchesShared(
 			if eventRecorder != nil {
 				eventRecorder.RecordEvaluationFailed(policy, err)
 			}
-			logger.Error(err, "Error deleting batch for policy", sdklog.Operation("delete_batch"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.ErrorCode("DELETE_BATCH_FAILED"))
+			logger.Error(err, "Error deleting batch for policy", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("DELETE_BATCH_FAILED"))
 		}
 
 		// Log deletion attempt metrics
-		logger.Debug("Policy deletion batch completed", sdklog.Operation("delete_batch"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.Int64("attempted", deletionAttempts), sdklog.Int64("succeeded", batchDeleted), sdklog.Int64("failed", int64(len(batchErrors))))
+		logger.Debug("Policy deletion batch completed", sdklog.Operation("delete_batch"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Int64("attempted", deletionAttempts), sdklog.Int64("succeeded", batchDeleted), sdklog.Int64("failed", int64(len(batchErrors))))
 	}
 
 	return deletedCount
@@ -180,7 +184,7 @@ func updatePolicyStatusShared(
 	if err := statusUpdater.UpdateStatus(statusCtx, policy, matchedCount, deletedCount, pendingCount); err != nil {
 		// Check if error is due to context cancellation/timeout
 		if statusCtx.Err() != nil {
-			logger.Debug("Status update canceled or timed out", sdklog.Operation("update_status"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.Error(statusCtx.Err()))
+			logger.Debug("Status update canceled or timed out", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.Error(statusCtx.Err()))
 			return nil // Don't treat cancellation as error
 		}
 		gcErr := gcerrors.Wrap(err, "status_update_failed", "failed to update policy status")
@@ -191,7 +195,7 @@ func updatePolicyStatusShared(
 		if eventRecorder != nil {
 			eventRecorder.RecordStatusUpdateFailed(policy, gcErr)
 		}
-		logger.Error(gcErr, "Error updating policy status", sdklog.Operation("update_status"), sdklog.String("policy", policy.Namespace+"/"+policy.Name), sdklog.ErrorCode("UPDATE_STATUS_FAILED"))
+		logger.Error(gcErr, "Error updating policy status", sdklog.Operation("update_status"), sdklog.String("policy", fmt.Sprintf("%s/%s", policy.Namespace, policy.Name)), sdklog.ErrorCode("UPDATE_STATUS_FAILED"))
 		return gcErr
 	}
 
