@@ -1,8 +1,6 @@
 module github.com/kube-zen/zen-gc
 
-go 1.24.0
-
-toolchain go1.24.3
+go 1.25.0
 
 require (
 	github.com/kube-zen/zen-sdk v0.2.7-alpha.0.20260102110815-d5dd5e517e82
