@@ -81,7 +81,7 @@ func TestParseGVR(t *testing.T) {
 			name:        "empty API version",
 			apiVersion:  "",
 			kind:        "Resource",
-			expectError: true,
+			expectError: true, // Empty API version should cause parse error
 		},
 	}
 
