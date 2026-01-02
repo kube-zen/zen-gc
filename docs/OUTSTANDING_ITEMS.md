@@ -14,43 +14,38 @@ All critical refactoring and TODO items have been completed. The following items
 
 ## Outstanding Items (Optional)
 
-### 1. RESTMapper Integration (Low Priority)
+### 1. RESTMapper Integration ✅ COMPLETE
 
-**Status**: Infrastructure ready, requires architectural change
+**Status**: ✅ **COMPLETE**
 
 **What's Done**:
 - ✅ `GVRResolver` created with RESTMapper support
-- ✅ Caching implemented
-- ✅ Fallback to pluralization working
+- ✅ RESTMapper integrated into `GCPolicyReconciler` constructor
+- ✅ `deleteResource()` uses `GVRResolver.ResolveGVR()`
+- ✅ Comprehensive tests added
+- ✅ Backward compatibility maintained
 
-**What's Needed**:
-- Add `restMapper meta.RESTMapper` to `GCPolicyReconciler` struct
-- Pass RESTMapper through constructor (from controller-runtime Manager)
-- Update `deleteResource()` to use `GVRResolver.ResolveGVR()`
-
-**Impact**: Medium - improves reliability for irregular CRDs
-**Effort**: 2-3 hours (architectural change + testing)
-
-**Recommendation**: Can be done in a separate PR when needed.
+**See**: `docs/RESTMAPPER_INTEGRATION_COMPLETE.md` for details.
 
 ### 2. Remove Deprecated GCController (Low Priority)
 
-**Status**: Deprecated but still exists
+**Status**: Deprecated but kept for test compatibility
 
 **Current State**:
 - `GCController` is marked deprecated
-- Still used in some tests (for backward compatibility)
-- `GCPolicyReconciler` is the recommended approach
+- Still used in integration tests (`test/integration/integration_test.go`)
+- `GCPolicyReconciler` is the recommended approach for production
+- All unit tests use `GCPolicyReconciler` with mocks
 
 **What's Needed**:
-- Verify no external dependencies on `GCController`
-- Remove or move to `internal/` package
-- Update any remaining tests
+- Update integration tests to use `GCPolicyReconciler` instead
+- Remove `GCController` after integration tests are migrated
+- Or move to `internal/controller` package to hide from public API
 
 **Impact**: Low - code cleanup
-**Effort**: 1-2 hours (verification + removal)
+**Effort**: 2-3 hours (update integration tests + removal)
 
-**Recommendation**: Can be done when convenient, not urgent.
+**Recommendation**: Can be done when convenient. Integration tests should be migrated first.
 
 ### 3. Update Remaining Skipped Tests (Very Low Priority)
 
