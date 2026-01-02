@@ -838,9 +838,8 @@ func (gc *GCController) deleteResource(resource *unstructured.Unstructured, poli
 	}
 
 	// Get GVR using pluralization (fallback)
-	// TODO: Use GVRResolver with RESTMapper when available (see ROADMAP.md)
-	// Current pluralization may fail for irregular Kinds/CRDs, but maintains backward compatibility
-	// GVRResolver infrastructure is ready in pkg/controller/gvr_resolver.go
+	// Note: GCController is deprecated - GCPolicyReconciler uses GVRResolver with RESTMapper
+	// This maintains backward compatibility for deprecated code
 	gvr := schema.GroupVersionResource{
 		Group:    resource.GroupVersionKind().Group,
 		Version:  resource.GroupVersionKind().Version,

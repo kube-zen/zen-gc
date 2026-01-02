@@ -50,11 +50,12 @@ func setupTestReconciler(t *testing.T) (*GCPolicyReconciler, client.Client) {
 	statusUpdater := NewStatusUpdater(dynamicClient)
 	eventRecorder := NewEventRecorder(nil) // nil is OK for tests
 
-	// Create reconciler
-	reconciler := NewGCPolicyReconciler(
+	// Create reconciler (RESTMapper is optional, nil is OK for tests)
+	reconciler := NewGCPolicyReconcilerWithRESTMapper(
 		fakeClient,
 		scheme,
 		dynamicClient,
+		nil, // RESTMapper - nil is OK, will use pluralization fallback
 		statusUpdater,
 		eventRecorder,
 		config.NewControllerConfig(),

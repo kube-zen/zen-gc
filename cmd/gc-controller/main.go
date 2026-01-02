@@ -238,11 +238,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create GC policy reconciler (leader election handled by controller-runtime Manager)
-	reconciler := controller.NewGCPolicyReconciler(
+	// Create GC policy reconciler with RESTMapper (leader election handled by controller-runtime Manager)
+	// RESTMapper enables reliable GVR resolution for irregular CRDs
+	reconciler := controller.NewGCPolicyReconcilerWithRESTMapper(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		dynamicClient,
+		mgr.GetRESTMapper(),
 		statusUpdater,
 		eventRecorder,
 		controllerConfig,

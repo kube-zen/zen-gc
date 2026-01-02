@@ -73,11 +73,12 @@ func TestGCPolicyReconciler_EvaluatePolicy_WithMocks(t *testing.T) {
 	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).WithObjects(policy).Build()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 
-	// Create reconciler
-	reconciler := controller.NewGCPolicyReconciler(
+	// Create reconciler (RESTMapper is optional, nil is OK for tests)
+	reconciler := controller.NewGCPolicyReconcilerWithRESTMapper(
 		fakeClient,
 		scheme,
 		dynamicClient,
+		nil, // RESTMapper - nil is OK, will use pluralization fallback
 		controller.NewStatusUpdater(dynamicClient),
 		controller.NewEventRecorder(nil),
 		config.NewControllerConfig(),
@@ -268,4 +269,3 @@ func TestGCPolicyReconciler_EvaluatePolicy_ContextCancellation(t *testing.T) {
 		t.Error("Expected error for context cancellation, got nil")
 	}
 }
-

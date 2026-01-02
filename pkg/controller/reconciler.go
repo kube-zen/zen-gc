@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -98,6 +99,14 @@ type GCPolicyReconciler struct {
 	// Logger instance (reused to avoid allocations).
 	logger *sdklog.Logger
 
+	// RESTMapper for GVR resolution (optional, improves reliability for irregular CRDs).
+	// If nil, falls back to pluralization-based resolution.
+	restMapper meta.RESTMapper
+
+	// GVRResolver for resolving GroupVersionResource from GroupVersionKind.
+	// Uses RESTMapper if available, otherwise falls back to pluralization.
+	gvrResolver *GVRResolver
+
 	// PolicyEvaluationService (optional, for refactored evaluation)
 	// If nil, uses legacy evaluatePolicy implementation
 	// Protected by evaluationServiceMu mutex.
@@ -116,10 +125,27 @@ func NewGCPolicyReconciler(
 	eventRecorder *EventRecorder,
 	cfg *config.ControllerConfig,
 ) *GCPolicyReconciler {
+	return NewGCPolicyReconcilerWithRESTMapper(client, scheme, dynamicClient, nil, statusUpdater, eventRecorder, cfg)
+}
+
+// NewGCPolicyReconcilerWithRESTMapper creates a new GC policy reconciler with RESTMapper.
+// RESTMapper is optional - if nil, falls back to pluralization-based resolution.
+func NewGCPolicyReconcilerWithRESTMapper(
+	client client.Client,
+	scheme *runtime.Scheme,
+	dynamicClient dynamic.Interface,
+	restMapper meta.RESTMapper,
+	statusUpdater *StatusUpdater,
+	eventRecorder *EventRecorder,
+	cfg *config.ControllerConfig,
+) *GCPolicyReconciler {
 	// Use default config if nil
 	if cfg == nil {
 		cfg = config.NewControllerConfig()
 	}
+
+	// Create GVRResolver with RESTMapper (nil is OK, will use pluralization fallback)
+	gvrResolver := NewGVRResolver(restMapper)
 
 	return &GCPolicyReconciler{
 		Client:                    client,
@@ -135,6 +161,8 @@ func NewGCPolicyReconciler(
 		statusUpdater:             statusUpdater,
 		eventRecorder:             eventRecorder,
 		logger:                    sdklog.NewLogger("zen-gc"),
+		restMapper:                restMapper,
+		gvrResolver:               gvrResolver,
 	}
 }
 
@@ -446,16 +474,29 @@ func (r *GCPolicyReconciler) deleteResource(ctx context.Context, resource *unstr
 	}
 
 	// Get GVR using GVRResolver (with RESTMapper if available, otherwise pluralization)
-	// Note: RESTMapper requires architectural change to pass through constructor
-	// For now, uses pluralization fallback which maintains backward compatibility
-	gvr := schema.GroupVersionResource{
-		Group:    resource.GroupVersionKind().Group,
-		Version:  resource.GroupVersionKind().Version,
-		Resource: validation.PluralizeKind(resource.GetKind()),
+	// This provides reliable resolution for irregular CRDs while maintaining backward compatibility
+	var gvr schema.GroupVersionResource
+	if r.gvrResolver != nil {
+		resolvedGVR, gvrErr := r.gvrResolver.ResolveGVR(resource)
+		if gvrErr != nil {
+			// Fall back to pluralization if GVRResolver fails
+			r.logger.Debug("GVRResolver failed, falling back to pluralization", sdklog.Operation("delete_resource"), sdklog.String("resource", fmt.Sprintf("%s/%s", resource.GetNamespace(), resource.GetName())), sdklog.Error(gvrErr))
+			gvr = schema.GroupVersionResource{
+				Group:    resource.GroupVersionKind().Group,
+				Version:  resource.GroupVersionKind().Version,
+				Resource: validation.PluralizeKind(resource.GetKind()),
+			}
+		} else {
+			gvr = resolvedGVR
+		}
+	} else {
+		// No GVRResolver, use pluralization (should not happen, but safe fallback)
+		gvr = schema.GroupVersionResource{
+			Group:    resource.GroupVersionKind().Group,
+			Version:  resource.GroupVersionKind().Version,
+			Resource: validation.PluralizeKind(resource.GetKind()),
+		}
 	}
-	// TODO: Use GVRResolver when RESTMapper is available in constructor
-	// resolver := NewGVRResolver(r.restMapper) // Requires adding restMapper to reconciler
-	// gvr, err := resolver.ResolveGVR(resource)
 
 	// Delete options
 	deleteOptions := &metav1.DeleteOptions{}
