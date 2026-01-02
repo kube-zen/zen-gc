@@ -172,68 +172,22 @@ func BenchmarkContextCheckFrequency(b *testing.B) {
 	})
 }
 
-// BenchmarkRecordPolicyPhaseMetrics benchmarks with and without duplicate cache calls.
+// BenchmarkRecordPolicyPhaseMetrics benchmarks policy phase metrics recording.
 func BenchmarkRecordPolicyPhaseMetrics(b *testing.B) {
-	scheme := runtime.NewScheme()
-	dynamicClient := fake.NewSimpleDynamicClient(scheme)
-	statusUpdater := NewStatusUpdater(dynamicClient)
-	eventRecorder := NewEventRecorder(nil)
-
-	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
-	if err != nil {
-		b.Fatalf("Failed to create controller: %v", err)
-	}
-
-	// Create test policies
-	policies := make([]interface{}, 100)
-	for i := 0; i < 100; i++ {
-		policy := &v1alpha1.GarbageCollectionPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-policy",
-				Namespace: "default",
-				UID:       types.UID("test-uid"),
-			},
-			Status: v1alpha1.GarbageCollectionPolicyStatus{
-				Phase: PolicyPhaseActive,
-			},
-		}
-		policies[i] = policy
-	}
-
-	// Benchmark: With duplicate cache call (old way - simulated)
-	b.Run("WithDuplicateCacheCall", func(b *testing.B) {
+	// Benchmark: Record policy phase metrics
+	b.Run("RecordPolicyPhase", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			// Simulate old way: call List() twice
-			_ = controller.policyInformer.GetStore().List()
-			_ = controller.policyInformer.GetStore().List()
-		}
-	})
-
-	// Benchmark: Without duplicate cache call (new way)
-	b.Run("WithoutDuplicateCacheCall", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			// New way: call List() once and pass result
-			policiesList := controller.policyInformer.GetStore().List()
-			_ = policiesList
+			recordPolicyPhase(PolicyPhaseActive, 1.0)
+			recordPolicyPhase(PolicyPhasePaused, 1.0)
+			recordPolicyPhase(PolicyPhaseError, 1.0)
 		}
 	})
 }
 
 // BenchmarkEvaluatePolicyResources benchmarks resource evaluation with optimizations.
 func BenchmarkEvaluatePolicyResources(b *testing.B) {
-	scheme := runtime.NewScheme()
-	dynamicClient := fake.NewSimpleDynamicClient(scheme)
-	statusUpdater := NewStatusUpdater(dynamicClient)
-	eventRecorder := NewEventRecorder(nil)
-
-	controller, err := NewGCController(dynamicClient, statusUpdater, eventRecorder)
-	if err != nil {
-		b.Fatalf("Failed to create controller: %v", err)
-	}
-
-	// Create test resources (policy not needed for this benchmark)
+	ctx := context.Background()
 
 	// Create test resources
 	resources := make([]*unstructured.Unstructured, 1000)
@@ -255,8 +209,7 @@ func BenchmarkEvaluatePolicyResources(b *testing.B) {
 	b.ResetTimer()
 	b.Run("EvaluateResources", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			// This would normally use the informer, but for benchmark we'll simulate
-			// the resource iteration logic with optimizations
+			// Simulate the resource iteration logic with optimizations
 			estimatedDeletions := len(resources) / 10
 			if estimatedDeletions < 10 {
 				estimatedDeletions = 10
@@ -268,7 +221,7 @@ func BenchmarkEvaluatePolicyResources(b *testing.B) {
 			for j, resource := range resources {
 				if j%contextCheckInterval == 0 {
 					select {
-					case <-controller.ctx.Done():
+					case <-ctx.Done():
 						return
 					default:
 					}
