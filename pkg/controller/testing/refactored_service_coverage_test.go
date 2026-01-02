@@ -18,6 +18,7 @@ package testing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -30,6 +31,11 @@ import (
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/controller"
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
+)
+
+// Static errors for testing.
+var (
+	errDeleteFailed = errors.New("delete failed")
 )
 
 // TestParseGVR tests the parseGVR function with various inputs.
