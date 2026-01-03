@@ -17,7 +17,6 @@ limitations under the License.
 package controller
 
 import (
-	"fmt"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -59,7 +58,6 @@ func (r *GVRResolver) ResolveGVR(resource *unstructured.Unstructured) (schema.Gr
 	r.mu.RUnlock()
 
 	var gvr schema.GroupVersionResource
-	var err error
 
 	// Use RESTMapper if available
 	if r.restMapper != nil {
@@ -68,7 +66,7 @@ func (r *GVRResolver) ResolveGVR(resource *unstructured.Unstructured) (schema.Gr
 			gvr = mapping.Resource
 		} else {
 			// RESTMapper failed, fall back to pluralization
-			gvr, _ = r.resolveGVRWithPluralization(gvk)
+			gvr = r.resolveGVRWithPluralization(gvk)
 		}
 	} else {
 		// No RESTMapper, use pluralization
