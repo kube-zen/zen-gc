@@ -14,9 +14,9 @@
 
 # Build stage
 # Pin base image with SHA digest for security
-# To get SHA: docker pull golang:1.24-alpine && docker inspect golang:1.24-alpine | grep RepoDigests
+# To get SHA: docker pull golang:1.25-alpine && docker inspect golang:1.25-alpine | grep RepoDigests
 # Or check: https://hub.docker.com/r/library/golang/tags
-FROM golang:1.24-alpine@sha256:ef75fa8822a4c0fb53a390548b3dc1c39639339ec3373c58f5441117e1ff46ae AS builder
+FROM golang:1.25-alpine@sha256:ef75fa8822a4c0fb53a390548b3dc1c39639339ec3373c58f5441117e1ff46ae AS builder
 
 WORKDIR /build
 

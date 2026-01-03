@@ -22,11 +22,21 @@ jobs:
           go-version: '1.25'
           cache-dependency-path: go.sum
       
+      - name: Verify Go version
+        run: |
+          go version
+          if ! go version | grep -q "go1.25"; then
+            echo "❌ Go version is not 1.25"
+            exit 1
+          fi
+          echo "✅ Go version is correct"
+      
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           args: --timeout=5m
+          only-new-issues: false
 
   test:
     name: Test

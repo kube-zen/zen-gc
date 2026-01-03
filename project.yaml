@@ -1,7 +1,7 @@
 projectType: controller
 projectName: zen-gc
 projectDescription: "Kube-ZEN component"
-goVersion: "1.24"
+goVersion: "1.25"
 imageName: "kubezen/zen-gc"
 hasHelmChart: true
 runsRace: true
