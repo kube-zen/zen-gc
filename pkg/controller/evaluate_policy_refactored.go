@@ -73,7 +73,7 @@ func NewPolicyEvaluationService(
 }
 
 // EvaluatePolicy evaluates a policy using the injected dependencies.
-// This is the refactored version that's much easier to test.
+// Uses dependency injection for testability.
 func (s *PolicyEvaluationService) EvaluatePolicy(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) error {
 	startTime := time.Now()
 	defer func() {

@@ -21,43 +21,36 @@ import (
 )
 
 // TestGCController_evaluatePolicies_ContextCancellation tests context cancellation handling.
-// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePolicies_ContextCancellation(t *testing.T) {
-	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
+	t.Skip("Use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePolicies_CacheNotSynced_New tests cache not synced scenario.
-// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePolicies_CacheNotSynced_New(t *testing.T) {
-	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
+	t.Skip("Use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePolicies_EmptyPolicies tests empty policies list.
-// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePolicies_EmptyPolicies(t *testing.T) {
-	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
+	t.Skip("Use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePolicies_WithMaxConcurrent_New tests different maxConcurrent settings.
-// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePolicies_WithMaxConcurrent_New(t *testing.T) {
-	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
+	t.Skip("Use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePoliciesSequential_ErrorHandling tests error handling in sequential evaluation.
-// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePoliciesSequential_ErrorHandling(t *testing.T) {
-	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
+	t.Skip("Use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePoliciesParallel_WorkerPool tests worker pool behavior.
-// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePoliciesParallel_WorkerPool(t *testing.T) {
-	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
+	t.Skip("Use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePoliciesParallel_ContextCancellation tests context cancellation in parallel evaluation.
-// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePoliciesParallel_ContextCancellation(t *testing.T) {
-	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
+	t.Skip("Use GCPolicyReconciler tests with mocks instead")
 }

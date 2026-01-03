@@ -104,8 +104,8 @@ type GCPolicyReconciler struct {
 	// Uses RESTMapper if available, otherwise falls back to pluralization.
 	gvrResolver *GVRResolver
 
-	// PolicyEvaluationService (optional, for refactored evaluation)
-	// If nil, uses legacy evaluatePolicy implementation
+	// PolicyEvaluationService for policy evaluation.
+	// Uses dependency injection for better testability.
 	// Protected by evaluationServiceMu mutex.
 	evaluationService *PolicyEvaluationService
 
@@ -179,8 +179,8 @@ func NewGCPolicyReconcilerWithLeaderCheck(
 		cfg = config.NewControllerConfig()
 	}
 
-	// Deprecated: shouldReconcile is ignored. Leader election is handled by controller-runtime Manager.
-	// Always return true since Manager only calls Reconcile on the leader.
+	// Leader election is handled by controller-runtime Manager.
+	// Manager only calls Reconcile on the leader.
 	return &GCPolicyReconciler{
 		Client:                    client,
 		Scheme:                    scheme,
@@ -270,7 +270,7 @@ func (r *GCPolicyReconciler) getRequeueIntervalForPolicy(policy *v1alpha1.Garbag
 }
 
 // getOrCreateEvaluationService creates or returns the PolicyEvaluationService.
-// This uses the adapter pattern to bridge GCPolicyReconciler with the refactored service.
+// Uses the adapter pattern to bridge GCPolicyReconciler with the evaluation service.
 // Thread-safe: uses double-checked locking pattern.
 func (r *GCPolicyReconciler) getOrCreateEvaluationService(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) (*PolicyEvaluationService, error) {
 	// Fast path: check with read lock
@@ -318,23 +318,16 @@ func (r *GCPolicyReconciler) getOrCreateEvaluationService(ctx context.Context, p
 }
 
 // evaluatePolicy evaluates a single policy.
-// It can use either the refactored PolicyEvaluationService (if enabled) or the legacy implementation.
-// This is adapted from the original GCController.evaluatePolicy method.
+// Uses PolicyEvaluationService for evaluation with dependency injection.
 func (r *GCPolicyReconciler) evaluatePolicy(ctx context.Context, policy *v1alpha1.GarbageCollectionPolicy) error {
-	// Try to use refactored service if available
-	// The refactored service uses dependency injection and is easier to test
-	useRefactoredService := true // Feature flag - enabled for better testability
-
-	if useRefactoredService {
-		service, err := r.getOrCreateEvaluationService(ctx, policy)
-		if err == nil {
-			return service.EvaluatePolicy(ctx, policy)
-		}
-		// Fall back to legacy implementation on error
-		r.logger.Debug("Falling back to legacy evaluation", sdklog.Operation("evaluate_policy"), sdklog.Error(err))
+	// Use PolicyEvaluationService for evaluation.
+	// The service uses dependency injection for better testability.
+	service, err := r.getOrCreateEvaluationService(ctx, policy)
+	if err == nil {
+		return service.EvaluatePolicy(ctx, policy)
 	}
-
-	// Legacy implementation (existing code)
+	// Fall back to direct evaluation on error
+	r.logger.Debug("Evaluation service unavailable, using direct evaluation", sdklog.Operation("evaluate_policy"), sdklog.Error(err))
 	// Use struct logger to avoid allocations
 	startTime := time.Now()
 	defer func() {

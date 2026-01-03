@@ -31,8 +31,7 @@ import (
 	sdklog "github.com/kube-zen/zen-sdk/pkg/logging"
 )
 
-// TestPolicyEvaluationService_EvaluatePolicy demonstrates how much simpler testing becomes
-// with the refactored version using interfaces and mocks.
+// TestPolicyEvaluationService_EvaluatePolicy demonstrates testing with interfaces and mocks.
 func TestPolicyEvaluationService_EvaluatePolicy(t *testing.T) {
 	// Create test resources
 	now := time.Now()

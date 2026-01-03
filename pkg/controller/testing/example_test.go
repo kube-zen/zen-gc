@@ -29,7 +29,6 @@ import (
 )
 
 // TestMockUsage demonstrates how to use mocks for testing.
-// This is a simple example showing the pattern we'll use for refactored code.
 func TestMockUsage(t *testing.T) {
 	// Create mock informer with test resources
 	resources := []*unstructured.Unstructured{
