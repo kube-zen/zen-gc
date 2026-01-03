@@ -72,7 +72,7 @@ func (r *GVRResolver) ResolveGVR(resource *unstructured.Unstructured) (schema.Gr
 		}
 	} else {
 		// No RESTMapper, use pluralization
-		gvr, err = r.resolveGVRWithPluralization(gvk)
+		gvr = r.resolveGVRWithPluralization(gvk)
 	}
 
 	// Cache the result
