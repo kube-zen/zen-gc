@@ -4,8 +4,10 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
@@ -107,9 +109,18 @@ func TestGCPolicyReconciler_PolicyDeletion(t *testing.T) {
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add scheme: %v", err)
 	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
 
 	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	// Register ConfigMaps list kind for fake dynamic client
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		scheme,
+		map[schema.GroupVersionResource]string{
+			{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+		},
+	)
 	statusUpdater := controller.NewStatusUpdater(dynamicClient)
 	kubeClient := fake.NewSimpleClientset()
 	eventRecorder := controller.NewEventRecorder(kubeClient)
@@ -182,9 +193,18 @@ func TestGCPolicyReconciler_InformerCleanup(t *testing.T) {
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add scheme: %v", err)
 	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
 
 	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	// Register ConfigMaps list kind for fake dynamic client
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		scheme,
+		map[schema.GroupVersionResource]string{
+			{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+		},
+	)
 	statusUpdater := controller.NewStatusUpdater(dynamicClient)
 	kubeClient := fake.NewSimpleClientset()
 	eventRecorder := controller.NewEventRecorder(kubeClient)
@@ -326,9 +346,18 @@ func TestGCPolicyReconciler_MultiplePolicies(t *testing.T) {
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add scheme: %v", err)
 	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
 
 	fakeClient := clientfake.NewClientBuilder().WithScheme(scheme).Build()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	// Register ConfigMaps list kind for fake dynamic client
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		scheme,
+		map[schema.GroupVersionResource]string{
+			{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+		},
+	)
 	statusUpdater := controller.NewStatusUpdater(dynamicClient)
 	kubeClient := fake.NewSimpleClientset()
 	eventRecorder := controller.NewEventRecorder(kubeClient)
