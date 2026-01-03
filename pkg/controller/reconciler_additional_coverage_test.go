@@ -179,7 +179,7 @@ func TestGCPolicyReconciler_cleanupPolicyResources_Additional(t *testing.T) {
 }
 
 // TestGCPolicyReconciler_getOrCreateResourceInformer_ErrorHandling tests error handling.
-// Note: This test may panic with invalid GVR due to informer creation complexity.
+// This test may panic with invalid GVR due to informer creation complexity.
 // Skipping for now as it requires complex fake client setup.
 func TestGCPolicyReconciler_getOrCreateResourceInformer_ErrorHandling(t *testing.T) {
 	t.Skip("Skipping due to complex informer setup requirements - better tested via integration tests")

@@ -23,7 +23,6 @@ import (
 )
 
 func TestMatchesFieldOperatorShared(t *testing.T) {
-
 	tests := []struct {
 		name       string
 		fieldValue string

@@ -22,8 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"k8s.io/client-go/dynamic/fake"
+	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
 	"github.com/kube-zen/zen-gc/pkg/config"
@@ -167,4 +167,3 @@ func TestBuildLabelSelectorFilter(t *testing.T) {
 		t.Error("buildLabelSelectorFilter() should set LabelSelector")
 	}
 }
-

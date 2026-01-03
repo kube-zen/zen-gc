@@ -67,7 +67,6 @@ func (l *InformerStoreResourceLister) ListResources(ctx context.Context, gvr sch
 	return resources, nil
 }
 
-
 // GCPolicyReconcilerAdapter adapts GCPolicyReconciler to provide interfaces for PolicyEvaluationService.
 // This allows GCPolicyReconciler to use PolicyEvaluationService internally while maintaining backward compatibility.
 type GCPolicyReconcilerAdapter struct {

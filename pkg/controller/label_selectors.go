@@ -75,4 +75,3 @@ func labelSelectorRequirementEqual(a, b metav1.LabelSelectorRequirement) bool {
 	}
 	return true
 }
-

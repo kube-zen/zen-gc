@@ -170,4 +170,3 @@ func (f *failingRESTMapper) RESTMappings(gk schema.GroupKind, versions ...string
 func (f *failingRESTMapper) ResourceSingularizer(resource string) (singular string, err error) {
 	return "", &meta.NoResourceMatchError{}
 }
-

@@ -21,8 +21,8 @@ import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/kube-zen/zen-gc/pkg/validation"
 )
@@ -68,15 +68,11 @@ func (r *GVRResolver) ResolveGVR(resource *unstructured.Unstructured) (schema.Gr
 			gvr = mapping.Resource
 		} else {
 			// RESTMapper failed, fall back to pluralization
-			gvr, err = r.resolveGVRWithPluralization(gvk)
+			gvr, _ = r.resolveGVRWithPluralization(gvk)
 		}
 	} else {
 		// No RESTMapper, use pluralization
 		gvr, err = r.resolveGVRWithPluralization(gvk)
-	}
-
-	if err != nil {
-		return schema.GroupVersionResource{}, fmt.Errorf("failed to resolve GVR for %v: %w", gvk, err)
 	}
 
 	// Cache the result
@@ -88,12 +84,11 @@ func (r *GVRResolver) ResolveGVR(resource *unstructured.Unstructured) (schema.Gr
 }
 
 // resolveGVRWithPluralization resolves GVR using pluralization (fallback).
-func (r *GVRResolver) resolveGVRWithPluralization(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+func (r *GVRResolver) resolveGVRWithPluralization(gvk schema.GroupVersionKind) schema.GroupVersionResource {
 	resource := validation.PluralizeKind(gvk.Kind)
 	return schema.GroupVersionResource{
 		Group:    gvk.Group,
 		Version:  gvk.Version,
 		Resource: resource,
-	}, nil
+	}
 }
-

@@ -77,7 +77,6 @@ func TestMatchesSelectorsShared_LabelSelector(t *testing.T) {
 }
 
 func TestMatchesSelectorsShared_Namespace(t *testing.T) {
-
 	tests := []struct {
 		name          string
 		resource      *unstructured.Unstructured
@@ -151,7 +150,7 @@ func TestMatchesSelectorsShared_Namespace(t *testing.T) {
 }
 
 func TestGCController_matchesSelectors_FieldSelector(t *testing.T) {
-		// Test matchesSelectorsShared directly
+	// Test matchesSelectorsShared directly
 
 	tests := []struct {
 		name          string

@@ -83,7 +83,7 @@ func TestDeleteResourceWithBackoff_Success(t *testing.T) {
 	ctx := context.Background()
 
 	// Should succeed (dry run, so no actual deletion)
-	var err error = reconciler.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
+	err := reconciler.deleteResourceWithBackoff(ctx, resource, policy, rateLimiter)
 	if err != nil {
 		t.Errorf("deleteResourceWithBackoff() returned error: %v", err)
 	}

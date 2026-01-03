@@ -112,7 +112,7 @@ func TestGCPolicyReconciler_EvaluatePolicy_WithMocks(t *testing.T) {
 	mockDeleter.SetDeleteResult(testResources[0], nil)
 
 	// Create PolicyEvaluationService with mocks
-	// Note: Pass nil for StatusUpdater - the service handles nil gracefully
+	// Pass nil for StatusUpdater - the service handles nil gracefully
 	// We're testing the PolicyEvaluationService logic with mocks, not status updates
 	service := controller.NewPolicyEvaluationService(
 		mockLister,
@@ -127,7 +127,7 @@ func TestGCPolicyReconciler_EvaluatePolicy_WithMocks(t *testing.T) {
 	)
 
 	// Inject the service into reconciler (bypassing getOrCreateEvaluationService for testing)
-	// Note: Status update may fail (nil StatusUpdater), but that's OK for this test
+	// Status update may fail (nil StatusUpdater), but that's OK for this test
 	// We're testing that the PolicyEvaluationService logic works with mocks
 	err := reconciler.EvaluatePolicyForTesting(ctx, policy, service)
 	// Status update failure is expected (nil StatusUpdater), but evaluation logic should work
@@ -196,7 +196,7 @@ func TestGCPolicyReconciler_EvaluatePolicy_EmptyResources(t *testing.T) {
 	)
 
 	// Should handle empty resources gracefully
-	// Note: Status update may fail (nil StatusUpdater), but that's OK for this test
+	// Status update may fail (nil StatusUpdater), but that's OK for this test
 	err := reconciler.EvaluatePolicyForTesting(ctx, policy, service)
 	if err != nil && !contains(err.Error(), "status") && !contains(err.Error(), "StatusUpdater") {
 		t.Errorf("evaluatePolicy() with empty resources returned unexpected error: %v", err)
