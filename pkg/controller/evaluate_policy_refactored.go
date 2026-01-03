@@ -31,7 +31,7 @@ import (
 )
 
 // PolicyEvaluationService provides policy evaluation using injected dependencies.
-// This is the refactored version that uses interfaces for better testability.
+// Uses interfaces for better testability.
 type PolicyEvaluationService struct {
 	resourceLister      ResourceLister
 	selectorMatcher     SelectorMatcher
