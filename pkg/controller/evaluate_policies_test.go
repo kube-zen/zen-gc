@@ -18,12 +18,6 @@ package controller
 
 import (
 	"testing"
-
-	"github.com/kube-zen/zen-gc/pkg/api/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // TestGCController_evaluatePolicies_ContextCancellation tests context cancellation handling.
