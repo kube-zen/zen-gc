@@ -35,6 +35,7 @@ import (
 
 // handlePolicyDeletion handles cleanup when a policy is deleted.
 func (r *GCPolicyReconciler) handlePolicyDeletion(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	_ = ctx // Context reserved for future use (cancellation/timeout)
 	r.logger.Debug("Policy not found, cleaning up resources", sdklog.Operation("reconcile"))
 	r.cleanupPolicyResources(req.NamespacedName)
 	return ctrl.Result{}, nil
