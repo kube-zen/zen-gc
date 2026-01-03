@@ -301,7 +301,7 @@ func (r *GCPolicyReconciler) getOrCreateEvaluationService(ctx context.Context, p
 	}
 
 	// Create service with adapters
-	// Note: TTLCalculator is nil because PolicyEvaluationService uses shared functions internally
+	// TTLCalculator is nil because PolicyEvaluationService uses shared functions internally
 	r.evaluationService = NewPolicyEvaluationService(
 		resourceLister,
 		adapter.GetSelectorMatcher(),

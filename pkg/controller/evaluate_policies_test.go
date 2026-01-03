@@ -27,68 +27,43 @@ import (
 )
 
 // TestGCController_evaluatePolicies_ContextCancellation tests context cancellation handling.
-// Note: GCController is deprecated, but this test verifies basic behavior.
+// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePolicies_ContextCancellation(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePolicies_CacheNotSynced_New tests cache not synced scenario.
-// Note: GCController is deprecated, but this test verifies basic behavior.
+// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePolicies_CacheNotSynced_New(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePolicies_EmptyPolicies tests empty policies list.
-// Note: GCController is deprecated, but this test verifies basic behavior.
+// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePolicies_EmptyPolicies(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePolicies_WithMaxConcurrent_New tests different maxConcurrent settings.
-// Note: GCController is deprecated. This test is kept for reference but may need updates.
+// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePolicies_WithMaxConcurrent_New(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePoliciesSequential_ErrorHandling tests error handling in sequential evaluation.
-// Note: This test is for the deprecated GCController. For new tests, use GCPolicyReconciler with mocks.
+// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePoliciesSequential_ErrorHandling(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePoliciesParallel_WorkerPool tests worker pool behavior.
-// Note: This test is for the deprecated GCController. For new tests, use GCPolicyReconciler with mocks.
+// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePoliciesParallel_WorkerPool(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
 }
 
 // TestGCController_evaluatePoliciesParallel_ContextCancellation tests context cancellation in parallel evaluation.
-// Note: This test is for the deprecated GCController. For new tests, use GCPolicyReconciler with mocks.
+// GCController is deprecated - use GCPolicyReconciler tests with mocks instead.
 func TestGCController_evaluatePoliciesParallel_ContextCancellation(t *testing.T) {
 	t.Skip("GCController is deprecated - use GCPolicyReconciler tests with mocks instead")
-}
-
-// Helper function to create unstructured policy with spec.
-// This is a duplicate of createUnstructuredPolicyWithSpec but kept for test isolation.
-func createUnstructuredPolicyWithSpecForTest(name string) *unstructured.Unstructured {
-	policy := &v1alpha1.GarbageCollectionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
-			UID:       types.UID(name + "-uid"),
-		},
-		Spec: v1alpha1.GarbageCollectionPolicySpec{
-			Paused: false,
-			TargetResource: v1alpha1.TargetResourceSpec{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
-			TTL: v1alpha1.TTLSpec{
-				SecondsAfterCreation: func() *int64 { v := int64(3600); return &v }(),
-			},
-		},
-	}
-
-	unstructuredPolicy, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(policy)
-	return &unstructured.Unstructured{Object: unstructuredPolicy}
 }

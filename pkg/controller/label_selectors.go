@@ -29,37 +29,50 @@ func labelSelectorsEqual(a, b *metav1.LabelSelector) bool {
 		return false
 	}
 
-	// Compare matchLabels
-	if len(a.MatchLabels) != len(b.MatchLabels) {
+	if !matchLabelsEqual(a.MatchLabels, b.MatchLabels) {
 		return false
 	}
-	for k, v := range a.MatchLabels {
-		if b.MatchLabels[k] != v {
-			return false
-		}
-	}
 
-	// Compare matchExpressions
-	if len(a.MatchExpressions) != len(b.MatchExpressions) {
+	return matchExpressionsEqual(a.MatchExpressions, b.MatchExpressions)
+}
+
+// matchLabelsEqual compares two matchLabels maps for equality.
+func matchLabelsEqual(a, b map[string]string) bool {
+	if len(a) != len(b) {
 		return false
 	}
-	for i, exprA := range a.MatchExpressions {
-		if i >= len(b.MatchExpressions) {
+	for k, v := range a {
+		if b[k] != v {
 			return false
-		}
-		exprB := b.MatchExpressions[i]
-		if exprA.Key != exprB.Key ||
-			exprA.Operator != exprB.Operator ||
-			len(exprA.Values) != len(exprB.Values) {
-			return false
-		}
-		for j, valA := range exprA.Values {
-			if j >= len(exprB.Values) || valA != exprB.Values[j] {
-				return false
-			}
 		}
 	}
+	return true
+}
 
+// matchExpressionsEqual compares two matchExpressions slices for equality.
+func matchExpressionsEqual(a, b []metav1.LabelSelectorRequirement) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, exprA := range a {
+		exprB := b[i]
+		if !labelSelectorRequirementEqual(exprA, exprB) {
+			return false
+		}
+	}
+	return true
+}
+
+// labelSelectorRequirementEqual compares two label selector requirements for equality.
+func labelSelectorRequirementEqual(a, b metav1.LabelSelectorRequirement) bool {
+	if a.Key != b.Key || a.Operator != b.Operator || len(a.Values) != len(b.Values) {
+		return false
+	}
+	for i, valA := range a.Values {
+		if valA != b.Values[i] {
+			return false
+		}
+	}
 	return true
 }
 
