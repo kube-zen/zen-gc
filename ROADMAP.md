@@ -18,6 +18,9 @@ zen-gc is currently in **0.0.1-alpha** with core functionality complete:
 - ✅ Structured logging with correlation IDs
 - ✅ Parallel policy evaluation
 - ✅ Graceful shutdown and error handling
+- ✅ RESTMapper integration for reliable GVR resolution
+- ✅ PolicyEvaluationService for improved testability
+- ✅ Refactored architecture with reduced complexity
 
 ---
 

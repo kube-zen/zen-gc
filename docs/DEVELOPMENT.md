@@ -102,6 +102,29 @@ goimports -w .
 golangci-lint run
 ```
 
+## Architecture Notes
+
+### Refactoring History
+
+The codebase has been refactored to improve testability and reduce complexity:
+
+1. **PolicyEvaluationService**: Extracted policy evaluation logic into a service that can be easily mocked for testing
+2. **Helper Functions**: Extracted complex logic from `Reconcile()` into focused helper functions
+3. **GVRResolver**: Created with RESTMapper support for reliable GroupVersionResource resolution
+4. **Deprecated GCController**: Removed in favor of `GCPolicyReconciler` with better testability
+
+**Key Learnings**:
+- Mock-based tests are preferred over complex fake client setups
+- Helper functions improve testability and reduce cyclomatic complexity
+- RESTMapper integration improves reliability for irregular CRDs
+
+### Code Organization
+
+- **Controller Logic**: `pkg/controller/reconciler.go` - Main reconciliation logic
+- **Helper Functions**: `pkg/controller/reconciler_helpers.go` - Extracted helper functions
+- **Evaluation Service**: `pkg/controller/evaluation_service.go` - Policy evaluation service
+- **Testing**: `pkg/controller/testing/` - Mock-based tests
+
 ## Release Process
 
 See [RELEASE.md](RELEASE.md) for the release process.

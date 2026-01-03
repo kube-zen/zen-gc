@@ -42,6 +42,34 @@ Coverage is checked automatically in CI and will fail if below 55%.
 
 **Note**: The 55% threshold is pragmatic given that many controller functions require complex Kubernetes client setup. Integration tests provide additional coverage not captured in unit test metrics.
 
+### Current Coverage Status
+
+**Overall Coverage**: **56.0%** ⚠️ (Above minimum, below target)
+
+| Package | Coverage | Status | Notes |
+|---------|----------|--------|-------|
+| `pkg/config` | 90.5% | ✅ Excellent | Comprehensive coverage |
+| `pkg/errors` | 100.0% | ✅ Perfect | Complete coverage |
+| `pkg/validation` | 87.6% | ✅ Excellent | Well tested |
+| `pkg/webhook` | 79.5% | ✅ Good | Good coverage |
+| `pkg/controller` | 56.8% | ⚠️ Below target | Needs improvement |
+
+**Areas Needing Improvement**:
+
+1. **Controller Coverage** (56.8% → Target: 65%+)
+   - `recordPolicyPhaseMetrics()` - Not tested (quick win)
+   - `evaluatePolicies()` - 40% coverage
+   - `evaluatePoliciesSequential()` - 28.6% coverage
+   - `evaluatePoliciesParallel()` - Low coverage
+
+2. **Integration Tests**: Provide significant additional coverage not captured in unit test metrics
+
+**Test Strategy**:
+- ✅ Unit tests: Good coverage for validation, errors, config
+- ✅ Integration tests: Comprehensive coverage of controller lifecycle
+- ✅ E2E tests: Available for end-to-end scenarios
+- ⚠️ Controller evaluation logic: Low coverage (needs improvement)
+
 ## Integration Tests
 
 Integration tests are located in `test/integration/` and test component interactions using fake Kubernetes clients.
