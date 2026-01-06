@@ -1,0 +1,20 @@
+# Project Classification: zen-gc
+CLASS: oss
+SCOPE: standalone-oss-component
+BOUNDARIES:
+  - TYPE: open-source
+  - DECOUPLED: true
+  - NO_PRIVATE_IMPORTS: true
+
+FORBIDDEN:
+  - zen-platform/* imports
+  - zen-admin/* imports
+  - Private API endpoints
+  - PM/admin documentation
+
+ALLOWED:
+  - Standard library
+  - k8s.io/client-go/*
+  - zen-sdk (OSS SDK only)
+  - User-facing documentation
+

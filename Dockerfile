@@ -13,39 +13,21 @@
 # limitations under the License.
 
 # Build stage
-# Pin base image with SHA digest for security
-# To get SHA: docker pull golang:1.25-alpine && docker inspect golang:1.25-alpine | grep RepoDigests
-# Or check: https://hub.docker.com/r/library/golang/tags
-FROM golang:1.25-alpine@sha256:ef75fa8822a4c0fb53a390548b3dc1c39639339ec3373c58f5441117e1ff46ae AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /build
 
 # Install build dependencies
 RUN apk add --no-cache git make
 
-# Copy zen-sdk first (needed for tagged version resolution during build)
-# Build context should be from parent directory (zen/)
-COPY zen-sdk /build/zen-sdk
-
 # Copy go mod files
-COPY zen-gc/go.mod zen-gc/go.sum* ./
+COPY go.mod go.sum* ./
 
-# Download dependencies first (will fail for zen-sdk but that's ok)
-RUN go mod download || true
-
-# Add temporary replace directive for local build (go.mod stays clean with tagged version)
-# Path is relative to /build (where go.mod is)
-RUN go mod edit -replace github.com/kube-zen/zen-sdk=./zen-sdk
+# Download dependencies
+RUN go mod download
 
 # Copy source code
-COPY zen-gc/ .
-
-# Add replace directive to use local zen-sdk during build
-RUN go mod edit -replace github.com/kube-zen/zen-sdk=./zen-sdk
-
-# Download dependencies (replace directive handles zen-sdk)
-# Use || true to allow partial success
-RUN go mod download || true
+COPY . .
 
 # Build optimized binary
 ARG VERSION=dev
@@ -55,8 +37,7 @@ ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 
 # Build for target architecture (defaults to linux/amd64 for single-arch builds)
-# Use -mod=mod to allow automatic dependency fetching (replace directive handles zen-sdk)
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -mod=mod -trimpath \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath \
     -ldflags "-s -w \
         -X 'main.version=${VERSION}' \
         -X 'main.commit=${COMMIT}' \

@@ -4,7 +4,7 @@ This guide covers development setup, workflows, and best practices for {{ .proje
 
 ## Prerequisites
 
-- Go 1.24 (see [Go Toolchain](#go-toolchain) section)
+- Go 1.25 (see [Go Toolchain](#go-toolchain) section)
 - kubectl configured to access a Kubernetes cluster
 - Docker (for building images)
 - Make
@@ -72,9 +72,9 @@ make build-image
 
 ### Version
 
-- **Go 1.24** is the standard across all OSS repos
-- Specified in `go.mod`: `go 1.24`
-- Toolchain directive: Either use `toolchain go1.24.0` everywhere or nowhere (OSS consistency)
+- **Go 1.25** is the standard across all OSS repos
+- Specified in `go.mod`: `go 1.25.0`
+- Toolchain directive: Either use `toolchain go1.25.0` everywhere or nowhere (OSS consistency)
 
 ### go.mod Requirements
 
