@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/kube-zen/zen-sdk v0.2.7-alpha.0.20260102110815-d5dd5e517e82
 	github.com/prometheus/client_golang v1.19.1
-	golang.org/x/text v0.32.0
+	golang.org/x/text v0.33.0
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v0.31.0
